@@ -20,6 +20,7 @@ El sistema de **Fichajes** es tu herramienta para registrar tu asistencia y jorn
 ## Antes de empezar
 
 **Requisitos:**
+
 - Horario asignado (si no tienes, contacta a tu administrador)
 - Contrato activo
 - Geolocalización habilitada en navegador (si se requiere GPS)
@@ -58,11 +59,13 @@ El sistema de **Fichajes** es tu herramienta para registrar tu asistencia y jorn
 ### 3) Registrar pausa
 
 **Pausa manual:**
+
 1. Mientras estás fichado, aparece botón **Iniciar pausa**
 2. Haz clic para comenzar la pausa
 3. Cuando termines, haz clic en **Finalizar pausa**
 
 **Pausa automática:**
+
 - Según tu horario, pueden crearse pausas automáticas
 - Aparecen con badge "Auto"
 - No necesitas hacer nada
@@ -72,15 +75,18 @@ El sistema de **Fichajes** es tu herramienta para registrar tu asistencia y jorn
 En la misma pantalla verás:
 
 **Fichajes de hoy:**
+
 - Lista cronológica de todos tus fichajes
 - Tipo (entrada, salida, pausa)
 - Ubicación GPS si está disponible
 
 **Tu horario hoy:**
+
 - Franjas horarias esperadas
 - Total de horas del día
 
 **Resumen del día** (después de salir):
+
 - Estado de cumplimiento
 - Comparativa de horas
 - Desviación total
@@ -88,17 +94,20 @@ En la misma pantalla verás:
 ### 5) Geolocalización (GPS)
 
 **Activar GPS:**
+
 1. Ve a **Configuración** → **Geolocalización**
 2. Activa el toggle
 3. Permite acceso a ubicación en el navegador
 4. Confirma consentimiento RGPD
 
 **Qué se registra:**
+
 - Coordenadas GPS
 - Precisión (±metros)
 - Si estás dentro del área permitida
 
 **Vista en mapa:**
+
 - Si hay fichajes con GPS, aparece botón "Mapa"
 - Muestra todos tus fichajes en mapa interactivo
 - Marcadores de colores según tipo de fichaje
@@ -110,21 +119,25 @@ En la misma pantalla verás:
 ### Pantalla de Fichaje
 
 **Sección "Tu Horario Hoy":**
+
 - Franjas horarias (trabajo/pausa)
 - Horas esperadas
 - Período activo (Regular, Intensivo, etc.)
 
 **Sección de botones:**
+
 - Fichar entrada / Fichar salida
 - Iniciar pausa / Finalizar pausa
 - Tiempo trabajado actual
 - Tiempo en pausa
 
 **Sección "Fichajes de hoy":**
+
 - Lista con hora, tipo, ubicación
 - Toggle Lista/Mapa (si hay GPS)
 
 **Sección "Resumen del Día":**
+
 - Estado: COMPLETADO (verde) / INCOMPLETO (rojo)
 - Horas esperadas vs trabajadas
 - Desviación con color
@@ -134,16 +147,19 @@ En la misma pantalla verás:
 ## Políticas y reglas
 
 **Máquina de estados:**
+
 - Entrada → Pausa → Salida: Válido
 - Entrada → Salida (sin pausa): Válido
 - Doble entrada: Inválido
 - Salida sin entrada: Inválido
 
 **Tolerancias:**
+
 - La organización define tolerancias de horario
 - Fichajes fuera de tolerancia generan avisos
 
 **Validación GPS:**
+
 - Si estás dentro del radio permitido: ✅
 - Si estás fuera: ⚠️ Requiere revisión
 
@@ -180,16 +196,19 @@ R: Sí, pero aparece aviso. Se registra como potencial horas extra.
 ## Checklist de soporte
 
 **No puedo fichar:**
+
 - [ ] ¿Tienes contrato activo?
 - [ ] ¿Tienes horario asignado?
 - [ ] ¿Intentas acción válida? (ej: no doble entrada)
 
 **Problemas GPS:**
+
 - [ ] ¿Permitiste acceso a ubicación?
 - [ ] ¿GPS del dispositivo activo?
 - [ ] ¿Usas Chrome? (Safari localhost no soporta GPS)
 
 **Desviación incorrecta:**
+
 - [ ] ¿Ya fichaste salida?
 - [ ] ¿Horario configurado correctamente?
 - [ ] ¿Hay excepciones o ausencias?

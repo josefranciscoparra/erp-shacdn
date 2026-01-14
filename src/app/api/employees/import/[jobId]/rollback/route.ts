@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
 import type { RowMessage } from "@/lib/employee-import/types";
+import { prisma } from "@/lib/prisma";
 import { requireEmployeeImportPermission } from "@/server/actions/employee-import/permissions";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
 
@@ -64,12 +64,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
       return NextResponse.json({ error: "No hay empleados importados para revertir." }, { status: 400 });
     }
 
-    const employeeIds = rows
-      .map((row) => row.createdEmployeeId)
-      .filter(Boolean) as string[];
-    const userIds = rows
-      .map((row) => row.createdUserId)
-      .filter(Boolean) as string[];
+    const employeeIds = rows.map((row) => row.createdEmployeeId).filter(Boolean) as string[];
+    const userIds = rows.map((row) => row.createdUserId).filter(Boolean) as string[];
 
     const [
       timeEntries,

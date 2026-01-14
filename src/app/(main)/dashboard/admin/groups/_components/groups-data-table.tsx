@@ -13,16 +13,14 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Search } from "lucide-react";
+import { FolderX, Search } from "lucide-react";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { createGroupColumns } from "./group-columns";
 import type { OrganizationGroupRow } from "./types";
@@ -35,8 +33,10 @@ interface GroupsDataTableProps {
   onDelete: (group: OrganizationGroupRow) => void;
 }
 
+type FilterStatus = "all" | "active" | "inactive";
+
 export function GroupsDataTable({ data, onManageGroup, onDeactivate, onReactivate, onDelete }: GroupsDataTableProps) {
-  const [activeTab, setActiveTab] = React.useState("active");
+  const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -48,7 +48,7 @@ export function GroupsDataTable({ data, onManageGroup, onDeactivate, onReactivat
   );
 
   const filteredData = React.useMemo(() => {
-    switch (activeTab) {
+    switch (filterStatus) {
       case "active":
         return data.filter((group) => group.isActive);
       case "inactive":
@@ -58,7 +58,7 @@ export function GroupsDataTable({ data, onManageGroup, onDeactivate, onReactivat
       default:
         return data;
     }
-  }, [data, activeTab]);
+  }, [data, filterStatus]);
 
   const table = useReactTable({
     data: filteredData,
@@ -94,101 +94,109 @@ export function GroupsDataTable({ data, onManageGroup, onDeactivate, onReactivat
     [data],
   );
 
-  const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
-
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <Label htmlFor="group-view-selector" className="sr-only">
-          Vista de grupos
-        </Label>
-        <Select value={activeTab} onValueChange={setActiveTab}>
-          <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="group-view-selector">
-            <SelectValue placeholder="Seleccionar vista" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Activos ({counts.active})</SelectItem>
-            <SelectItem value="inactive">Inactivos ({counts.inactive})</SelectItem>
-            <SelectItem value="all">Todos ({counts.all})</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="active">
-            Activos <Badge variant="secondary">{counts.active}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="inactive">
-            Inactivos <Badge variant="secondary">{counts.inactive}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="all">
-            Todos <Badge variant="secondary">{counts.all}</Badge>
-          </TabsTrigger>
-        </TabsList>
+    <div className="flex flex-col gap-4">
+      {/* Filters & Actions Bar */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
-          <div className="relative">
+          <div className="bg-muted/50 flex items-center gap-1 rounded-lg p-1">
+            <Button
+              variant={filterStatus === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilterStatus("all")}
+              className="h-7 text-xs font-medium"
+            >
+              Todos
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px] text-slate-500">
+                {counts.all}
+              </Badge>
+            </Button>
+            <Button
+              variant={filterStatus === "active" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilterStatus("active")}
+              className="h-7 text-xs font-medium"
+            >
+              Activos
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px] text-emerald-600">
+                {counts.active}
+              </Badge>
+            </Button>
+            <Button
+              variant={filterStatus === "inactive" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilterStatus("inactive")}
+              className="h-7 text-xs font-medium"
+            >
+              Inactivos
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px] text-slate-500">
+                {counts.inactive}
+              </Badge>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-1 items-center gap-2 md:max-w-xs">
+          <div className="relative flex-1">
             <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
             <Input
               placeholder="Buscar grupo..."
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
-              className="pl-8"
+              className="h-9 pl-9"
             />
           </div>
           <DataTableViewOptions table={table} />
         </div>
       </div>
 
-      {(["active", "inactive", "all"] as const).map((tabValue) => (
-        <TabsContent value={tabValue} key={tabValue} className="space-y-4">
-          {filteredData.length > 0 ? (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {table.getRowModel().rows.length > 0 ? (
-                      table.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={columns.length} className="text-muted-foreground text-sm">
-                          {isFiltered
-                            ? "No se encontraron grupos con los filtros aplicados."
-                            : "No hay grupos en esta categoría."}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          ) : (
-            <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
-              <p className="text-sm font-medium">No hay grupos</p>
-              <p className="text-xs">Crea tu primer grupo para empezar a agrupar organizaciones.</p>
-            </div>
-          )}
-        </TabsContent>
-      ))}
-    </Tabs>
+      {/* Table */}
+      <div className="rounded-md border bg-white shadow-sm dark:bg-slate-950">
+        <Table>
+          <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow
+                key={headerGroup.id}
+                className="border-b border-slate-100 hover:bg-transparent dark:border-slate-800"
+              >
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="h-10 text-xs font-medium tracking-wider text-slate-500 uppercase"
+                  >
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {table.getRowModel().rows.length > 0 ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50">
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="py-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-40 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
+                    <FolderX className="h-8 w-8 text-slate-300" />
+                    <p className="text-sm font-medium">No se encontraron grupos</p>
+                    <p className="text-xs text-slate-400">Intenta ajustar los filtros de búsqueda.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <DataTablePagination table={table} />
+    </div>
   );
 }

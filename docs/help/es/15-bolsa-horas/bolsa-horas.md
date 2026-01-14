@@ -23,6 +23,7 @@ Luego se aplican estos pasos en orden:
 3. **Clamping**: Si alcanzas el límite máximo, se recorta automáticamente
 
 **Ejemplo:**
+
 - Trabajaste 8h 20min, esperabas 8h → +20 min
 - Se redondea a +20 min (múltiplo de 5)
 - Si el margen de exceso es 15 min → +20 > 15 → Se acumula +20 min
@@ -30,18 +31,21 @@ Luego se aplican estos pasos en orden:
 ## Quién puede usarlo
 
 ### Empleados
+
 - **Ver su saldo**: Acceden a `/dashboard/me/time-bank`
 - **Solicitar recuperación**: Usar horas acumuladas para ausentarse
 - **Solicitar compensación**: Registrar festivos trabajados
 - **Cancelar solicitudes**: Solo si están pendientes (en revisión)
 
 ### RRHH / Managers
+
 - **Revisar solicitudes**: En `/dashboard/time-tracking/time-bank`
 - **Aprobar/rechazar**: Con opción de comentarios
 - **Ver estadísticas**: Saldos por empleado, solicitudes pendientes
 - **Configurar límites**: En Settings → Bolsa de Horas
 
 ### Administradores
+
 - **Acceso total**: A todas las funciones RRHH
 - **Configurar la bolsa**: Márgenes, límites, redondeo
 
@@ -53,13 +57,14 @@ Luego se aplican estos pasos en orden:
 
 **Qué ves:**
 
-| Card | Información |
-|------|-------------|
+| Card                 | Información                                                                   |
+| -------------------- | ----------------------------------------------------------------------------- |
 | **Saldo Disponible** | Tu balance total (+/- horas). En verde si es positivo, en rojo si es negativo |
 | **Límites de Saldo** | Máximo permitido acumular (+80h por defecto) y máximo déficit permitido (-8h) |
-| **En Revisión** | Cantidad de solicitudes pendientes de aprobar |
+| **En Revisión**      | Cantidad de solicitudes pendientes de aprobar                                 |
 
 **Panel Últimos Movimientos:**
+
 - Historial de los últimos 8 cambios en tu bolsa
 - Origen del movimiento (cálculo diario, solicitud aprobada, festivo, etc.)
 - Fecha y cantidad de horas
@@ -68,6 +73,7 @@ Luego se aplican estos pasos en orden:
 **Panel Mis Solicitudes:**
 
 Dos pestañas:
+
 - **Pendientes**: Solicitudes en revisión (puedes cancelarlas)
 - **Historial**: Todas tus solicitudes aprobadas, rechazadas o canceladas
 
@@ -80,18 +86,20 @@ Dos pestañas:
 
 **El formulario incluye:**
 
-| Campo | Descripción |
-|-------|-------------|
-| **Tipo** | Selecciona "Recuperar horas" (-) o "Compensar festivo" (+) |
-| **Fecha** | Cuándo aplica esta compensación/recuperación |
-| **Horas** | Cantidad de horas (en múltiplos de 15 minutos: 0.25h, 0.5h, 1h, etc.) |
-| **Motivo (opcional)** | Por qué solicitas esto |
+| Campo                 | Descripción                                                           |
+| --------------------- | --------------------------------------------------------------------- |
+| **Tipo**              | Selecciona "Recuperar horas" (-) o "Compensar festivo" (+)            |
+| **Fecha**             | Cuándo aplica esta compensación/recuperación                          |
+| **Horas**             | Cantidad de horas (en múltiplos de 15 minutos: 0.25h, 0.5h, 1h, etc.) |
+| **Motivo (opcional)** | Por qué solicitas esto                                                |
 
 **Presets disponibles:**
+
 - 30 min
 - 1h, 2h, 4h, 8h (botones rápidos)
 
 **Validaciones:**
+
 - Mínimo 15 minutos (0.25h)
 - Máximo 24 horas en una solicitud
 - Solo múltiplos de 15 minutos
@@ -113,25 +121,25 @@ Dos pestañas:
 
 Los márgenes de gracia previenen que pequeñas diferencias se acumulen:
 
-| Parámetro | Defecto | Rango | Qué significa |
-|-----------|---------|-------|--------------|
-| **Margen de Exceso** | 15 min | 0-60 min | Si trabajas ≤15 min más, NO se acumula |
-| **Margen de Déficit** | 10 min | 0-60 min | Si trabajas ≤10 min menos, NO penaliza |
+| Parámetro             | Defecto | Rango    | Qué significa                          |
+| --------------------- | ------- | -------- | -------------------------------------- |
+| **Margen de Exceso**  | 15 min  | 0-60 min | Si trabajas ≤15 min más, NO se acumula |
+| **Margen de Déficit** | 10 min  | 0-60 min | Si trabajas ≤10 min menos, NO penaliza |
 
 #### Redondeo de Diferencias
 
-| Parámetro | Defecto | Opciones |
-|-----------|---------|----------|
-| **Incremento** | 5 min | 1, 5, 10, 15 min |
+| Parámetro      | Defecto | Opciones         |
+| -------------- | ------- | ---------------- |
+| **Incremento** | 5 min   | 1, 5, 10, 15 min |
 
 Las diferencias se redondean a este múltiplo ANTES de aplicar márgenes.
 
 #### Límites de Saldo
 
-| Parámetro | Defecto | Significado |
-|-----------|---------|-------------|
-| **Máximo Positivo** | 80h | El máximo que un empleado puede acumular |
-| **Máximo Negativo** | 8h | El máximo déficit permitido antes de alertas |
+| Parámetro           | Defecto | Significado                                  |
+| ------------------- | ------- | -------------------------------------------- |
+| **Máximo Positivo** | 80h     | El máximo que un empleado puede acumular     |
+| **Máximo Negativo** | 8h      | El máximo déficit permitido antes de alertas |
 
 ---
 
@@ -140,15 +148,18 @@ Las diferencias se redondean a este múltiplo ANTES de aplicar márgenes.
 ### Página: `/dashboard/me/time-bank` (Empleado)
 
 **Grid de 3 Cards:**
+
 - Saldo Disponible: +2.5h
 - Límites: +80h / -8h
 - En Revisión: 1
 
 **Dos columnas en grid:**
+
 - Últimos Movimientos (historial de cambios)
 - Mis Solicitudes (Pendientes / Historial)
 
 **Estados de solicitudes:**
+
 - "En revisión" → Pendiente de RRHH
 - "Aprobada" → Aplicada a tu saldo
 - "Rechazada" → No aplicada
@@ -157,16 +168,19 @@ Las diferencias se redondean a este múltiplo ANTES de aplicar márgenes.
 ### Página: `/dashboard/time-tracking/time-bank` (RRHH/Admin)
 
 **Tabs:**
+
 - Solicitudes: Pendientes, Aprobadas, Rechazadas
 - Saldos por Empleado: Tabla con saldos de todos
 
 **Card de solicitud:**
+
 - Empleado: Nombre y número
 - Tipo: Recuperar / Compensar
 - Horas y fecha
 - Botones: Aprobar / Rechazar
 
 **Estadísticas resumidas:**
+
 - Total Empleados con Saldo
 - Total Acumulado
 - Total Déficit
@@ -202,6 +216,7 @@ R: Sí. Los nuevos márgenes se aplican a partir del día siguiente. El saldo ex
 ## Checklist de soporte
 
 ### Para Empleados
+
 - [ ] Puede ver su saldo disponible
 - [ ] Puede hacer una "Nueva Solicitud"
 - [ ] Entiende la diferencia entre recuperación y compensación
@@ -209,12 +224,14 @@ R: Sí. Los nuevos márgenes se aplican a partir del día siguiente. El saldo ex
 - [ ] Puede ver los últimos movimientos
 
 ### Para RRHH/Managers
+
 - [ ] Puede acceder a `/dashboard/time-tracking/time-bank`
 - [ ] Puede filtrar solicitudes por estado
 - [ ] Puede aprobar y rechazar con comentarios
 - [ ] Puede ver estadísticas de saldos por empleado
 
 ### Para Administradores
+
 - [ ] Acceso a Settings → Bolsa de Horas
 - [ ] Puede configurar márgenes de gracia
 - [ ] Puede modificar límites de saldo

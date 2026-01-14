@@ -29,17 +29,20 @@ Asegúrate de tener:
 Cuando accedas por primera vez, verás el **Dashboard** que contiene:
 
 **Tarjetas de estadísticas**
+
 - Empleados registrados
 - Departamentos configurados
 - Contratos vigentes
 - Eventos programados
 
 **Accesos rápidos**
+
 - Registrar empleado
 - Gestionar departamentos
 - Gestionar contratos laborales
 
 **Actividad reciente**
+
 - Registro de las últimas acciones realizadas en el sistema
 
 ![IMG: dashboard | Pantalla: Dashboard principal | Elementos clave: tarjetas de estadísticas, accesos rápidos, actividad reciente | Acción destacada: Vista general del sistema]
@@ -49,6 +52,7 @@ Cuando accedas por primera vez, verás el **Dashboard** que contiene:
 El menú lateral izquierdo te permite acceder a las principales áreas:
 
 **Mi día a día** (para empleados)
+
 - Resumen: Tu dashboard personal
 - Fichar: Registro de entrada y salida
 - Mis Fichajes: Historial de fichajes
@@ -61,6 +65,7 @@ El menú lateral izquierdo te permite acceder a las principales áreas:
 - Mis Firmas: Documentos pendientes de firma
 
 **Equipo** (gestión de personal)
+
 - Gestión de Personal: Listado de empleados
 - Documentos: Documentos del equipo
 - Nóminas: Gestión de nóminas
@@ -69,12 +74,14 @@ El menú lateral izquierdo te permite acceder a las principales áreas:
 - Gestión de Firmas: Procesos de firma
 
 **Finanzas**
+
 - Gestión de Gastos: Control y aprobación
 - Expedientes de gasto
 - Reembolsos
 - Políticas de gasto
 
 **Organización**
+
 - Estructura: Departamentos, puestos, centros de coste
 - Calendarios: Calendarios laborales
 - Administración: Usuarios y roles
@@ -82,6 +89,7 @@ El menú lateral izquierdo te permite acceder a las principales áreas:
 - Gestión de Horarios: Plantillas y turnos
 
 **Configuración**
+
 - Ajustes generales: Preferencias de la organización
 
 ![IMG: navegacion | Pantalla: Menú lateral | Elementos clave: secciones del menú, iconos, expansión de submenús | Acción destacada: Navegar entre secciones]
@@ -89,6 +97,7 @@ El menú lateral izquierdo te permite acceder a las principales áreas:
 ### 4. Elementos de la interfaz
 
 **Barra superior**
+
 - Búsqueda: Busca empleados o información
 - Widget de fichaje: Botón de entrada/salida rápida
 - Notificaciones: Alertas y mensajes
@@ -96,6 +105,7 @@ El menú lateral izquierdo te permite acceder a las principales áreas:
 - Tema: Cambiar entre modo claro y oscuro
 
 **Logo de TimeNow**
+
 - Haz clic para volver al dashboard en cualquier momento
 
 ## Primeras acciones recomendadas
@@ -129,12 +139,14 @@ Sigue esta secuencia para preparar el sistema:
 ### Paso 4: Registra empleados
 
 **Opción A: Uno a uno**
+
 1. Ve a **Equipo** → **Gestión de Personal**
 2. Haz clic en **Nuevo empleado**
 3. Rellena la información requerida
 4. Asigna departamento, puesto y horario
 
 **Opción B: Importación masiva**
+
 1. Ve a **Equipo** → **Gestión de Personal**
 2. Haz clic en **Importar empleados**
 3. Descarga la plantilla CSV
@@ -184,6 +196,7 @@ R: Ve a Administración → Usuarios y Roles, busca al usuario y selecciona "Des
 **P: ¿Por qué un empleado no aparece en la lista?**
 
 R: Verifica que:
+
 - Esté registrado en Gestión de Personal
 - Tenga una cuenta de usuario activa
 - Esté asignado a un departamento
@@ -199,6 +212,7 @@ Si algo no funciona, verifica:
 - [ ] ¿La organización tiene la funcionalidad activada?
 
 **Al contactar soporte, incluye:**
+
 - Navegador y versión
 - Pasos para reproducir el problema
 - Captura de pantalla si es posible

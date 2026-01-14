@@ -17,6 +17,7 @@ El módulo de **Gestión de Turnos** es el sistema central para planificar, asig
 ## Quién puede usarlo
 
 **Permisos requeridos:**
+
 - **ADMIN_ORG** (Administrador de Organización)
 - **HR_ADMIN** (Administrador de Recursos Humanos)
 - **SHIFT_MANAGER** (Gestor de Turnos)
@@ -52,12 +53,12 @@ El cuadrante es tu vista principal para visualizar y gestionar todos los turnos.
 
 **Vistas disponibles:**
 
-| Vista | Uso | Mejor para |
-|-------|-----|-----------|
-| **Semana por empleado** | Ver todos los turnos de un empleado en la semana | Análisis individual |
-| **Mes por empleado** | Vista compacta mensual por empleado | Reportes rápidos |
-| **Semana por área** | Ver cobertura de cada zona/área | Validar cobertura |
-| **Mes por área** | Heatmap de cobertura mensual | Análisis de cobertura general |
+| Vista                   | Uso                                              | Mejor para                    |
+| ----------------------- | ------------------------------------------------ | ----------------------------- |
+| **Semana por empleado** | Ver todos los turnos de un empleado en la semana | Análisis individual           |
+| **Mes por empleado**    | Vista compacta mensual por empleado              | Reportes rápidos              |
+| **Semana por área**     | Ver cobertura de cada zona/área                  | Validar cobertura             |
+| **Mes por área**        | Heatmap de cobertura mensual                     | Análisis de cobertura general |
 
 #### Navegación temporal
 
@@ -92,31 +93,33 @@ Crear un nuevo turno para un empleado en una fecha específica.
 
 **Campos requeridos:**
 
-| Campo | Descripción | Ejemplo |
-|-------|-------------|---------|
-| **Empleado** | Selecciona de lista desplegable con búsqueda | "Juan García" |
-| **Fecha** | Formato YYYY-MM-DD | 2025-12-28 |
-| **Hora inicio** | Formato HH:mm | 08:00 |
-| **Hora fin** | Formato HH:mm | 16:00 |
-| **Centro** | Lugar de trabajo | Tienda Central |
-| **Zona** | Área dentro del centro | Caja / Almacén |
+| Campo           | Descripción                                  | Ejemplo        |
+| --------------- | -------------------------------------------- | -------------- |
+| **Empleado**    | Selecciona de lista desplegable con búsqueda | "Juan García"  |
+| **Fecha**       | Formato YYYY-MM-DD                           | 2025-12-28     |
+| **Hora inicio** | Formato HH:mm                                | 08:00          |
+| **Hora fin**    | Formato HH:mm                                | 16:00          |
+| **Centro**      | Lugar de trabajo                             | Tienda Central |
+| **Zona**        | Área dentro del centro                       | Caja / Almacén |
 
 **Campos opcionales:**
 
-| Campo | Descripción | Ejemplo |
-|-------|-------------|---------|
-| **Descanso (minutos)** | Tiempo de pausa durante el turno | 60 |
-| **Rol** | Función específica | "Supervisor" |
-| **Notas** | Observaciones | "Cobertura especial" |
+| Campo                  | Descripción                      | Ejemplo              |
+| ---------------------- | -------------------------------- | -------------------- |
+| **Descanso (minutos)** | Tiempo de pausa durante el turno | 60                   |
+| **Rol**                | Función específica               | "Supervisor"         |
+| **Notas**              | Observaciones                    | "Cobertura especial" |
 
 #### Validaciones automáticas
 
 **Errores (bloquean guardado):**
+
 - Solapamiento con otro turno del mismo empleado ese día
 - Empleado en ausencia (vacaciones/baja)
 - Horario más corto que 30 minutos o más largo que 16 horas
 
 **Warnings (permiten guardado):**
+
 - Descanso insuficiente (<12h) con turno anterior
 - Exceso de horas semanales (>150% de jornada contratada)
 
@@ -130,6 +133,7 @@ Crear un nuevo turno para un empleado en una fecha específica.
 4. Haz clic en **"Actualizar"**
 
 **Para eliminar:**
+
 1. Abre el turno para editar
 2. Haz clic en el botón **"Eliminar"** (papelera)
 3. Confirma la acción
@@ -141,6 +145,7 @@ Crear un nuevo turno para un empleado en una fecha específica.
 ### Pantalla principal: Cuadrante
 
 **Estructura:**
+
 - Encabezado superior: Controles de vista, navegación, filtros
 - Columnas: Cada día de la semana (L-D)
 - Filas: Cada empleado del filtro activo
@@ -148,20 +153,21 @@ Crear un nuevo turno para un empleado en una fecha específica.
 
 **Colores y símbolos:**
 
-| Elemento | Significado |
-|----------|-------------|
-| Turno azul | Turno en estado "Borrador" |
-| Turno verde | Turno publicado |
-| Turno rojo | Turno con errores de conflicto |
-| Fondo amarillo | Turno con warnings |
-| "Ausencia" | Empleado fuera (vacaciones/baja) |
+| Elemento       | Significado                      |
+| -------------- | -------------------------------- |
+| Turno azul     | Turno en estado "Borrador"       |
+| Turno verde    | Turno publicado                  |
+| Turno rojo     | Turno con errores de conflicto   |
+| Fondo amarillo | Turno con warnings               |
+| "Ausencia"     | Empleado fuera (vacaciones/baja) |
 
 ### Diálogo: Crear/Editar Turno
 
 Campos: Empleado, Fecha, Inicio, Fin, Descanso, Centro, Zona, Rol, Notas
 
 **Validaciones en tiempo real:**
-- Campos requeridos marcados con *
+
+- Campos requeridos marcados con \*
 - Errores bloqueantes en rojo
 - Warnings (no bloquean) en amarillo
 
@@ -206,12 +212,12 @@ El sistema detecta automáticamente conflictos en los turnos.
 
 ### Tipos de conflictos
 
-| Tipo | Severidad | Descripción |
-|------|-----------|-------------|
-| **Solapamiento** | Error | Dos turnos del mismo empleado en el mismo horario |
-| **Descanso mínimo** | Warning | Menos de 12h entre turnos consecutivos |
-| **Ausencia** | Warning | Empleado asignado pero está en ausencia |
-| **Horas semanales** | Warning | Exceso de horas en la semana |
+| Tipo                | Severidad | Descripción                                       |
+| ------------------- | --------- | ------------------------------------------------- |
+| **Solapamiento**    | Error     | Dos turnos del mismo empleado en el mismo horario |
+| **Descanso mínimo** | Warning   | Menos de 12h entre turnos consecutivos            |
+| **Ausencia**        | Warning   | Empleado asignado pero está en ausencia           |
+| **Horas semanales** | Warning   | Exceso de horas en la semana                      |
 
 ---
 
@@ -237,21 +243,25 @@ R: Sí. Los administradores pueden configurarlo en Configuración → Turnos.
 ## Checklist de soporte
 
 ### Módulo no aparece o está deshabilitado
+
 - [ ] ¿Tienes permisos `manage_organization`?
 - [ ] ¿El módulo está activado en Configuración → Turnos?
 
 ### No puedo crear turnos
+
 - [ ] ¿Tienes empleados creados con `usesShiftSystem = true`?
 - [ ] ¿Tienes al menos un centro de trabajo?
 - [ ] ¿Tienes al menos una zona configurada?
 - [ ] ¿El empleado no está en ausencia en esa fecha?
 
 ### El cuadrante se ve vacío
+
 - [ ] ¿Hay turnos creados?
 - [ ] ¿Los filtros están ocultando los turnos?
 - [ ] ¿El rango de fechas es correcto?
 
 ### Los conflictos no se detectan
+
 - [ ] ¿El panel de conflictos está abierto?
 - [ ] ¿Los turnos tienen el mismo empleado y fecha?
 - [ ] ¿El descanso mínimo está configurado correctamente?

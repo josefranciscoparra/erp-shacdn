@@ -14,10 +14,10 @@ El módulo de **Gestión de Documentos** permite almacenar, organizar y gestiona
 
 ## Quién puede usarlo
 
-| Rol | Ver propios | Descargar | Subir | Ver todos | Papelera |
-|-----|-------------|-----------|-------|-----------|----------|
-| Empleado | Sí | Sí | No | No | No |
-| HR Admin | Sí | Sí | Sí | Sí | Sí |
+| Rol      | Ver propios | Descargar | Subir | Ver todos | Papelera |
+| -------- | ----------- | --------- | ----- | --------- | -------- |
+| Empleado | Sí          | Sí        | No    | No        | No       |
+| HR Admin | Sí          | Sí        | Sí    | Sí        | Sí       |
 
 ---
 
@@ -33,6 +33,7 @@ El módulo de **Gestión de Documentos** permite almacenar, organizar y gestiona
 4. Información: Nombre, Tamaño, Tipo, Quién subió, Fecha
 
 **Tipos de documento:**
+
 - Contrato (azul)
 - Nómina (verde)
 - DNI/NIE (púrpura)
@@ -63,11 +64,11 @@ El módulo de **Gestión de Documentos** permite almacenar, organizar y gestiona
 
 La "papelera" respeta normativas de cumplimiento (RGPD, LOPDGDD):
 
-| Estado | Descripción | Acción |
-|--------|-------------|--------|
-| Puede purgar | Ha expirado el plazo de retención | Eliminar definitivamente |
-| Retención activa | Plazo legal pendiente | Esperar |
-| Legalhold | Bajo investigación | Solo restaurar |
+| Estado           | Descripción                       | Acción                   |
+| ---------------- | --------------------------------- | ------------------------ |
+| Puede purgar     | Ha expirado el plazo de retención | Eliminar definitivamente |
+| Retención activa | Plazo legal pendiente             | Esperar                  |
+| Legalhold        | Bajo investigación                | Solo restaurar           |
 
 ---
 
@@ -104,11 +105,13 @@ R: Tú siempre, RRHH con permisos, otros empleados NO.
 ## Checklist de soporte
 
 **Para empleados:**
+
 - [ ] Puede ver sus documentos
 - [ ] Puede descargar correctamente
 - [ ] Filtros funcionan
 
 **Para administradores:**
+
 - [ ] Puede subir documentos
 - [ ] Puede restaurar de papelera
 - [ ] Puede purgar documentos expirados

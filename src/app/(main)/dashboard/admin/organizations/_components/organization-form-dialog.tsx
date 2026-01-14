@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { HierarchyType } from "@prisma/client";
-import { Building2, Globe, HardDrive, X } from "lucide-react";
+import { Building2, Globe, HardDrive, Loader2, Plus, Settings, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
@@ -141,42 +142,62 @@ export function OrganizationFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-indigo-500" />
-            {mode === "create" ? "Nueva Organización" : "Editar Organización"}
-          </DialogTitle>
-          <DialogDescription>Configura los detalles principales y parámetros de la organización.</DialogDescription>
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="border-b bg-slate-50/50 px-6 py-4 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+              <Building2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg">
+                {mode === "create" ? "Nueva Organización" : "Editar Organización"}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                Configura los detalles principales y parámetros de la organización.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="px-6 pt-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="general">Información General</TabsTrigger>
-                  <TabsTrigger value="settings">Configuración Avanzada</TabsTrigger>
+              <div className="border-b px-6">
+                <TabsList className="h-auto w-full justify-start gap-6 bg-transparent p-0">
+                  <TabsTrigger
+                    value="general"
+                    className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pt-3 pb-3 font-medium text-slate-500 shadow-none transition-none hover:text-slate-700 data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 data-[state=active]:shadow-none dark:text-slate-400 dark:data-[state=active]:text-indigo-400"
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Información General
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settings"
+                    className="relative h-12 rounded-none border-b-2 border-transparent bg-transparent px-4 pt-3 pb-3 font-medium text-slate-500 shadow-none transition-none hover:text-slate-700 data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 data-[state=active]:shadow-none dark:text-slate-400 dark:data-[state=active]:text-indigo-400"
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configuración Avanzada
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
               <div className="p-6">
-                <TabsContent value="general" className="mt-0 space-y-5">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre Legal</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej. Acme Corp S.L." {...field} className="h-10" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <TabsContent value="general" className="mt-0 space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem className="col-span-2">
+                          <FormLabel>Nombre Legal</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej. Acme Corp S.L." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="vat"
@@ -210,125 +231,161 @@ export function OrganizationFormDialog({
                                 }}
                               />
                             </FormControl>
+                            <FormDescription className="text-xs">
+                              Se usará para generar IDs (ej. ACME-001)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {mode === "create" && (
+                      <FormField
+                        control={form.control}
+                        name="hierarchyType"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Modelo Organizativo</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona estructura" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={HierarchyType.FLAT}>Horizontal (Flat)</SelectItem>
+                                <SelectItem value={HierarchyType.DEPARTMENTAL}>Departamental</SelectItem>
+                                <SelectItem value={HierarchyType.HIERARCHICAL}>Jerárquica Completa</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>Define cómo se estructuran los reportes y permisos.</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     )}
                   </div>
-
-                  {mode === "create" && (
-                    <FormField
-                      control={form.control}
-                      name="hierarchyType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Modelo Organizativo</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona estructura" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value={HierarchyType.FLAT}>Horizontal (Flat)</SelectItem>
-                              <SelectItem value={HierarchyType.DEPARTMENTAL}>Departamental</SelectItem>
-                              <SelectItem value={HierarchyType.HIERARCHICAL}>Jerárquica Completa</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>Define cómo se estructuran los reportes y permisos.</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
                 </TabsContent>
 
                 <TabsContent value="settings" className="mt-0 space-y-6">
                   {features.emailDomainEnforcement && (
-                    <div className="space-y-3 rounded-lg border bg-slate-50/50 p-4 dark:bg-slate-900/50">
-                      <div className="mb-2 flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-indigo-500" />
-                        <h4 className="text-sm font-medium">Dominios Corporativos</h4>
+                    <div className="rounded-lg border bg-slate-50/50 p-4 dark:bg-slate-900/50">
+                      <div className="mb-4 flex items-center gap-2">
+                        <div className="rounded-md bg-white p-1.5 shadow-sm dark:bg-slate-950">
+                          <Globe className="h-4 w-4 text-indigo-500" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Dominios Corporativos
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Restringe el registro de usuarios a estos dominios de correo.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="empresa.com"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          className="flex-1"
-                        />
-                        <Button type="button" variant="secondary" onClick={addEmailDomain}>
-                          Añadir
-                        </Button>
-                      </div>
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="ej. empresa.com"
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="flex-1 bg-white dark:bg-slate-950"
+                          />
+                          <Button type="button" size="sm" onClick={addEmailDomain}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Añadir
+                          </Button>
+                        </div>
 
-                      <div className="flex min-h-[30px] flex-wrap gap-2">
-                        {emailDomains.length === 0 && (
-                          <span className="text-muted-foreground text-xs italic">
-                            Sin restricciones de dominio configuradas
-                          </span>
-                        )}
-                        {emailDomains.map((domain) => (
-                          <Badge key={domain} variant="outline" className="gap-1 bg-white dark:bg-slate-950">
-                            {domain}
-                            <button
-                              type="button"
-                              onClick={() => removeEmailDomain(domain)}
-                              className="hover:text-destructive ml-1"
+                        <div className="flex min-h-[40px] flex-wrap items-center gap-2 rounded-md border border-dashed bg-white/50 p-2 dark:bg-slate-950/50">
+                          {emailDomains.length === 0 && (
+                            <span className="w-full text-center text-xs text-slate-400 italic">
+                              Sin restricciones (cualquier dominio permitido)
+                            </span>
+                          )}
+                          {emailDomains.map((domain) => (
+                            <Badge
+                              key={domain}
+                              variant="secondary"
+                              className="gap-1 border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
                             >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
+                              @{domain}
+                              <button
+                                type="button"
+                                onClick={() => removeEmailDomain(domain)}
+                                className="ml-1 rounded-full p-0.5 hover:bg-slate-200 hover:text-red-600 dark:hover:bg-slate-800"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {mode === "edit" && (
-                    <div className="space-y-3 rounded-lg border bg-slate-50/50 p-4 dark:bg-slate-900/50">
-                      <div className="mb-2 flex items-center gap-2">
-                        <HardDrive className="h-4 w-4 text-indigo-500" />
-                        <h4 className="text-sm font-medium">Almacenamiento y Cuotas</h4>
+                    <div className="rounded-lg border bg-slate-50/50 p-4 dark:bg-slate-900/50">
+                      <div className="mb-4 flex items-center gap-2">
+                        <div className="rounded-md bg-white p-1.5 shadow-sm dark:bg-slate-950">
+                          <HardDrive className="h-4 w-4 text-indigo-500" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Almacenamiento y Cuotas
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Gestiona el límite de espacio en disco para esta organización.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 items-end gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-slate-500">Límite asignado (GB)</label>
-                          <Input
-                            type="number"
-                            min={minAllowedGB}
-                            max={MAX_STORAGE_GB}
-                            step={0.1}
-                            value={storageLimitGB}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              if (!isNaN(value)) {
-                                setStorageLimitGB(Math.max(minAllowedGB, Math.min(MAX_STORAGE_GB, value)));
-                              }
-                            }}
-                          />
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-slate-500">Límite Asignado (GB)</label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={minAllowedGB}
+                              max={MAX_STORAGE_GB}
+                              step={0.1}
+                              value={storageLimitGB}
+                              onChange={(e) => {
+                                const value = parseFloat(e.target.value);
+                                if (!isNaN(value)) {
+                                  setStorageLimitGB(Math.max(minAllowedGB, Math.min(MAX_STORAGE_GB, value)));
+                                }
+                              }}
+                              className="bg-white dark:bg-slate-950"
+                            />
+                            <span className="text-sm font-medium text-slate-500">GB</span>
+                          </div>
                         </div>
-                        <div className="pb-2.5 text-xs text-slate-500">
-                          Uso actual:{" "}
-                          <span className="font-mono text-slate-700 dark:text-slate-300">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-slate-500">Uso Actual</label>
+                          <div className="flex h-10 items-center rounded-md border bg-slate-100 px-3 font-mono text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                             {formatBytes(initialValues?.storageUsedBytes ?? 0)}
-                          </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
 
+                  <Separator />
+
                   <FormField
                     control={form.control}
                     name="active"
                     render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                      <FormItem className="flex items-center justify-between space-y-0 rounded-lg border p-4 shadow-sm">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base font-medium">Estado Operativo</FormLabel>
-                          <FormDescription>Si se desactiva, los usuarios no podrán acceder.</FormDescription>
+                          <FormDescription>
+                            Si desactivas la organización, ningún usuario podrá acceder a ella.
+                          </FormDescription>
                         </div>
                         <FormControl>
                           <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -339,12 +396,13 @@ export function OrganizationFormDialog({
                 </TabsContent>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t bg-slate-50/50 px-6 py-4 dark:bg-slate-900/50">
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <div className="flex items-center justify-end gap-3 border-t bg-slate-50/50 px-6 py-4 dark:bg-slate-900/50">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="min-w-[120px]">
-                  {isSubmitting ? <>Guardando...</> : mode === "create" ? "Crear Organización" : "Guardar Cambios"}
+                <Button type="submit" disabled={isSubmitting} className="min-w-[140px]">
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {mode === "create" ? "Crear Organización" : "Guardar Cambios"}
                 </Button>
               </div>
             </Tabs>

@@ -205,16 +205,20 @@ Los equipos son grupos transversales de empleados. Siempre pertenecen a un centr
 ## Políticas y reglas
 
 **Orden de configuración**
+
 - Centros → Departamentos → Niveles → Puestos → Equipos → Empleados
 
 **Restricciones de eliminación**
+
 - No puedes eliminar si hay dependencias (empleados asignados, departamentos en un centro, etc.)
 
 **Validaciones de equipos**
+
 - Siempre deben tener un centro de coste
 - Si tienen departamento, debe estar en el mismo centro
 
 **Niveles de puesto**
+
 - El orden es único por organización
 - 0 es el nivel más bajo
 

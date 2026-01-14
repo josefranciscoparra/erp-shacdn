@@ -5,12 +5,14 @@
 El **Canal de Denuncias** de TimeNow es un sistema confidencial para que empleados, proveedores y clientes reporten irregularidades, acoso, corrupción, fraude y otros hechos contrarios a la ética empresarial.
 
 **Cumplimiento normativo:**
+
 - Ley 2/2023, de 20 de febrero, reguladora de la protección de las personas que informen sobre infracciones normativas
 - Reglamento (UE) 2019/1937
 - RGPD y LOPDGDD en el tratamiento de datos personales
 - Garantiza protección contra represalias
 
 **Características principales:**
+
 - Recepción de denuncias anónimas y no anónimas
 - Seguimiento confidencial del estado de investigación
 - Gestión integral por personal autorizado
@@ -22,12 +24,14 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 ## Quién puede usarlo
 
 ### Empleados internos
+
 - Acceso autenticado desde `/dashboard/me/whistleblowing`
 - Pueden enviar denuncias identificadas o anónimas
 - Visualizar todas sus denuncias y estados
 - Seguimiento mediante código de expediente
 
 ### Personas externas (portal público)
+
 - Proveedores, clientes, consultores y cualquier tercero
 - Acceso mediante URL pública generada automáticamente
 - No requieren autenticación
@@ -35,6 +39,7 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 - Seguimiento mediante código de seguimiento + código de acceso
 
 ### Gestores y administradores
+
 - Personal autorizado de Recursos Humanos o Cumplimiento
 - Acceso a `/dashboard/whistleblowing`
 - Permiso `manage_organization` requerido
@@ -126,6 +131,7 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 #### Acceso → `/dashboard/whistleblowing`
 
 **Panel de estadísticas:**
+
 - Total de denuncias
 - Pendientes (no asignadas)
 - En investigación
@@ -134,15 +140,15 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 
 **Tabla de denuncias:**
 
-| Columna | Descripción |
-|---------|-------------|
-| Código | ID único de seguimiento |
-| Título | Asunto de la denuncia |
-| Origen | Empleado, Externo, Anónimo |
-| Estado | Pendiente / En investigación / Resuelta / Cerrada |
-| Prioridad | Baja / Media / Alta / Crítica |
-| Gestor asignado | Nombre del responsable |
-| Registrada | Fecha y hora de recepción |
+| Columna         | Descripción                                       |
+| --------------- | ------------------------------------------------- |
+| Código          | ID único de seguimiento                           |
+| Título          | Asunto de la denuncia                             |
+| Origen          | Empleado, Externo, Anónimo                        |
+| Estado          | Pendiente / En investigación / Resuelta / Cerrada |
+| Prioridad       | Baja / Media / Alta / Crítica                     |
+| Gestor asignado | Nombre del responsable                            |
+| Registrada      | Fecha y hora de recepción                         |
 
 #### Detalle de denuncia → `/dashboard/whistleblowing/{id}`
 
@@ -155,6 +161,7 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 5. **Cerrar expediente**: Solo después de resolver
 
 **Tipos de resolución:**
+
 - **Fundada**: Hechos confirmados, acciones tomadas
 - **No fundada**: Hechos no confirmados
 - **Parcialmente fundada**: Algunos hechos confirmados
@@ -167,6 +174,7 @@ El **Canal de Denuncias** de TimeNow es un sistema confidencial para que emplead
 ### Portal público - Pantalla inicial
 
 Muestra:
+
 - Icono y nombre de la organización
 - Canal Interno de Información (Cumplimiento Ley 2/2023)
 - Garantías: Confidencialidad, Anonimato opcional, Protección legal, Seguimiento
@@ -176,11 +184,13 @@ Muestra:
 ### Formulario de denuncia
 
 **Campos obligatorios:**
+
 - Categoría de denuncia
 - Título (máx. 200 caracteres)
 - Descripción detallada
 
 **Campos opcionales:**
+
 - Fecha del incidente
 - Ubicación
 - Partes involucradas (encriptado)

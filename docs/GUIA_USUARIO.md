@@ -6,7 +6,7 @@
 
 **Tu portal del empleado**
 
-*Versión 1.0*
+_Versión 1.0_
 
 </div>
 
@@ -73,13 +73,13 @@ Al iniciar sesión, llegarás a tu **Dashboard Personal** (`Mi Espacio`). Aquí 
 
 ### Qué encontrarás:
 
-| Sección | Descripción |
-|---------|-------------|
-| **Saludo personalizado** | Tu nombre, puesto y departamento |
-| **Estado del día** | Horas trabajadas hoy y tiempo restante |
-| **Acciones rápidas** | Botones para fichar, ver ausencias, calendario y perfil |
-| **Próximos eventos** | Tus próximas ausencias y eventos del calendario |
-| **Notificaciones** | Últimos avisos y actualizaciones |
+| Sección                  | Descripción                                             |
+| ------------------------ | ------------------------------------------------------- |
+| **Saludo personalizado** | Tu nombre, puesto y departamento                        |
+| **Estado del día**       | Horas trabajadas hoy y tiempo restante                  |
+| **Acciones rápidas**     | Botones para fichar, ver ausencias, calendario y perfil |
+| **Próximos eventos**     | Tus próximas ausencias y eventos del calendario         |
+| **Notificaciones**       | Últimos avisos y actualizaciones                        |
 
 ### Acciones rápidas disponibles:
 
@@ -115,6 +115,7 @@ Cuando llegues a trabajar:
 > 📸 **[IMAGEN: Botón "Fichar Entrada" destacado en verde]**
 
 **Después de fichar entrada verás:**
+
 - El contador de tiempo empezará a correr
 - Tu estado cambiará a **"Trabajando"**
 - El botón cambiará a **"Fichar Salida"**
@@ -171,12 +172,12 @@ En la página de fichajes también verás tu **horario esperado** para hoy:
 
 **Situaciones especiales:**
 
-| Situación | Qué verás |
-|-----------|-----------|
-| Día laborable normal | Tus franjas horarias habituales |
-| Día de vacaciones | Aviso: "Ausencia registrada: Vacaciones" |
-| Fin de semana/festivo | Aviso: "Día no laborable" |
-| Sin horario asignado | Aviso: "Contacta con tu administrador" |
+| Situación             | Qué verás                                |
+| --------------------- | ---------------------------------------- |
+| Día laborable normal  | Tus franjas horarias habituales          |
+| Día de vacaciones     | Aviso: "Ausencia registrada: Vacaciones" |
+| Fin de semana/festivo | Aviso: "Día no laborable"                |
+| Sin horario asignado  | Aviso: "Contacta con tu administrador"   |
 
 ---
 
@@ -187,6 +188,7 @@ Debajo del panel principal verás el **timeline** con todos tus fichajes de hoy:
 > 📸 **[IMAGEN: Timeline de fichajes mostrando: 08:45 Entrada → 10:30 Inicio pausa → 10:45 Fin pausa → 18:30 Salida]**
 
 Cada fichaje muestra:
+
 - 🕐 **Hora exacta**
 - 📍 **Ubicación GPS** (si está activada)
 - 📁 **Proyecto/Tarea** (si aplica)
@@ -218,12 +220,12 @@ Cada fichaje muestra:
 
 4. Rellena los campos:
 
-| Campo | Descripción |
-|-------|-------------|
-| **Fecha** | El día que quieres corregir |
-| **Hora de entrada** | La hora real a la que entraste |
-| **Hora de salida** | La hora real a la que saliste |
-| **Motivo** | Explica brevemente por qué necesitas la corrección (mínimo 10 caracteres) |
+| Campo               | Descripción                                                               |
+| ------------------- | ------------------------------------------------------------------------- |
+| **Fecha**           | El día que quieres corregir                                               |
+| **Hora de entrada** | La hora real a la que entraste                                            |
+| **Hora de salida**  | La hora real a la que saliste                                             |
+| **Motivo**          | Explica brevemente por qué necesitas la corrección (mínimo 10 caracteres) |
 
 5. Haz clic en **"Enviar solicitud"**
 6. ✅ Tu solicitud se enviará a tu responsable para aprobación
@@ -232,11 +234,11 @@ Cada fichaje muestra:
 
 ### Estados de tu solicitud
 
-| Estado | Significado |
-|--------|-------------|
+| Estado           | Significado                            |
+| ---------------- | -------------------------------------- |
 | 🟡 **Pendiente** | Esperando aprobación de tu responsable |
-| 🟢 **Aprobada** | Tu fichaje ha sido corregido |
-| 🔴 **Rechazada** | No se ha aprobado (verás el motivo) |
+| 🟢 **Aprobada**  | Tu fichaje ha sido corregido           |
+| 🔴 **Rechazada** | No se ha aprobado (verás el motivo)    |
 
 > 📸 **[IMAGEN: Lista de solicitudes de fichaje mostrando diferentes estados con badges de colores]**
 
@@ -263,11 +265,11 @@ En la parte superior verás tus **tarjetas de balance**:
 
 > 📸 **[IMAGEN: Cards de balance mostrando: Disponibles (15 días), Pendientes (3 días), Consumidos (12 días)]**
 
-| Tarjeta | Significado |
-|---------|-------------|
-| **Disponibles** | Días que puedes solicitar ahora |
-| **Pendientes** | Días en solicitudes esperando aprobación |
-| **Consumidos** | Días ya utilizados este año |
+| Tarjeta         | Significado                              |
+| --------------- | ---------------------------------------- |
+| **Disponibles** | Días que puedes solicitar ahora          |
+| **Pendientes**  | Días en solicitudes esperando aprobación |
+| **Consumidos**  | Días ya utilizados este año              |
 
 ---
 
@@ -283,12 +285,12 @@ En la parte superior verás tus **tarjetas de balance**:
 
 3. Rellena los campos:
 
-| Campo | Descripción |
-|-------|-------------|
+| Campo                | Descripción                                         |
+| -------------------- | --------------------------------------------------- |
 | **Tipo de ausencia** | Vacaciones, Permiso personal, Asuntos propios, etc. |
-| **Fechas** | Selecciona fecha inicio y fin en el calendario |
-| **Motivo** | Opcional: añade una descripción |
-| **Adjuntos** | Si el tipo lo requiere (ej: justificante médico) |
+| **Fechas**           | Selecciona fecha inicio y fin en el calendario      |
+| **Motivo**           | Opcional: añade una descripción                     |
+| **Adjuntos**         | Si el tipo lo requiere (ej: justificante médico)    |
 
 4. El sistema calculará automáticamente los **días hábiles**
 
@@ -307,12 +309,12 @@ En la parte superior verás tus **tarjetas de balance**:
 
 ### 6.3 Estados de las solicitudes
 
-| Estado | Badge | Significado |
-|--------|-------|-------------|
-| **Pendiente** | 🟡 Amarillo | Esperando aprobación |
-| **Aprobada** | 🟢 Verde | Has recibido el permiso |
-| **Rechazada** | 🔴 Rojo | No se ha aprobado (verás el motivo) |
-| **Cancelada** | ⚫ Gris | Cancelaste la solicitud |
+| Estado        | Badge       | Significado                         |
+| ------------- | ----------- | ----------------------------------- |
+| **Pendiente** | 🟡 Amarillo | Esperando aprobación                |
+| **Aprobada**  | 🟢 Verde    | Has recibido el permiso             |
+| **Rechazada** | 🔴 Rojo     | No se ha aprobado (verás el motivo) |
+| **Cancelada** | ⚫ Gris     | Cancelaste la solicitud             |
 
 > 📸 **[IMAGEN: Tabla de solicitudes con diferentes estados y badges de colores]**
 
@@ -337,15 +339,15 @@ Si necesitas cancelar una solicitud que aún está **pendiente**:
 
 Según la configuración de tu empresa, podrás solicitar:
 
-| Tipo | Descripción | Requiere adjunto |
-|------|-------------|------------------|
-| 🏖️ **Vacaciones** | Días de vacaciones anuales | No |
-| 🏥 **Baja médica** | Enfermedad o accidente | Sí (justificante) |
-| 👶 **Permiso maternidad/paternidad** | Nacimiento o adopción | Sí |
-| 💒 **Permiso por matrimonio** | Días por boda | Sí |
-| ⚫ **Permiso por fallecimiento** | Duelo familiar | No |
-| 📋 **Asuntos propios** | Días de libre disposición | No |
-| 🏛️ **Permiso sin sueldo** | Ausencia no remunerada | No |
+| Tipo                                 | Descripción                | Requiere adjunto  |
+| ------------------------------------ | -------------------------- | ----------------- |
+| 🏖️ **Vacaciones**                    | Días de vacaciones anuales | No                |
+| 🏥 **Baja médica**                   | Enfermedad o accidente     | Sí (justificante) |
+| 👶 **Permiso maternidad/paternidad** | Nacimiento o adopción      | Sí                |
+| 💒 **Permiso por matrimonio**        | Días por boda              | Sí                |
+| ⚫ **Permiso por fallecimiento**     | Duelo familiar             | No                |
+| 📋 **Asuntos propios**               | Días de libre disposición  | No                |
+| 🏛️ **Permiso sin sueldo**            | Ausencia no remunerada     | No                |
 
 > 💡 **Tip:** El número de días disponibles para cada tipo depende de tu convenio y las políticas de tu empresa.
 
@@ -363,6 +365,7 @@ Para ver todos tus fichajes pasados:
 > 📸 **[IMAGEN: Vista de calendario con fichajes marcados y panel lateral con detalles]**
 
 Verás:
+
 - 📅 **Calendario visual** con tus fichajes
 - 📊 **Balance de horas** (horas trabajadas vs esperadas)
 - 📋 **Detalle por día** al hacer clic
@@ -396,14 +399,14 @@ Timenow te mantiene informado con notificaciones sobre tus solicitudes y eventos
 
 ### Tipos de notificaciones
 
-| Notificación | Qué significa |
-|--------------|---------------|
-| ✅ **Ausencia aprobada** | Tu solicitud de vacaciones fue aprobada |
-| ❌ **Ausencia rechazada** | Tu solicitud no fue aprobada (verás el motivo) |
-| ✅ **Fichaje aprobado** | Tu corrección de fichaje fue aprobada |
-| 📄 **Documento disponible** | Hay un nuevo documento para ti |
-| 💰 **Nómina disponible** | Tu nómina del mes está lista |
-| ✍️ **Firma pendiente** | Tienes un documento que firmar |
+| Notificación                | Qué significa                                  |
+| --------------------------- | ---------------------------------------------- |
+| ✅ **Ausencia aprobada**    | Tu solicitud de vacaciones fue aprobada        |
+| ❌ **Ausencia rechazada**   | Tu solicitud no fue aprobada (verás el motivo) |
+| ✅ **Fichaje aprobado**     | Tu corrección de fichaje fue aprobada          |
+| 📄 **Documento disponible** | Hay un nuevo documento para ti                 |
+| 💰 **Nómina disponible**    | Tu nómina del mes está lista                   |
+| ✍️ **Firma pendiente**      | Tienes un documento que firmar                 |
 
 > 📸 **[IMAGEN: Centro de notificaciones mostrando lista de notificaciones con iconos y estados leído/no leído]**
 
@@ -434,12 +437,12 @@ En tu perfil puedes ver y actualizar tu información personal.
 
 ### Información disponible
 
-| Sección | Contenido |
-|---------|-----------|
-| **Datos personales** | Nombre, email, teléfono |
-| **Información laboral** | Puesto, departamento, fecha de inicio |
-| **Contacto** | Dirección, teléfono de emergencia |
-| **Contrato** | Tipo de contrato, jornada, centro de trabajo |
+| Sección                 | Contenido                                    |
+| ----------------------- | -------------------------------------------- |
+| **Datos personales**    | Nombre, email, teléfono                      |
+| **Información laboral** | Puesto, departamento, fecha de inicio        |
+| **Contacto**            | Dirección, teléfono de emergencia            |
+| **Contrato**            | Tipo de contrato, jornada, centro de trabajo |
 
 ---
 
@@ -463,12 +466,15 @@ Dependiendo de la configuración de tu empresa:
 ### Fichajes
 
 **❓ ¿Qué pasa si olvido fichar la salida?**
+
 > El sistema puede detectar fichajes incompletos y avisarte. Puedes solicitar una corrección de fichaje al día siguiente.
 
 **❓ ¿Puedo fichar desde el móvil?**
+
 > Sí, Timenow es responsive y funciona en cualquier dispositivo con navegador.
 
 **❓ ¿Qué es la geolocalización?**
+
 > Si tu empresa lo tiene activado, al fichar se registrará tu ubicación GPS para verificar que estás en el centro de trabajo.
 
 ---
@@ -476,12 +482,15 @@ Dependiendo de la configuración de tu empresa:
 ### Vacaciones
 
 **❓ ¿Cuántos días de vacaciones tengo?**
+
 > Puedes ver tu balance en **Mi Espacio → Ausencias**. Los días dependen de tu convenio y antigüedad.
 
 **❓ ¿Con cuánta anticipación debo pedir vacaciones?**
+
 > Depende de las políticas de tu empresa. Normalmente se recomienda solicitarlas con al menos 15 días de antelación.
 
 **❓ ¿Puedo pedir medio día de vacaciones?**
+
 > Algunos tipos de ausencia permiten solicitar horas en lugar de días completos. Depende de la configuración de tu empresa.
 
 ---
@@ -489,12 +498,15 @@ Dependiendo de la configuración de tu empresa:
 ### Solicitudes
 
 **❓ ¿Quién aprueba mis solicitudes?**
+
 > Normalmente tu responsable directo o el departamento de RRHH, según la configuración de tu empresa.
 
 **❓ ¿Cuánto tardan en aprobar una solicitud?**
+
 > Depende de tu responsable. Recibirás una notificación cuando haya novedades.
 
 **❓ ¿Puedo modificar una solicitud enviada?**
+
 > No directamente. Debes cancelarla (si está pendiente) y crear una nueva.
 
 ---
@@ -502,12 +514,15 @@ Dependiendo de la configuración de tu empresa:
 ### Técnicas
 
 **❓ ¿Qué navegadores son compatibles?**
+
 > Chrome, Firefox, Safari y Edge en sus versiones recientes.
 
 **❓ ¿Mis datos están seguros?**
+
 > Sí, Timenow cumple con el RGPD y la LOPDGDD. Tus datos están protegidos.
 
 **❓ ¿A quién contacto si tengo problemas?**
+
 > Contacta con el departamento de RRHH de tu empresa o escribe a soporte@timenow.cloud
 
 ---
@@ -523,6 +538,6 @@ o escribe a **soporte@timenow.cloud**
 
 ---
 
-*© 2025 Timenow. Todos los derechos reservados.*
+_© 2025 Timenow. Todos los derechos reservados._
 
 </div>

@@ -5,6 +5,7 @@
 La Gestión de Gastos en TimeNow es un sistema completo que permite a los empleados registrar, adjuntar documentación y solicitar reembolso de gastos relacionados con su actividad laboral. Los administradores pueden revisar, aprobar o rechazar estos gastos y gestionar los reembolsos.
 
 **Casos de uso principales:**
+
 - Registrar combustible, peajes y aparcamiento en desplazamientos
 - Reportar comidas y alojamientos en viajes de negocio
 - Solicitar reembolso de kilometraje con vehículo propio
@@ -37,6 +38,7 @@ La Gestión de Gastos en TimeNow es un sistema completo que permite a los emplea
 7. **Guardar borrador o enviar**
 
 **Estados de un gasto:**
+
 - **DRAFT**: Borrador sin enviar
 - **SUBMITTED**: Enviado a aprobación
 - **APPROVED**: Aprobado, pendiente de reembolso
@@ -50,21 +52,25 @@ La Gestión de Gastos en TimeNow es un sistema completo que permite a los emplea
 **Acceso:** Menú lateral → Gastos → Mis gastos
 
 **Tabla de gastos con columnas:**
+
 - Fecha, Categoría, Comercio, Importe, IVA, Total, Estado
 
 **Acciones disponibles:**
+
 - Click en fila: Ver detalles completos
 - Menú de 3 puntos: Editar (solo DRAFT), Enviar, Eliminar
 
 ### 3) Control de gastos (admin)
 
 **Revisar y aprobar gastos:**
+
 1. Ve a Gastos en el panel de administración
 2. Revisa gastos pendientes de aprobación
 3. Click en gasto para ver detalles
 4. Botón "Aprobar" o "Rechazar" (con comentario obligatorio)
 
 **Gestión de Reembolsos:**
+
 1. Ve a Gastos → Reembolsos
 2. Selecciona gastos para reembolsar
 3. Procesa el reembolso con método y referencia
@@ -75,16 +81,16 @@ La Gestión de Gastos en TimeNow es un sistema completo que permite a los emplea
 
 ### Formulario de Gasto
 
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Fecha | Sí | Fecha del gasto (máximo hoy) |
-| Categoría | Sí | Tipo de gasto |
-| Importe base | Sí | Cantidad sin IVA |
-| IVA % | Sí | 0%, 10% o 21% |
-| Comercio | No | Nombre del establecimiento |
-| CIF/NIF | No | Identificación fiscal |
-| Notas | No | Detalles adicionales |
-| Adjuntos | Variable | Según política |
+| Campo        | Requerido | Descripción                  |
+| ------------ | --------- | ---------------------------- |
+| Fecha        | Sí        | Fecha del gasto (máximo hoy) |
+| Categoría    | Sí        | Tipo de gasto                |
+| Importe base | Sí        | Cantidad sin IVA             |
+| IVA %        | Sí        | 0%, 10% o 21%                |
+| Comercio     | No        | Nombre del establecimiento   |
+| CIF/NIF      | No        | Identificación fiscal        |
+| Notas        | No        | Detalles adicionales         |
+| Adjuntos     | Variable  | Según política               |
 
 ---
 
@@ -107,6 +113,7 @@ R: Depende de tu estructura organizacional, normalmente 1-2 días.
 ## Checklist de soporte
 
 **Funcionalidades Básicas (Empleado):**
+
 - [ ] Puede crear nuevo gasto
 - [ ] Campos se validan correctamente
 - [ ] Puede adjuntar archivos
@@ -115,6 +122,7 @@ R: Depende de tu estructura organizacional, normalmente 1-2 días.
 - [ ] Estados se muestran correctamente
 
 **Administración:**
+
 - [ ] Admins pueden revisar gastos
 - [ ] Pueden aprobar/rechazar con comentarios
 - [ ] Pueden procesar reembolsos

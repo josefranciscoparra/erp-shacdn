@@ -26,11 +26,13 @@ El módulo de **Firmas Electrónicas** en TimeNow permite a tu organización sol
 ## Quién puede usarlo
 
 ### Empleados
+
 - **Ver sus documentos pendientes**: Cualquier empleado puede acceder a `/dashboard/me/signatures` para ver qué documentos necesita firmar
 - **Firmar documentos**: Pueden revisar el PDF y firmar electrónicamente con su consentimiento explícito
 - **Descargar confirmación**: Una vez firmado, pueden descargar el PDF firmado
 
 ### Administradores (HR_ADMIN, ORG_ADMIN, SUPER_ADMIN)
+
 - **Crear solicitudes**: Pueden crear nuevas solicitudes de firma desde `/dashboard/signatures`
 - **Gestionar lotes**: Controlar múltiples solicitudes en `/dashboard/signatures/batches`
 - **Asignar firmantes**: Especificar quién debe firmar, el orden y plazos
@@ -49,12 +51,12 @@ El módulo de **Firmas Electrónicas** en TimeNow permite a tu organización sol
 
 Un panel con 4 pestañas principales:
 
-| Pestaña | Descripción |
-|---------|------------|
+| Pestaña        | Descripción                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------- |
 | **Pendientes** | Documentos que necesitas firmar. Prioridad: primero aparecen los que "Te toca firmar ahora" |
-| **Firmadas** | Documentos que ya has firmado (histórico) |
-| **Rechazadas** | Documentos que rechazaste (con motivo) |
-| **Expiradas** | Documentos cuyo plazo venció sin firmarse |
+| **Firmadas**   | Documentos que ya has firmado (histórico)                                                   |
+| **Rechazadas** | Documentos que rechazaste (con motivo)                                                      |
+| **Expiradas**  | Documentos cuyo plazo venció sin firmarse                                                   |
 
 #### Tarjetas de resumen (parte superior)
 
@@ -66,16 +68,16 @@ Un panel con 4 pestañas principales:
 
 Para cada documento ves:
 
-| Campo | Explicación |
-|-------|-------------|
-| **Documento** | Título + descripción. Badge indica si "Te toca firmar" o "Esperando a [nombre]" |
-| **Categoría** | Tipo de documento (Contrato, Política, Consentimiento, etc.) |
-| **Fecha** | Cuándo se solicitó (Pendientes) o cuándo se firmó/rechazó |
-| **Firmante actual** | Quién debe firmar ahora según el orden |
-| **Vencimiento** | Badge rojo (urgente <3 días), amarillo (próximo) o normal |
-| **Firmantes** | Avatares de quiénes participan + contador (ej: 2/5 completados) |
-| **Estado** | Pendiente, Firmado, Rechazado, Expirado |
-| **Acciones** | Botón "Firmar" (si es tu turno) o "Ver" (si esperas a otros) |
+| Campo               | Explicación                                                                     |
+| ------------------- | ------------------------------------------------------------------------------- |
+| **Documento**       | Título + descripción. Badge indica si "Te toca firmar" o "Esperando a [nombre]" |
+| **Categoría**       | Tipo de documento (Contrato, Política, Consentimiento, etc.)                    |
+| **Fecha**           | Cuándo se solicitó (Pendientes) o cuándo se firmó/rechazó                       |
+| **Firmante actual** | Quién debe firmar ahora según el orden                                          |
+| **Vencimiento**     | Badge rojo (urgente <3 días), amarillo (próximo) o normal                       |
+| **Firmantes**       | Avatares de quiénes participan + contador (ej: 2/5 completados)                 |
+| **Estado**          | Pendiente, Firmado, Rechazado, Expirado                                         |
+| **Acciones**        | Botón "Firmar" (si es tu turno) o "Ver" (si esperas a otros)                    |
 
 #### Filtro "Solo firmables"
 
@@ -124,16 +126,17 @@ En la pestaña **Pendientes**, hay un botón que te muestra solo documentos que 
 
 #### Estados durante el flujo
 
-| Estado | Significa | Acciones disponibles |
-|--------|-----------|-------------------|
-| **Pendiente - Tu turno** | Debes firmar ahora | Leer → Consentimiento → Firmar/Rechazar |
-| **Pendiente - Esperando a [nombre]** | Otro debe firmar primero | Ver documento + Actualizar estado |
-| **Firmado** | Ya completaste tu parte | Descargar PDF + Volver |
-| **Rechazado** | Ya rechazaste | Ver motivo + Volver |
+| Estado                               | Significa                | Acciones disponibles                    |
+| ------------------------------------ | ------------------------ | --------------------------------------- |
+| **Pendiente - Tu turno**             | Debes firmar ahora       | Leer → Consentimiento → Firmar/Rechazar |
+| **Pendiente - Esperando a [nombre]** | Otro debe firmar primero | Ver documento + Actualizar estado       |
+| **Firmado**                          | Ya completaste tu parte  | Descargar PDF + Volver                  |
+| **Rechazado**                        | Ya rechazaste            | Ver motivo + Volver                     |
 
 #### Nota importante: Orden secuencial
 
 Si un documento tiene múltiples firmantes (ej: empleado → supervisor → RRHH):
+
 - El empleado firma primero
 - Solo DESPUÉS, el supervisor recibe notificación para firmar
 - Y así sucesivamente
@@ -149,6 +152,7 @@ Si ves "Esperando a Juan" significa que Juan debe firmar ANTES que tú.
 #### Visión general
 
 Página principal que muestra:
+
 - **Resumen**: Total de solicitudes activas, completadas, rechazadas
 - **Filtros**: Buscar por documento, estado, categoría, empleado
 - **Tabla**: Lista de solicitudes con estado actual
@@ -159,6 +163,7 @@ Página principal que muestra:
 Click en botón **"Nueva Solicitud"** → Abre diálogo de 4 pasos:
 
 **Paso 1: Documento**
+
 - Título (requerido): "Contrato 2025", "Política de vacaciones", etc.
 - Descripción (opcional): Detalles adicionales
 - Categoría (requerido): Contrato, Política, Consentimiento, Formulario, Otro
@@ -168,22 +173,25 @@ Click en botón **"Nueva Solicitud"** → Abre diálogo de 4 pasos:
 
 Elige uno de 3 modos:
 
-| Modo | Para | Ejemplo |
-|------|------|---------|
-| **Empleados específicos** | Enviar a personas concretas | Contratos nuevos → solo 3 empleados |
+| Modo                        | Para                        | Ejemplo                                  |
+| --------------------------- | --------------------------- | ---------------------------------------- |
+| **Empleados específicos**   | Enviar a personas concretas | Contratos nuevos → solo 3 empleados      |
 | **Departamentos completos** | Todos en esos departamentos | Política de RRHH → todos RRHH + Finanzas |
-| **Toda la organización** | Absolutamente todos | Actualización de normativa general |
+| **Toda la organización**    | Absolutamente todos         | Actualización de normativa general       |
 
 Después puedes agregar **"Validadores"** (opcional):
+
 - Persona que revisa DESPUÉS de que cada empleado firme
 - Ejemplo: Supervisor que aprueba la firma del empleado
 - Pueden ser múltiples (en orden)
 
 **Paso 3: Configuración**
+
 - Fecha límite: Hasta cuándo pueden firmar (requerido, mínimo hoy)
 - Días para recordatorio: Cuándo enviar notificaciones automáticas
 
 **Paso 4: Resumen y confirmación**
+
 - Tabla con todos los datos
 - Indicador: "Se crearán X solicitudes" (si es lote) o "Se generará 1 solicitud" (individual)
 - Click en "Crear Solicitud" → Se sube PDF y notificaciones se envían
@@ -201,6 +209,7 @@ Después puedes agregar **"Validadores"** (opcional):
 - Documentos firmados: Total de documentos completados
 
 #### Tabs
+
 - Pendientes (con alerta roja si hay urgentes)
 - Firmadas
 - Rechazadas
@@ -209,16 +218,18 @@ Después puedes agregar **"Validadores"** (opcional):
 #### Tabla (contenido dentro de cada tab)
 
 | Documento | Categoría | Fecha | Firmante actual | Vencimiento | Firmantes | Estado | Acción |
-|-----------|-----------|-------|-----------------|-------------|-----------|--------|--------|
+| --------- | --------- | ----- | --------------- | ----------- | --------- | ------ | ------ |
 
 ### Gestión de Firmas (Admin - `/dashboard/signatures`)
 
 #### Tarjetas de resumen
+
 - Solicitudes activas en progreso
 - Completadas
 - Rechazadas
 
 #### Filtros compactos
+
 - Buscar documento
 - Estado
 - Categoría
@@ -228,7 +239,7 @@ Después puedes agregar **"Validadores"** (opcional):
 #### Tabla
 
 | Documento | Categoría | Creado por | Destinatarios | Progreso | Vencimiento | Acciones |
-|-----------|-----------|------------|---------------|----------|-------------|----------|
+| --------- | --------- | ---------- | ------------- | -------- | ----------- | -------- |
 
 ---
 
@@ -279,12 +290,12 @@ R: Un validador es alguien que firma DESPUÉS de cada destinatario para revisar/
 
 ### Permisos requeridos
 
-| Acción | Permiso requerido |
-|--------|------------------|
-| Ver mis documentos | Usuario autenticado |
-| Firmar documento | Tener sesión activa + Token válido |
-| Ver gestión de firmas | `manage_documents` |
-| Crear solicitud | `manage_documents` + Role HR/Admin |
+| Acción                | Permiso requerido                  |
+| --------------------- | ---------------------------------- |
+| Ver mis documentos    | Usuario autenticado                |
+| Firmar documento      | Tener sesión activa + Token válido |
+| Ver gestión de firmas | `manage_documents`                 |
+| Crear solicitud       | `manage_documents` + Role HR/Admin |
 
 ---
 

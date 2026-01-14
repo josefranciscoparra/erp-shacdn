@@ -28,17 +28,20 @@
 3. Completa el **Wizard de 3 pasos**:
 
 **Paso 1: Información Básica**
+
 - Nombre, apellidos, NIF
 - Email, teléfono, fecha de nacimiento
 - Dirección, IBAN, contacto de emergencia
 
 **Paso 2: Información Contractual**
+
 - Tipo de contrato (INDEFINIDO, TEMPORAL, PRÁCTICAS)
 - Fecha de inicio/fin
 - Salario, puesto, departamento
 - Centro de coste, manager, equipo
 
 **Paso 3: Horarios de Trabajo**
+
 - Seleccionar plantilla de horario
 - Fecha de validez
 
@@ -97,6 +100,7 @@
 **Pestañas**: Activos, Inactivos, Todos, Recientes
 
 **Columnas**:
+
 - Nombre completo
 - Email
 - Número de empleado (ej: TMNW00001)
@@ -143,6 +147,7 @@ R: Sí. El contrato activo es el más reciente. Ver historial en perfil del empl
 ## Checklist de soporte
 
 **Pre-importación:**
+
 - [ ] Plantilla descargada desde la interfaz
 - [ ] Archivo XLSX o CSV (máx 500 filas)
 - [ ] Campos obligatorios completos
@@ -150,11 +155,13 @@ R: Sí. El contrato activo es el más reciente. Ver historial en perfil del empl
 - [ ] Managers existen como empleados
 
 **Validación:**
+
 - [ ] Filas READY en verde
 - [ ] Errores revisados o omitidos
 - [ ] Conteos coinciden
 
 **Troubleshooting:**
+
 - Sin contrato → Verificar paso 2 del wizard
 - No puede fichar → Verificar horario asignado
 - No aparece en lista → Verificar filtros/pestañas

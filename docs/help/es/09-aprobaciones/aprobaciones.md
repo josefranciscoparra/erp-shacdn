@@ -30,6 +30,7 @@ El **Hub de Aprobaciones** es el centro neurálgico de TimeNow para gestionar to
 4. Estadísticas de resumen: Pendientes, Aprobadas, Rechazadas
 
 **Información visible en cada solicitud:**
+
 - Nombre y foto del empleado
 - Tipo de solicitud (PTO, Gasto, Corrección de fichaje)
 - Fecha relevante o rango de fechas
@@ -40,6 +41,7 @@ El **Hub de Aprobaciones** es el centro neurálgico de TimeNow para gestionar to
 ### 2) Aprobar/rechazar PTO
 
 **Para aprobar:**
+
 1. Haz clic en la solicitud de PTO
 2. Revisa: Fechas, Días laborales, Tipo de ausencia, Razón
 3. Haz clic en "Aprobar"
@@ -47,6 +49,7 @@ El **Hub de Aprobaciones** es el centro neurálgico de TimeNow para gestionar to
 5. Se notifica al empleado automáticamente
 
 **Para rechazar:**
+
 1. Abre la solicitud de PTO
 2. Haz clic en "Rechazar"
 3. Escribe el motivo (obligatorio)
@@ -55,11 +58,13 @@ El **Hub de Aprobaciones** es el centro neurálgico de TimeNow para gestionar to
 ### 3) Aprobar/rechazar gastos
 
 **Para aprobar:**
+
 1. Navega a la sección de Gastos
 2. Revisa detalles: Importe, Categoría, Documento adjunto
 3. Haz clic en "Aprobar"
 
 **Flujo de aprobaciones en cascada:**
+
 - Los gastos pueden requerir múltiples aprobadores
 - Cada nivel debe aprobar antes del siguiente
 
@@ -77,12 +82,15 @@ El **Hub de Aprobaciones** es el centro neurálgico de TimeNow para gestionar to
 ### Dashboard de aprobaciones
 
 **Tarjetas de Estadísticas:**
+
 - Pendientes, Aprobadas mes, Rechazadas
 
 **Tabs de estado:**
+
 - Activas, Resueltas, Descartadas
 
 **Tabla de solicitudes:**
+
 - Empleado, Tipo, Detalle, Acciones
 
 ---
@@ -106,15 +114,18 @@ R: Sí, en el Hub hay pestaña "Historial" con todas tus decisiones.
 ## Checklist de soporte
 
 **Acceso y permisos:**
+
 - [ ] Usuario es aprobador configurado
 - [ ] Tiene permiso APPROVE_PTO_REQUESTS o similar
 - [ ] Está activo en la organización
 
 **Visualización de solicitudes:**
+
 - [ ] Ve solicitudes pendientes
 - [ ] Puede filtrar por tipo y estado
 
 **Flujo de PTO:**
+
 - [ ] Puede aprobar/rechazar solicitudes
 - [ ] Balance se actualiza tras aprobar
 

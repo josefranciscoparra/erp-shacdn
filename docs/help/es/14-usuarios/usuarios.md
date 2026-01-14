@@ -5,6 +5,7 @@
 **Usuarios y Roles** es la sección de administración donde los administradores de TimeNow gestionan las cuentas de acceso al sistema y asignan permisos mediante roles.
 
 Cada usuario en el sistema tiene un **rol** que define qué puede hacer:
+
 - **SUPER_ADMIN**: Administrador supremo con acceso total al sistema (multi-organización)
 - **ORG_ADMIN**: Administrador de una organización específica
 - **HR_ADMIN**: Responsable de RRHH con acceso a datos sensibles
@@ -13,6 +14,7 @@ Cada usuario en el sistema tiene un **rol** que define qué puede hacer:
 - **EMPLOYEE**: Empleado básico con acceso limitado
 
 Esta sección permite:
+
 - Crear nuevos usuarios administrativos
 - Asignar y cambiar roles
 - Resetear contraseñas
@@ -40,20 +42,21 @@ Esta sección permite:
 
 **Formulario de creación:**
 
-| Campo | Obligatorio | Descripción |
-|-------|-----------|-------------|
-| **Rol administrativo** | Sí | Selecciona entre ORG_ADMIN, HR_ADMIN o HR_ASSISTANT |
-| **Email** | Sí | Email único para iniciar sesión |
-| **¿Es empleado?** | No | Si marcas esta opción, se crea además un perfil de RRHH |
-| **Nombre completo** | Sí (si no es empleado) | Nombre simple para usuarios administrativos |
-| **Nombre** | Sí (si es empleado) | Primer nombre del empleado |
-| **Primer apellido** | Sí (si es empleado) | Primer apellido del empleado |
-| **Segundo apellido** | No | Segundo apellido (opcional) |
-| **NIF/NIE** | Sí (si es empleado) | Identificación fiscal o residencia |
-| **Teléfono** | No | Teléfono de contacto |
-| **Móvil** | No | Teléfono móvil |
+| Campo                  | Obligatorio            | Descripción                                             |
+| ---------------------- | ---------------------- | ------------------------------------------------------- |
+| **Rol administrativo** | Sí                     | Selecciona entre ORG_ADMIN, HR_ADMIN o HR_ASSISTANT     |
+| **Email**              | Sí                     | Email único para iniciar sesión                         |
+| **¿Es empleado?**      | No                     | Si marcas esta opción, se crea además un perfil de RRHH |
+| **Nombre completo**    | Sí (si no es empleado) | Nombre simple para usuarios administrativos             |
+| **Nombre**             | Sí (si es empleado)    | Primer nombre del empleado                              |
+| **Primer apellido**    | Sí (si es empleado)    | Primer apellido del empleado                            |
+| **Segundo apellido**   | No                     | Segundo apellido (opcional)                             |
+| **NIF/NIE**            | Sí (si es empleado)    | Identificación fiscal o residencia                      |
+| **Teléfono**           | No                     | Teléfono de contacto                                    |
+| **Móvil**              | No                     | Teléfono móvil                                          |
 
 **Al crear:**
+
 - El sistema genera automáticamente una **contraseña temporal** aleatoria
 - La contraseña expira en **7 días**
 - Se muestra en un panel seguro para que la compartas con el usuario
@@ -64,16 +67,19 @@ Esta sección permite:
 Los roles pueden asignarse de dos formas:
 
 #### A) Al crear el usuario
+
 - En el formulario de creación, selecciona el rol en el dropdown "Rol administrativo"
 - Solo podrás crear ciertos roles según tu propio rol
 
 #### B) Cambiar rol de un usuario existente
+
 1. En la tabla, abre el menú de acciones (⋯) del usuario
 2. Selecciona **"Cambiar rol"**
 3. Se abrirá un diálogo mostrando el rol actual y el nuevo rol
 4. Haz clic en **"Cambiar Rol"**
 
 **Permisos para cambiar roles:**
+
 - **SUPER_ADMIN**: Puede asignar cualquier rol
 - **ORG_ADMIN**: Puede asignar ORG_ADMIN, HR_ADMIN, HR_ASSISTANT, MANAGER, EMPLOYEE
 - **HR_ADMIN**: Puede asignar HR_ADMIN, HR_ASSISTANT, MANAGER, EMPLOYEE
@@ -88,12 +94,14 @@ Los roles pueden asignarse de dos formas:
 4. Confirma la acción
 
 **Qué sucede al desactivar:**
+
 - Se cierran todas las sesiones activas del usuario
 - El usuario NO puede iniciar sesión en el sistema
 - Sus datos se conservan (no se elimina)
 - Puede reactivarse en cualquier momento
 
 **Para reactivar:**
+
 1. Ve a la pestaña **"Inactivos"** en la tabla
 2. Abre el menú de acciones del usuario
 3. Selecciona **"Activar usuario"**
@@ -104,16 +112,17 @@ Los roles pueden asignarse de dos formas:
 
 La tabla de usuarios muestra:
 
-| Columna | Descripción |
-|---------|-------------|
-| **Nombre** | Nombre del usuario. Muestra un icono de llave si debe cambiar contraseña |
-| **Email** | Email del usuario (usado para iniciar sesión) |
-| **Rol** | Rol asignado con color distintivo |
-| **Estado** | Activo (verde) o Inactivo (rojo) |
-| **Orgs** | Número de organizaciones a las que tiene acceso |
-| **Acciones** | Menú con opciones para editar, cambiar rol, resetear contraseña |
+| Columna      | Descripción                                                              |
+| ------------ | ------------------------------------------------------------------------ |
+| **Nombre**   | Nombre del usuario. Muestra un icono de llave si debe cambiar contraseña |
+| **Email**    | Email del usuario (usado para iniciar sesión)                            |
+| **Rol**      | Rol asignado con color distintivo                                        |
+| **Estado**   | Activo (verde) o Inactivo (rojo)                                         |
+| **Orgs**     | Número de organizaciones a las que tiene acceso                          |
+| **Acciones** | Menú con opciones para editar, cambiar rol, resetear contraseña          |
 
 **Pestañas disponibles:**
+
 - **Activos**: Usuarios con acceso activo
 - **Inactivos**: Usuarios desactivados
 - **Con contraseña temporal**: Usuarios que deben cambiar su contraseña
@@ -124,16 +133,19 @@ La tabla de usuarios muestra:
 Al seleccionar **"Ver detalles"** se abre un panel con:
 
 **Información Básica:**
+
 - Nombre completo
 - Email
 - Rol asignado
 
 **Estado de la Cuenta:**
+
 - Estado (Activo/Inactivo)
 - Si debe cambiar contraseña
 - Número de contraseñas temporales activas
 
 **Contraseña Temporal Activa (si existe):**
+
 - La contraseña en formato seguro (oculta por defecto)
 - Fecha de expiración
 - Razón del reseteo
@@ -142,6 +154,7 @@ Al seleccionar **"Ver detalles"** se abre un panel con:
 ### Diálogo: Cambiar rol
 
 Muestra:
+
 - **Rol actual**: Con badge distintivo y icono
 - **Nuevo rol**: Dropdown para seleccionar nuevo rol
 - **Advertencia**: "El cambio de rol afectará inmediatamente los permisos y accesos"
@@ -149,10 +162,12 @@ Muestra:
 ### Diálogo: Resetear contraseña
 
 **Campos:**
+
 - **Usuario**: Muestra nombre y email (solo lectura)
 - **Razón (opcional)**: Campo de texto explicando por qué se resetea
 
 **Resultado:**
+
 - Muestra la contraseña temporal generada
 - Botón para copiar al portapapeles
 - Fecha de expiración (7 días)
@@ -181,6 +196,7 @@ R: No automáticamente. El administrador debe contactar al usuario y compartir l
 
 **P: ¿Qué roles puedo crear según mi rol actual?**
 R:
+
 - SUPER_ADMIN → ORG_ADMIN, HR_ADMIN, HR_ASSISTANT
 - ORG_ADMIN → HR_ADMIN, HR_ASSISTANT
 - HR_ADMIN → HR_ADMIN, HR_ASSISTANT
@@ -190,6 +206,7 @@ R:
 ## Checklist de soporte
 
 ### Creación de usuarios
+
 - [ ] Se puede crear un usuario con rol administrativo
 - [ ] Se genera una contraseña temporal automáticamente
 - [ ] El diálogo muestra la contraseña generada
@@ -197,16 +214,19 @@ R:
 - [ ] El usuario no puede crear roles superiores a su nivel
 
 ### Gestión de roles
+
 - [ ] Se puede cambiar el rol de un usuario existente
 - [ ] El cambio es inmediato
 - [ ] Solo se muestran roles permitidos según el administrador
 
 ### Activación/Desactivación
+
 - [ ] Se puede desactivar un usuario activo
 - [ ] Se pueden reactivar usuarios inactivos
 - [ ] Los usuarios desactivados aparecen en la pestaña "Inactivos"
 
 ### Reseteo de contraseña
+
 - [ ] Se genera una nueva contraseña temporal
 - [ ] Se puede copiar al portapapeles
 - [ ] Muestra la fecha de expiración

@@ -2,8 +2,9 @@
 
 import * as React from "react";
 
-import { Loader2, Plus } from "lucide-react";
+import { AlertCircle, FolderPlus, Loader2 } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,50 +71,68 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: CreateGroup
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Nuevo grupo</DialogTitle>
-          <DialogDescription>Crea un grupo para administrar varias organizaciones en bloque.</DialogDescription>
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b bg-slate-50/50 px-6 py-4 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+              <FolderPlus className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <DialogTitle>Nuevo Grupo</DialogTitle>
+              <DialogDescription className="mt-0.5">
+                Crea un grupo para administrar varias organizaciones.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {error && <p className="text-destructive text-sm">{error}</p>}
+        <div className="space-y-4 p-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="group-name">Nombre *</Label>
+            <Label htmlFor="group-name">
+              Nombre del Grupo <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="group-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Ej: Grupo Norte"
+              placeholder="Ej: Grupo Norte, Holding Principal..."
+              className="h-10"
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="group-description">Descripción</Label>
             <Textarea
               id="group-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Breve contexto del grupo"
-              rows={3}
+              placeholder="Breve contexto sobre el propósito de este grupo..."
+              rows={4}
+              className="resize-none"
             />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+        <DialogFooter className="border-t bg-slate-50/50 px-6 py-4 dark:bg-slate-900/50">
+          <Button variant="ghost" onClick={handleClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="min-w-[120px]">
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creando...
               </>
             ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Crear grupo
-              </>
+              "Crear Grupo"
             )}
           </Button>
         </DialogFooter>

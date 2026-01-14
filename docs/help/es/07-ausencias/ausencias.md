@@ -5,6 +5,7 @@
 El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar tus permisos, días de descanso y ausencias de forma ordenada y transparente. Puedes solicitar vacaciones, bajas médicas, permisos por asuntos personales y otras ausencias. El sistema calcula automáticamente los días disponibles, valida tu saldo y genera un historial completo de todas tus solicitudes.
 
 **Beneficios:**
+
 - Visualiza tu saldo de vacaciones y otros permisos en tiempo real
 - Solicita ausencias sin necesidad de formularios en papel
 - Recibe confirmación inmediata del estado de tus solicitudes
@@ -61,6 +62,7 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
    - Se notificará automáticamente a tu responsable o área de RRHH
 
 **Validaciones del sistema:**
+
 - La fecha de inicio no puede ser anterior a hoy (excepto en casos especiales)
 - Las fechas deben ser válidas (inicio ≤ fin)
 - No puedes solicitar en fechas donde ya hay una ausencia aprobada
@@ -76,14 +78,17 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
 **Información disponible:**
 
 **Tarjetas de estado:**
+
 1. **Días disponibles**: Cuántos días tienes para usar ahora
 2. **Días usados**: Cuántos días ya has disfrutado este año
 3. **Días pendientes**: Cuántos días están en solicitudes que aún no se aprueban
 
 **Próximas vacaciones:**
+
 - Si tienes vacaciones aprobadas para el futuro, verás la fecha de tu próxima ausencia
 
 **Solicitudes pendientes:**
+
 - Número de solicitudes que están esperando aprobación
 - Enlace directo a las solicitudes pendientes
 
@@ -92,10 +97,12 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
 **Ubicación:** Panel → Mi perfil → Ausencias y Vacaciones → Tu solicitud
 
 **Requisitos:**
+
 - Solo puedes cancelar solicitudes en estado **PENDIENTE**
 - Las solicitudes aprobadas requieren contacto con RRHH para cancelación
 
 **Pasos:**
+
 1. Localiza la solicitud en tu lista
 2. Haz clic en los tres puntos (⋯) o en la solicitud
 3. Selecciona "Cancelar"
@@ -107,24 +114,28 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
 ### 4) Tipos de ausencia
 
 **Vacaciones (Vacaciones anuales)**
+
 - Requiere aprobación: Sí
 - Afecta el balance: Sí
 - Anticipación requerida: 15 días
 - Ausencias parciales: No permitidas
 
 **Asuntos Propios (Personal Matters)**
+
 - Requiere aprobación: Sí
 - Afecta el balance: Sí (si está configurado)
 - Anticipación requerida: 3 días
 - Ausencias parciales: No permitidas
 
 **Baja Médica (Sick Leave)**
+
 - Requiere aprobación: No (se registra automáticamente)
 - Afecta el balance: No
 - Anticipación requerida: 0 días
 - Documentación: Recomendable a partir de 3 días
 
 **Permiso por Horas (Hourly Leave)**
+
 - Requiere aprobación: Sí
 - Afecta el balance: Sí (si está configurado)
 - Anticipación requerida: 1 día
@@ -137,11 +148,13 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
 ### Pantalla principal: Mis ausencias
 
 **Tarjetas de resumen** (parte superior)
+
 - Estado de solicitudes: Pendientes, Aprobadas, Rechazadas
 - Próximas vacaciones: Fecha y tipo
 - Balance actual: Días disponibles
 
 **Tabla de solicitudes** (parte inferior)
+
 - Columnas: Tipo, Fecha Inicio, Fecha Fin, Duración, Estado, Documentos
 - Acciones: Ver detalles, Cancelar (si aplica), Descargar documentos
 - Filtros: Por estado (Todas, Pendientes, Aprobadas, Rechazadas, Canceladas)
@@ -149,13 +162,12 @@ El sistema de **Ausencias y Vacaciones (PTO - Paid Time Off)** permite gestionar
 ### Diálogo: Nueva Solicitud
 
 **Campos obligatorios:**
+
 1. **Tipo de ausencia** (select desplegable)
 2. **Fecha de inicio** (date picker)
 3. **Fecha de fin** (date picker)
 
-**Campos opcionales:**
-4. **Motivo** (text area)
-5. **Documentos** (file upload zone)
+**Campos opcionales:** 4. **Motivo** (text area) 5. **Documentos** (file upload zone)
 
 ---
 
@@ -181,6 +193,7 @@ R: No directamente. Tienes dos opciones: cancelar la solicitud pendiente y crear
 ## Checklist de soporte
 
 **Antes de solicitar:**
+
 - [ ] Mi perfil tiene un contrato activo
 - [ ] Tengo suficientes días disponibles
 - [ ] Las fechas son válidas (no en el pasado)
@@ -188,6 +201,7 @@ R: No directamente. Tienes dos opciones: cancelar la solicitud pendiente y crear
 - [ ] La solicitud cumple requisitos de anticipación
 
 **Si no puedo crear una solicitud:**
+
 - [ ] Error "No tienes contrato activo": Contacta RRHH
 - [ ] Error "No hay suficientes días": Verifica tu balance
 - [ ] Error "Fechas inválidas": Comprueba que inicio ≤ fin

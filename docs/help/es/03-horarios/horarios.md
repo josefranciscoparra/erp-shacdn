@@ -229,6 +229,7 @@ R: Usa tipo ROTATION y define el patrón de rotación.
 ## Checklist de soporte
 
 **Para crear plantilla:**
+
 - [ ] ¿Nombre claro y descriptivo?
 - [ ] ¿Tipo correcto seleccionado?
 - [ ] ¿Al menos un período REGULAR creado?
@@ -236,12 +237,14 @@ R: Usa tipo ROTATION y define el patrón de rotación.
 - [ ] ¿Franjas sin solapamientos?
 
 **Para asignar empleado:**
+
 - [ ] ¿Plantilla está activa?
 - [ ] ¿Empleado está activo?
 - [ ] ¿Fecha inicio es válida?
 - [ ] ¿No tiene otra asignación activa?
 
 **Troubleshooting:**
+
 - [ ] Empleado no puede fichar → ¿Tiene plantilla asignada?
 - [ ] Horario incorrecto → ¿Excepciones o período activo?
 - [ ] Solapamiento → Revisar editor visual

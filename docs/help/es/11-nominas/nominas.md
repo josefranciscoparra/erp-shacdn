@@ -10,10 +10,10 @@ El módulo de **Nóminas** es un sistema completo de gestión de documentos de n
 
 ## Quién puede usarlo
 
-| Rol | Acceso | Acciones |
-|-----|--------|---------|
-| Empleado | `/dashboard/me/payslips` | Ver y descargar sus propias nóminas |
-| Administrador/RRHH | `/dashboard/payslips` | Subir, revisar, asignar, publicar y revocar |
+| Rol                | Acceso                   | Acciones                                    |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| Empleado           | `/dashboard/me/payslips` | Ver y descargar sus propias nóminas         |
+| Administrador/RRHH | `/dashboard/payslips`    | Subir, revisar, asignar, publicar y revocar |
 
 ---
 
@@ -28,6 +28,7 @@ El módulo de **Nóminas** es un sistema completo de gestión de documentos de n
 3. Tabla con: Período, Fecha de subida, Formato, Botón Descargar
 
 **Estados:**
+
 - PUBLISHED: Visible para el empleado
 - REVOKED: No visible (fue revocada)
 
@@ -40,6 +41,7 @@ El módulo de **Nóminas** es un sistema completo de gestión de documentos de n
 ### 3) Subir nóminas (admin)
 
 **Subida individual:**
+
 1. Click en "Subir nómina individual"
 2. Paso 1: Seleccionar empleado
 3. Paso 2: Datos (Año, Mes, Etiqueta)
@@ -47,6 +49,7 @@ El módulo de **Nóminas** es un sistema completo de gestión de documentos de n
 5. Paso 4: Confirmar y publicar
 
 **Subida masiva:**
+
 1. Ve a `/dashboard/payslips/upload`
 2. Sube ZIP con PDFs o PDF multipágina
 3. OCR automático detecta empleados
@@ -102,11 +105,13 @@ R: Sí, los items en estado READY pueden publicarse cuando quieras.
 ## Checklist de soporte
 
 **Para empleados:**
+
 - [ ] Empleado tiene nóminas PUBLISHED
 - [ ] Puede descargar correctamente
 - [ ] Recibe notificación al publicar
 
 **Para administradores:**
+
 - [ ] Puede subir individual y masivo
 - [ ] OCR funciona correctamente
 - [ ] Puede asignar empleados manualmente

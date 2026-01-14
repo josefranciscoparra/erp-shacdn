@@ -1,7 +1,35 @@
 "use client";
 
-import { Ban, Building2, Loader2, MoreHorizontal, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import * as React from "react";
 
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  Ban,
+  Building2,
+  HardDrive,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Trash2,
+  Users,
+} from "lucide-react";
+
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +37,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { OrganizationItem } from "./types";
@@ -32,143 +63,6 @@ function getInitials(name: string): string {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-}
-
-interface OrganizationRowProps {
-  organization: OrganizationItem;
-  onEdit: (organization: OrganizationItem) => void;
-  onSetup: (organization: OrganizationItem) => void;
-  onDeactivate: (organization: OrganizationItem) => void;
-  onReactivate: (organization: OrganizationItem) => void;
-  onPurge: (organization: OrganizationItem) => void;
-}
-
-function OrganizationRow({ organization, onEdit, onSetup, onDeactivate, onReactivate, onPurge }: OrganizationRowProps) {
-  const limitBytes = Math.max(organization.storageLimitBytes, 1);
-  const usagePercent = Math.min((organization.storageUsedBytes / limitBytes) * 100, 100);
-  const isDangerUsage = usagePercent > 85;
-
-  return (
-    <TableRow className="group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50">
-      <TableCell className="w-[300px] py-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-10 w-10 border shadow-sm">
-            <AvatarImage src={`/api/organizations/${organization.id}/logo`} alt={organization.name} />
-            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 font-semibold text-white">
-              {getInitials(organization.name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{organization.name}</span>
-            <span className="flex items-center gap-1.5 font-mono text-xs text-slate-500">
-              <span className="max-w-[120px] truncate">{organization.id}</span>
-              {organization.active ? (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset">
-                  Activa
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/10 ring-inset">
-                  Inactiva
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
-      </TableCell>
-
-      <TableCell className="py-4 align-top">
-        <div className="flex flex-col gap-1">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{organization.vat ?? "—"}</div>
-          <div className="flex flex-wrap gap-1">
-            {organization.allowedEmailDomains.length > 0 ? (
-              organization.allowedEmailDomains.slice(0, 2).map((domain) => (
-                <Badge key={domain} variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                  @{domain}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-xs text-slate-400 italic">Sin dominio</span>
-            )}
-            {organization.allowedEmailDomains.length > 2 && (
-              <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                +{organization.allowedEmailDomains.length - 2}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </TableCell>
-
-      <TableCell className="py-4">
-        <div className="flex flex-col gap-2">
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Almacenamiento</span>
-            <span className={cn("font-medium", isDangerUsage ? "text-red-600" : "text-slate-700 dark:text-slate-300")}>
-              {Math.round(usagePercent)}%
-            </span>
-          </div>
-          <Progress value={usagePercent} className="h-1.5" indicatorClassName={cn(isDangerUsage && "bg-red-500")} />
-          <div className="text-right text-[10px] text-slate-400">
-            {formatBytes(organization.storageUsedBytes)} / {formatBytes(organization.storageLimitBytes)}
-          </div>
-        </div>
-      </TableCell>
-
-      <TableCell className="py-4">
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-              {organization._count?.users ?? 0}
-            </span>
-            <span className="text-[10px] font-medium tracking-wider text-slate-400 uppercase">Usuarios</span>
-          </div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-              {organization._count?.employees ?? 0}
-            </span>
-            <span className="text-[10px] font-medium tracking-wider text-slate-400 uppercase">Empleados</span>
-          </div>
-        </div>
-      </TableCell>
-
-      <TableCell className="py-4 text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-700">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[160px]">
-            <DropdownMenuItem onClick={() => onEdit(organization)}>
-              <Pencil className="mr-2 h-3.5 w-3.5" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSetup(organization)}>
-              <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-              Checklist
-            </DropdownMenuItem>
-            {organization.active ? (
-              <DropdownMenuItem onClick={() => onDeactivate(organization)}>
-                <Ban className="mr-2 h-3.5 w-3.5" />
-                Dar de baja
-              </DropdownMenuItem>
-            ) : (
-              <>
-                <DropdownMenuItem onClick={() => onReactivate(organization)}>
-                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                  Reactivar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onPurge(organization)} className="text-destructive">
-                  <Trash2 className="mr-2 h-3.5 w-3.5" />
-                  Limpiar (hard)
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
-  );
 }
 
 interface OrganizationsTableProps {
@@ -194,6 +88,215 @@ export function OrganizationsTable({
   onReactivate,
   onPurge,
 }: OrganizationsTableProps) {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+
+  const columns = React.useMemo<ColumnDef<OrganizationItem>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Organización",
+        cell: ({ row }) => {
+          const organization = row.original;
+          return (
+            <div className="flex items-center gap-3 py-1">
+              <Avatar className="h-9 w-9 border shadow-sm">
+                <AvatarImage src={`/api/organizations/${organization.id}/logo`} alt={organization.name} />
+                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-semibold text-white">
+                  {getInitials(organization.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-medium text-slate-900 dark:text-slate-100">{organization.name}</span>
+                  {organization.active ? (
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+                  ) : (
+                    <Badge variant="outline" className="h-4 px-1 text-[10px] text-slate-500">
+                      Inactiva
+                    </Badge>
+                  )}
+                </div>
+                <span className="truncate font-mono text-[10px] text-slate-400" title={organization.id}>
+                  {organization.id}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "legal",
+        header: "Legal & Dominios",
+        cell: ({ row }) => {
+          const organization = row.original;
+          return (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                {organization.vat ?? <span className="text-slate-400 italic">Sin NIF</span>}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {organization.allowedEmailDomains.length > 0 ? (
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal text-slate-600">
+                      @{organization.allowedEmailDomains[0]}
+                    </Badge>
+                    {organization.allowedEmailDomains.length > 1 && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="h-4 cursor-help px-1 text-[10px] text-slate-500">
+                              +{organization.allowedEmailDomains.length - 1}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs font-medium">Dominios permitidos:</p>
+                            <ul className="mt-1 list-inside list-disc text-xs text-slate-500">
+                              {organization.allowedEmailDomains.map((d) => (
+                                <li key={d}>{d}</li>
+                              ))}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-400">Cualquier dominio</span>
+                )}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "storageUsedBytes",
+        header: "Almacenamiento",
+        cell: ({ row }) => {
+          const organization = row.original;
+          const limitBytes = Math.max(organization.storageLimitBytes, 1);
+          const usagePercent = Math.min((organization.storageUsedBytes / limitBytes) * 100, 100);
+          const isDangerUsage = usagePercent > 85;
+
+          return (
+            <div className="flex max-w-[140px] flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="flex items-center gap-1 text-slate-500">
+                  <HardDrive className="h-3 w-3" />
+                  {Math.round(usagePercent)}%
+                </span>
+                <span className="text-slate-400">{formatBytes(organization.storageUsedBytes)}</span>
+              </div>
+              <Progress value={usagePercent} className="h-1" indicatorClassName={cn(isDangerUsage && "bg-red-500")} />
+            </div>
+          );
+        },
+      },
+      {
+        id: "metrics",
+        header: "Métricas",
+        cell: ({ row }) => {
+          const organization = row.original;
+          return (
+            <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+              <div className="flex items-center gap-1.5" title="Usuarios totales">
+                <Users className="h-3.5 w-3.5" />
+                <span>{organization._count?.users ?? 0}</span>
+              </div>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1.5" title="Empleados activos">
+                <span className="font-medium">Emp:</span>
+                <span>{organization._count?.employees ?? 0}</span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const organization = row.original;
+          return (
+            <div className="text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-700">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[180px]">
+                  <DropdownMenuItem onClick={() => onEdit(organization)}>
+                    <Pencil className="mr-2 h-3.5 w-3.5 text-slate-500" />
+                    Editar organización
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSetup(organization)}>
+                    <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                    Asistente de inicio
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {organization.active ? (
+                    <DropdownMenuItem
+                      onClick={() => onDeactivate(organization)}
+                      className="text-amber-600 focus:text-amber-700"
+                    >
+                      <Ban className="mr-2 h-3.5 w-3.5" />
+                      Desactivar acceso
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => onReactivate(organization)}
+                        className="text-emerald-600 focus:text-emerald-700"
+                      >
+                        <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                        Reactivar acceso
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onPurge(organization)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Eliminar definitivamente
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+      },
+    ],
+    [onEdit, onSetup, onDeactivate, onReactivate, onPurge],
+  );
+
+  const table = useReactTable({
+    data: organizations,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      globalFilter,
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-3 py-24 text-slate-500">
@@ -237,31 +340,64 @@ export function OrganizationsTable({
   }
 
   return (
-    <div className="relative w-full overflow-auto bg-white dark:bg-slate-950">
-      <Table>
-        <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
-          <TableRow className="border-b border-slate-100 hover:bg-transparent dark:border-slate-800">
-            <TableHead className="h-12 w-[300px] font-medium text-slate-500">Organización</TableHead>
-            <TableHead className="h-12 font-medium text-slate-500">Detalles Legales</TableHead>
-            <TableHead className="h-12 w-[200px] font-medium text-slate-500">Recursos</TableHead>
-            <TableHead className="h-12 font-medium text-slate-500">Métricas</TableHead>
-            <TableHead className="h-12 w-[50px] text-right"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
-          {organizations.map((organization) => (
-            <OrganizationRow
-              key={organization.id}
-              organization={organization}
-              onEdit={onEdit}
-              onSetup={onSetup}
-              onDeactivate={onDeactivate}
-              onReactivate={onReactivate}
-              onPurge={onPurge}
-            />
-          ))}
-        </TableBody>
-      </Table>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+          <Input
+            placeholder="Buscar organización..."
+            value={globalFilter}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <DataTableViewOptions table={table} />
+      </div>
+
+      <div className="relative w-full overflow-hidden rounded-md border bg-white shadow-sm dark:bg-slate-950">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
+                  className="border-b border-slate-100 hover:bg-transparent dark:border-slate-800"
+                >
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="h-10 text-xs font-medium tracking-wider text-slate-500 uppercase"
+                    >
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50">
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No se encontraron resultados.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <DataTablePagination table={table} />
     </div>
   );
 }

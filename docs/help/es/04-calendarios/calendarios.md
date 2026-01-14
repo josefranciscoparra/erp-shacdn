@@ -108,16 +108,19 @@ Los calendarios se asignan **automáticamente** según el centro de coste del em
 ## Políticas y reglas
 
 **Tipos de calendario:**
+
 - **Nacional**: Aplica a toda la organización
 - **Local**: Solo para un centro de coste específico
 - **Corporativo**: Eventos de empresa
 
 **Integración con fichajes:**
+
 - Los días festivos se marcan como NO laborables
 - Los empleados no pueden fichar en festivos (salvo configuración especial)
 - Las horas esperadas excluyen festivos
 
 **Prioridad de aplicación:**
+
 - Calendarios nacionales + locales del centro del empleado
 
 ---
@@ -149,17 +152,20 @@ R: Para España sí, con filtro por región. Otros países principalmente nacion
 ## Checklist de soporte
 
 **Al crear calendario:**
+
 - [ ] ¿Nombre descriptivo con año?
 - [ ] ¿Tipo correcto seleccionado?
 - [ ] ¿Centro asignado si es LOCAL?
 - [ ] ¿Estado activo?
 
 **Al añadir eventos:**
+
 - [ ] ¿Fecha correcta?
 - [ ] ¿Tipo de evento correcto?
 - [ ] ¿Recurrente solo si se repite cada año?
 
 **Troubleshooting:**
+
 - Empleado no ve festivos → Verificar centro de coste en contrato
 - No puedo crear → Verificar permisos de administrador
 - Festivos duplicados → Revisar antes de importar
