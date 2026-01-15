@@ -354,7 +354,7 @@ export async function acceptInvite(token: string, newPassword: string): Promise<
  * Reenvía el email de invitación a un usuario.
  * Crea un nuevo token y envía el email.
  */
-export async function resendInviteEmail(userId: string): Promise<ActionResult> {
+export async function resendInviteEmail(userId: string): Promise<ActionResult<{ queued: boolean }>> {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -423,7 +423,7 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult> {
       };
     }
 
-    return { success: true };
+    return { success: true, data: { queued: emailResult.queued ?? false } };
   } catch (error) {
     console.error("[resendInviteEmail] Error:", error);
     return {

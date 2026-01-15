@@ -41,6 +41,7 @@ interface TimeSlot {
   slotType: "WORK" | "BREAK" | "ON_CALL" | "OTHER";
   presenceType: "MANDATORY" | "FLEXIBLE" | "REMOTE_ALLOWED";
   description: string | null;
+  countsAsWork?: boolean;
 }
 
 interface WorkDayPattern {
@@ -119,7 +120,7 @@ function minutesToTime(minutes: number): string {
 function calculateDayWorkHours(pattern: WorkDayPattern): number {
   if (!pattern.isWorkingDay) return 0;
   return pattern.timeSlots
-    .filter((slot) => slot.slotType === "WORK")
+    .filter((slot) => (slot.slotType === "BREAK" ? slot.countsAsWork === true : slot.countsAsWork !== false))
     .reduce((sum, slot) => sum + (slot.endTimeMinutes - slot.startTimeMinutes) / 60, 0);
 }
 
@@ -686,7 +687,12 @@ function PeriodCard({
                         <td className="p-3 font-mono text-sm">
                           {breakSlots.length > 0
                             ? breakSlots
-                                .map((b) => `${minutesToTime(b.startTimeMinutes)}-${minutesToTime(b.endTimeMinutes)}`)
+                                .map(
+                                  (b) =>
+                                    `${minutesToTime(b.startTimeMinutes)}-${minutesToTime(b.endTimeMinutes)}${
+                                      b.countsAsWork === true ? " (computa)" : ""
+                                    }`,
+                                )
                                 .join(", ")
                             : "Sin descanso"}
                         </td>

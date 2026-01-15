@@ -11,12 +11,16 @@ import {
   validateTransition,
   mapStatusToState,
   getTransitionError,
+  calculateWorkdayTotals,
+  extractPaidBreakSlots,
   type TimeEntryState,
   type TimeEntryAction,
 } from "@/services/time-tracking";
+import type { EffectiveSchedule } from "@/types/schedule";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
+import { resolvePaidBreakSlotIdsFromEntries } from "./shared/paid-breaks";
 import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 
 /**
@@ -129,72 +133,8 @@ async function processGeolocationData(orgId: string, latitude?: number, longitud
   };
 }
 
-// Helper para calcular minutos trabajados
-// IMPORTANTE: Solo calcula sesiones CERRADAS, no incluye tiempo en progreso
-function calculateWorkedMinutes(entries: any[]): { worked: number; break: number } {
-  let totalWorked = 0;
-  let totalBreak = 0;
-  let lastClockIn: Date | null = null;
-  let lastBreakStart: Date | null = null;
-
-  // Ordenar por timestamp
-  const sorted = entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-  for (const entry of sorted) {
-    switch (entry.entryType) {
-      case "CLOCK_IN":
-        lastClockIn = entry.timestamp;
-        break;
-
-      case "PROJECT_SWITCH":
-        if (lastClockIn) {
-          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
-          totalWorked += minutes;
-        }
-        lastClockIn = entry.timestamp;
-        break;
-
-      case "BREAK_START":
-        if (lastClockIn) {
-          // Calcular tiempo trabajado hasta la pausa
-          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
-          totalWorked += minutes;
-          lastBreakStart = entry.timestamp;
-          lastClockIn = null; // Cerrar sesión de trabajo
-        }
-        break;
-
-      case "BREAK_END":
-        if (lastBreakStart) {
-          // Calcular tiempo de pausa
-          const minutes = (entry.timestamp.getTime() - lastBreakStart.getTime()) / (1000 * 60);
-          totalBreak += minutes;
-          lastClockIn = entry.timestamp; // Continuar desde aquí
-          lastBreakStart = null;
-        }
-        break;
-
-      case "CLOCK_OUT":
-        if (lastClockIn) {
-          // Calcular tiempo trabajado hasta la salida
-          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
-          totalWorked += minutes;
-          lastClockIn = null;
-        }
-        if (lastBreakStart) {
-          // Si estaba en pausa, cerrar la pausa también
-          const minutes = (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
-          totalBreak += minutes;
-          lastBreakStart = null;
-        }
-        break;
-    }
-  }
-
-  return {
-    worked: totalWorked, // NO redondear, mantener decimales para segundos
-    break: totalBreak,
-  };
+async function getPaidBreakSlotIds(entries: Array<{ automaticBreakSlotId?: string | null }>) {
+  return resolvePaidBreakSlotIdsFromEntries(entries);
 }
 
 // ============================================================================
@@ -770,15 +710,23 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
     return null;
   }
 
-  const { worked: workedFromEntries, break: breakTime } = calculateWorkedMinutes(entries);
-
-  // Agregar minutos del cruce de medianoche
-  const worked = workedFromEntries + midnightCrossingMinutes;
-
-  const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
-  const lastExit = entries.reverse().find((e) => e.entryType === "CLOCK_OUT");
+  const entriesForCalculation = entries.map((entry) => ({
+    entryType: entry.entryType,
+    timestamp: entry.timestamp,
+    isAutomatic: entry.isAutomatic,
+    automaticBreakSlotId: entry.automaticBreakSlotId,
+  }));
+  if (lastEntryYesterday && lastEntryYesterday.entryType === "BREAK_START") {
+    entriesForCalculation.unshift({
+      entryType: "BREAK_START",
+      timestamp: dayStart,
+      isAutomatic: lastEntryYesterday.isAutomatic,
+      automaticBreakSlotId: lastEntryYesterday.automaticBreakSlotId,
+    });
+  }
 
   // Obtener horario efectivo del día usando el motor de cálculo V2.0
+  let effectiveSchedule: EffectiveSchedule | null = null;
   let expectedMinutes: number | null = null;
   let deviationMinutes: number | null = null;
   let scheduleSource: string | null = null;
@@ -786,26 +734,43 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let isFlexTotal = false;
 
   try {
-    const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
-    scheduleSource = effectiveSchedule.source ?? null;
-    scheduleIsWorkday = effectiveSchedule.isWorkingDay;
-    isFlexTotal = effectiveSchedule.scheduleMode === "FLEX_TOTAL";
+    const schedule = await getEffectiveSchedule(employeeId, dayStart);
+    effectiveSchedule = schedule;
+    scheduleSource = schedule.source ?? null;
+    scheduleIsWorkday = schedule.isWorkingDay;
+    isFlexTotal = schedule.scheduleMode === "FLEX_TOTAL";
 
     if (isFlexTotal) {
       expectedMinutes = null;
       deviationMinutes = null;
     } else {
-      expectedMinutes = effectiveSchedule.expectedMinutes;
-
-      // Calcular desviación: (trabajado - esperado)
-      // Positivo = trabajó más de lo esperado
-      // Negativo = trabajó menos de lo esperado
-      deviationMinutes = worked - expectedMinutes;
+      expectedMinutes = schedule.expectedMinutes;
     }
   } catch (error) {
     console.error("Error al obtener horario efectivo:", error);
     // Continuar sin expectedMinutes si falla (datos opcionales)
   }
+
+  const paidBreakSlotIds = await getPaidBreakSlotIds(entriesForCalculation);
+  const paidBreakSlots = extractPaidBreakSlots(effectiveSchedule);
+  const totals = calculateWorkdayTotals(entriesForCalculation, dayStart, {
+    paidBreakSlotIds,
+    paidBreakSlots,
+  });
+
+  // Agregar minutos del cruce de medianoche
+  const worked = totals.workedMinutes + midnightCrossingMinutes;
+  const breakTime = totals.breakMinutes;
+
+  if (!isFlexTotal && expectedMinutes !== null) {
+    // Calcular desviación: (trabajado - esperado)
+    // Positivo = trabajó más de lo esperado
+    // Negativo = trabajó menos de lo esperado
+    deviationMinutes = worked - expectedMinutes;
+  }
+
+  const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
+  const lastExit = entries.reverse().find((e) => e.entryType === "CLOCK_OUT");
 
   if (
     !isFlexTotal &&
@@ -2375,40 +2340,54 @@ export async function recalculateWorkdaySummary(date: Date) {
       );
     }
 
-    // 2. Calcular minutos trabajados
-    const { worked, break: breakTime } = calculateWorkedMinutes(entries);
-
-    console.log(`   ✅ Trabajado: ${worked.toFixed(2)} min (${(worked / 60).toFixed(2)} horas)`);
-    console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)} horas)`);
-
-    // 3. Obtener horario efectivo usando el motor de cálculo V2.0
+    // 2. Obtener horario efectivo usando el motor de cálculo V2.0
+    let effectiveSchedule: EffectiveSchedule | null = null;
     let expectedMinutes: number | null = null;
     let deviationMinutes: number | null = null;
     let scheduleIsWorkday: boolean | null = null;
     let isFlexTotal = false;
 
     try {
-      const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
-      scheduleIsWorkday = effectiveSchedule.isWorkingDay;
-      isFlexTotal = effectiveSchedule.scheduleMode === "FLEX_TOTAL";
+      const schedule = await getEffectiveSchedule(employeeId, dayStart);
+      effectiveSchedule = schedule;
+      scheduleIsWorkday = schedule.isWorkingDay;
+      isFlexTotal = schedule.scheduleMode === "FLEX_TOTAL";
       if (isFlexTotal) {
         expectedMinutes = null;
         deviationMinutes = null;
       } else {
-        expectedMinutes = effectiveSchedule.expectedMinutes;
-        deviationMinutes = worked - expectedMinutes;
-      }
-
-      if (expectedMinutes !== null) {
-        const deviationLabel =
-          deviationMinutes !== null && deviationMinutes !== undefined ? deviationMinutes.toFixed(2) : "0";
-        console.log(`   📅 Esperado: ${expectedMinutes.toFixed(2)} min (${(expectedMinutes / 60).toFixed(2)} horas)`);
-        console.log(
-          `   📊 Desviación: ${deviationMinutes && deviationMinutes > 0 ? "+" : ""}${deviationLabel} min (${((deviationMinutes ?? 0) / 60).toFixed(2)} horas)`,
-        );
+        expectedMinutes = schedule.expectedMinutes;
       }
     } catch {
       console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
+    }
+
+    const paidBreakSlotIds = await getPaidBreakSlotIds(entries);
+    const paidBreakSlots = extractPaidBreakSlots(effectiveSchedule);
+    const totals = calculateWorkdayTotals(entries, dayStart, {
+      paidBreakSlotIds,
+      paidBreakSlots,
+    });
+
+    const worked = totals.workedMinutes;
+    const breakTime = totals.breakMinutes;
+
+    console.log(`   ✅ Trabajado: ${worked.toFixed(2)} min (${(worked / 60).toFixed(2)} horas)`);
+    console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)} horas)`);
+    if (totals.paidBreakMinutes > 0) {
+      console.log(
+        `   ✅ Pausas computables: ${totals.paidBreakMinutes.toFixed(2)} min (${(totals.paidBreakMinutes / 60).toFixed(2)} horas)`,
+      );
+    }
+
+    if (!isFlexTotal && expectedMinutes !== null) {
+      deviationMinutes = worked - expectedMinutes;
+      const deviationLabel =
+        deviationMinutes !== null && deviationMinutes !== undefined ? deviationMinutes.toFixed(2) : "0";
+      console.log(`   📅 Esperado: ${expectedMinutes.toFixed(2)} min (${(expectedMinutes / 60).toFixed(2)} horas)`);
+      console.log(
+        `   📊 Desviación: ${deviationMinutes && deviationMinutes > 0 ? "+" : ""}${deviationLabel} min (${((deviationMinutes ?? 0) / 60).toFixed(2)} horas)`,
+      );
     }
 
     if (

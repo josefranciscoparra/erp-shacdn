@@ -58,6 +58,13 @@ const weekDays = [
   { value: 0, label: "Domingo", short: "Dom" },
 ];
 
+function shouldCountSlot(slot: TimeSlot): boolean {
+  if (slot.slotType === "BREAK") {
+    return slot.countsAsWork === true;
+  }
+  return slot.countsAsWork !== false;
+}
+
 export function WeekScheduleEditor({ template, periods }: WeekScheduleEditorProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<string>(periods[0]?.id ?? "");
 
@@ -169,7 +176,7 @@ function WeeklySummary({ period }: { period: PeriodWithPatterns }) {
   const totalWeekMinutes = period.workDayPatterns.reduce((acc, pattern) => {
     if (!pattern.isWorkingDay) return acc;
     const dayMinutes = pattern.timeSlots.reduce((sum, slot) => {
-      if (slot.slotType === "BREAK" || slot.countsAsWork === false) {
+      if (!shouldCountSlot(slot)) {
         return sum;
       }
       return sum + (slot.endTimeMinutes - slot.startTimeMinutes);
@@ -227,7 +234,7 @@ function DayScheduleRow({
 
   const totalMinutes =
     pattern?.timeSlots.reduce((acc, slot) => {
-      if (slot.slotType === "BREAK" || slot.countsAsWork === false) {
+      if (!shouldCountSlot(slot)) {
         return acc;
       }
       return acc + (slot.endTimeMinutes - slot.startTimeMinutes);
@@ -266,6 +273,7 @@ function DayScheduleRow({
             <div className="flex flex-wrap items-center gap-2">
               {pattern.timeSlots.map((slot) => {
                 const isBreak = slot.slotType === "BREAK" || slot.countsAsWork === false;
+                const countsBreakAsWork = slot.slotType === "BREAK" && slot.countsAsWork === true;
                 return (
                   <Badge
                     key={slot.id}
@@ -273,7 +281,7 @@ function DayScheduleRow({
                     className={`text-xs ${isBreak ? "border-amber-400 text-amber-700 dark:border-amber-300 dark:text-amber-300" : ""}`}
                   >
                     {minutesToTime(slot.startTimeMinutes)} - {minutesToTime(slot.endTimeMinutes)}
-                    {isBreak ? " (Pausa)" : ""}
+                    {isBreak ? (countsBreakAsWork ? " (Pausa computa)" : " (Pausa)") : ""}
                   </Badge>
                 );
               })}
@@ -306,6 +314,7 @@ function DayScheduleRow({
                   endMinutes: slot.endTimeMinutes,
                   slotType: slot.slotType as "WORK" | "BREAK" | undefined,
                   isAutomatic: slot.isAutomatic ?? false,
+                  countsAsWork: slot.countsAsWork,
                 })),
               }}
             />

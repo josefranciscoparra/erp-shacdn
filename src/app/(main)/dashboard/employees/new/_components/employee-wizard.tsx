@@ -132,6 +132,7 @@ export function EmployeeWizard() {
       const createdEmployeeId = result.employeeId;
       const temporaryPassword = result.temporaryPassword;
       const userWasCreated = result.userWasCreated;
+      const inviteEmailQueued = result.inviteEmailQueued ?? false;
 
       // Marcar paso 3 como completado
       setCompletedSteps((prev) => [...prev, 3]);
@@ -148,6 +149,13 @@ export function EmployeeWizard() {
           toast: "animate-in slide-in-from-top-2 fade-in duration-180",
         },
       });
+
+      if (inviteEmailQueued) {
+        toast.info("Invitación en cola", {
+          description: "El correo se enviará en unos minutos.",
+          duration: 3500,
+        });
+      }
 
       // Limpiar estado del wizard
       setEmployeeData(null);

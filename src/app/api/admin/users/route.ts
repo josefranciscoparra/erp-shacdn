@@ -478,13 +478,13 @@ async function createUser(session: any, data: any) {
 
     const sendInviteIfRequested = async (user: { id: string; email: string; name: string; orgId: string }) => {
       if (!validatedData.sendInvite) {
-        return false;
+        return { sent: false, queued: false };
       }
 
       try {
         const tokenResult = await createInviteToken(user.id);
         if (!tokenResult.success || !tokenResult.data) {
-          return false;
+          return { sent: false, queued: false };
         }
 
         const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
@@ -501,10 +501,10 @@ async function createUser(session: any, data: any) {
           expiresAt: tokenResult.data.expiresAt,
         });
 
-        return emailResult.success;
+        return { sent: emailResult.success, queued: emailResult.queued ?? false };
       } catch (error) {
         console.error("Error al enviar invitación de usuario:", error);
-        return false;
+        return { sent: false, queued: false };
       }
     };
 
@@ -543,7 +543,9 @@ async function createUser(session: any, data: any) {
         return newUser;
       });
 
-      const inviteEmailSent = await sendInviteIfRequested(user);
+      const inviteResult = await sendInviteIfRequested(user);
+      const inviteEmailSent = inviteResult.sent;
+      const inviteEmailQueued = inviteResult.queued;
 
       return NextResponse.json(
         {
@@ -557,6 +559,7 @@ async function createUser(session: any, data: any) {
           },
           inviteEmailRequested: validatedData.sendInvite,
           inviteEmailSent,
+          inviteEmailQueued,
           temporaryPassword: inviteEmailSent ? undefined : temporaryPassword,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
@@ -686,7 +689,9 @@ async function createUser(session: any, data: any) {
       return { employee, user };
     });
 
-    const inviteEmailSent = await sendInviteIfRequested(result.user);
+    const inviteResult = await sendInviteIfRequested(result.user);
+    const inviteEmailSent = inviteResult.sent;
+    const inviteEmailQueued = inviteResult.queued;
 
     return NextResponse.json(
       {
@@ -706,6 +711,7 @@ async function createUser(session: any, data: any) {
         },
         inviteEmailRequested: validatedData.sendInvite,
         inviteEmailSent,
+        inviteEmailQueued,
         temporaryPassword: inviteEmailSent ? undefined : temporaryPassword,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },

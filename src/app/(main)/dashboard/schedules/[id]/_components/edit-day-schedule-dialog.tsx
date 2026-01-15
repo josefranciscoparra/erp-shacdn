@@ -70,6 +70,7 @@ const timeSlotSchema = z
     // Pausas Automáticas (Mejora 6)
     slotType: z.enum(["WORK", "BREAK"]).default("WORK"),
     isAutomatic: z.boolean().default(false),
+    countsAsWork: z.boolean().default(false),
   })
   .refine(
     (data) => {
@@ -148,6 +149,7 @@ interface EditDayScheduleDialogProps {
       // Pausas Automáticas (Mejora 6)
       slotType?: "WORK" | "BREAK";
       isAutomatic?: boolean;
+      countsAsWork?: boolean;
     }>;
   };
 }
@@ -163,9 +165,10 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
     // Pausas Automáticas (Mejora 6)
     slotType: slot.slotType ?? ("WORK" as const),
     isAutomatic: slot.isAutomatic ?? false,
+    countsAsWork: slot.slotType === "BREAK" ? (slot.countsAsWork ?? false) : (slot.countsAsWork ?? true),
   })) ?? [
-    { startTime: "09:00", endTime: "14:00", slotType: "WORK" as const, isAutomatic: false },
-    { startTime: "15:00", endTime: "18:00", slotType: "WORK" as const, isAutomatic: false },
+    { startTime: "09:00", endTime: "14:00", slotType: "WORK" as const, isAutomatic: false, countsAsWork: true },
+    { startTime: "15:00", endTime: "18:00", slotType: "WORK" as const, isAutomatic: false, countsAsWork: true },
   ];
 
   const form = useForm<FormValues>({
@@ -192,9 +195,10 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
         // Pausas Automáticas (Mejora 6)
         slotType: slot.slotType ?? ("WORK" as const),
         isAutomatic: slot.isAutomatic ?? false,
+        countsAsWork: slot.slotType === "BREAK" ? (slot.countsAsWork ?? false) : (slot.countsAsWork ?? true),
       })) ?? [
-        { startTime: "09:00", endTime: "14:00", slotType: "WORK" as const, isAutomatic: false },
-        { startTime: "15:00", endTime: "18:00", slotType: "WORK" as const, isAutomatic: false },
+        { startTime: "09:00", endTime: "14:00", slotType: "WORK" as const, isAutomatic: false, countsAsWork: true },
+        { startTime: "15:00", endTime: "18:00", slotType: "WORK" as const, isAutomatic: false, countsAsWork: true },
       ];
 
       form.reset({
@@ -216,6 +220,7 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
             slotType: slot.slotType,
             presenceType: slot.slotType === "BREAK" ? ("FLEXIBLE" as const) : ("MANDATORY" as const),
             isAutomatic: slot.slotType === "BREAK" ? slot.isAutomatic : false,
+            countsAsWork: slot.slotType === "BREAK" ? slot.countsAsWork : true,
           }))
         : [];
 
@@ -271,172 +276,206 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
           {existingPattern ? "Editar" : "Configurar"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Configurar {dayLabel}</DialogTitle>
           <DialogDescription>Define los tramos horarios para este día de la semana</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="isWorkingDay"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Día laborable</FormLabel>
-                    <FormDescription>¿Se trabaja este día de la semana?</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+              <FormField
+                control={form.control}
+                name="isWorkingDay"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Día laborable</FormLabel>
+                      <FormDescription>¿Se trabaja este día de la semana?</FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-            {isWorkingDay && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">Tramos horarios</h4>
-                    <p className="text-muted-foreground text-sm">Define los horarios de entrada y salida</p>
+              {isWorkingDay && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium">Tramos horarios</h4>
+                      <p className="text-muted-foreground text-sm">Define los horarios de entrada y salida</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          append({
+                            startTime: "09:00",
+                            endTime: "14:00",
+                            slotType: "WORK",
+                            isAutomatic: false,
+                            countsAsWork: true,
+                          })
+                        }
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Trabajo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          append({
+                            startTime: "13:00",
+                            endTime: "14:00",
+                            slotType: "BREAK",
+                            isAutomatic: false,
+                            countsAsWork: false,
+                          })
+                        }
+                      >
+                        <Coffee className="mr-2 h-4 w-4" />
+                        Pausa
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        append({ startTime: "09:00", endTime: "14:00", slotType: "WORK", isAutomatic: false })
-                      }
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Trabajo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        append({ startTime: "13:00", endTime: "14:00", slotType: "BREAK", isAutomatic: false })
-                      }
-                    >
-                      <Coffee className="mr-2 h-4 w-4" />
-                      Pausa
-                    </Button>
-                  </div>
-                </div>
 
-                <ScrollArea className="max-h-[400px] pr-4">
-                  <div className="space-y-3 p-1">
-                    {fields.map((field, index) => {
-                      const slotType = form.watch(`timeSlots.${index}.slotType`);
-                      const isBreak = slotType === "BREAK";
+                  <ScrollArea className="max-h-[40vh] pr-4">
+                    <div className="space-y-3 p-1">
+                      {fields.map((field, index) => {
+                        const slotType = form.watch(`timeSlots.${index}.slotType`);
+                        const isBreak = slotType === "BREAK";
 
-                      return (
-                        <div
-                          key={field.id}
-                          className={`space-y-3 rounded-lg border p-3 ${isBreak ? "border-yellow-200 bg-yellow-50/30 dark:border-yellow-900 dark:bg-yellow-950/20" : ""}`}
-                        >
-                          {/* Cabecera con tipo y badge */}
-                          <div className="flex items-center justify-between">
-                            <Badge variant={isBreak ? "secondary" : "default"} className="text-xs">
-                              {isBreak ? (
-                                <>
-                                  <Coffee className="mr-1 h-3 w-3" /> Pausa
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="mr-1 h-3 w-3" /> Trabajo
-                                </>
+                        return (
+                          <div
+                            key={field.id}
+                            className={`space-y-3 rounded-lg border p-3 ${isBreak ? "border-yellow-200 bg-yellow-50/30 dark:border-yellow-900 dark:bg-yellow-950/20" : ""}`}
+                          >
+                            {/* Cabecera con tipo y badge */}
+                            <div className="flex items-center justify-between">
+                              <Badge variant={isBreak ? "secondary" : "default"} className="text-xs">
+                                {isBreak ? (
+                                  <>
+                                    <Coffee className="mr-1 h-3 w-3" /> Pausa
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="mr-1 h-3 w-3" /> Trabajo
+                                  </>
+                                )}
+                              </Badge>
+                              {fields.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => remove(index)}
+                                  className="h-7 w-7"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Eliminar tramo</span>
+                                </Button>
                               )}
-                            </Badge>
-                            {fields.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => remove(index)}
-                                className="h-7 w-7"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Eliminar tramo</span>
-                              </Button>
+                            </div>
+
+                            {/* Horarios */}
+                            <div className="flex items-end gap-3">
+                              <FormField
+                                control={form.control}
+                                name={`timeSlots.${index}.startTime`}
+                                render={({ field }) => (
+                                  <FormItem className="flex-1">
+                                    <FormLabel className="text-xs">Inicio</FormLabel>
+                                    <FormControl>
+                                      <Input type="time" className="h-9" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name={`timeSlots.${index}.endTime`}
+                                render={({ field }) => (
+                                  <FormItem className="flex-1">
+                                    <FormLabel className="text-xs">Fin</FormLabel>
+                                    <FormControl>
+                                      <Input type="time" className="h-9" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            {/* Toggle de pausa automática - solo para tipo BREAK */}
+                            {isBreak && (
+                              <div className="space-y-2">
+                                <FormField
+                                  control={form.control}
+                                  name={`timeSlots.${index}.countsAsWork`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/50 p-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+                                      <div className="space-y-0">
+                                        <FormLabel className="text-xs font-medium">Computa como trabajo</FormLabel>
+                                        <FormDescription className="text-[10px] leading-tight">
+                                          Se suma a las horas esperadas
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`timeSlots.${index}.isAutomatic`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                                      <div className="space-y-0">
+                                        <FormLabel className="text-xs font-medium">Registrar automáticamente</FormLabel>
+                                        <FormDescription className="text-[10px] leading-tight">
+                                          Se añadirá al fichar salida
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
                             )}
                           </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
 
-                          {/* Horarios */}
-                          <div className="flex items-end gap-3">
-                            <FormField
-                              control={form.control}
-                              name={`timeSlots.${index}.startTime`}
-                              render={({ field }) => (
-                                <FormItem className="flex-1">
-                                  <FormLabel className="text-xs">Inicio</FormLabel>
-                                  <FormControl>
-                                    <Input type="time" className="h-9" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                  {fields.length === 0 && (
+                    <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+                      <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                      <p>Añade al menos un tramo horario</p>
+                    </div>
+                  )}
 
-                            <FormField
-                              control={form.control}
-                              name={`timeSlots.${index}.endTime`}
-                              render={({ field }) => (
-                                <FormItem className="flex-1">
-                                  <FormLabel className="text-xs">Fin</FormLabel>
-                                  <FormControl>
-                                    <Input type="time" className="h-9" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
+                  {form.formState.errors.timeSlots && (
+                    <p className="text-destructive text-sm">{form.formState.errors.timeSlots.message}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
-                          {/* Toggle de pausa automática - solo para tipo BREAK */}
-                          {isBreak && (
-                            <FormField
-                              control={form.control}
-                              name={`timeSlots.${index}.isAutomatic`}
-                              render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-2 dark:border-blue-900 dark:bg-blue-950/30">
-                                  <div className="space-y-0">
-                                    <FormLabel className="text-xs font-medium">Registrar automáticamente</FormLabel>
-                                    <FormDescription className="text-[10px] leading-tight">
-                                      Se añadirá al fichar salida
-                                    </FormDescription>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-
-                {fields.length === 0 && (
-                  <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
-                    <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                    <p>Añade al menos un tramo horario</p>
-                  </div>
-                )}
-
-                {form.formState.errors.timeSlots && (
-                  <p className="text-destructive text-sm">{form.formState.errors.timeSlots.message}</p>
-                )}
-              </div>
-            )}
-
-            <DialogFooter>
+            <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
                 Cancelar
               </Button>

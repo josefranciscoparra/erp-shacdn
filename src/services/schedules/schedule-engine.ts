@@ -54,7 +54,7 @@ function computeExpectedMinutesForSlots(slots: EffectiveTimeSlot[]): number {
 
   for (const slot of slots) {
     const typeStr = String(slot.slotType).trim().toUpperCase();
-    if (typeStr === "BREAK") continue;
+    if (typeStr === "BREAK" && slot.countsAsWork !== true) continue;
     if (slot.countsAsWork === false) continue;
 
     const factor = slot.compensationFactor ?? 1.0;
@@ -873,7 +873,7 @@ export async function getEffectiveSchedule(
 
   // Calcular minutos esperados usando configuración de cada slot
   // ⚠️ NOTA: La lógica ahora es configurable por slot:
-  // - BREAK nunca cuenta (doble-check de seguridad)
+  // - BREAK solo cuenta si countsAsWork=true
   // - countsAsWork=false permite excluir ON_CALL si corresponde al sector
   // - compensationFactor aplica multiplicador (1.5 nocturno, 1.75 festivo, etc.)
   let expectedMinutes = computeExpectedMinutesForSlots(effectiveSlots);

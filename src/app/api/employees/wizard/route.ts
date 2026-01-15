@@ -266,6 +266,7 @@ export async function POST(request: Request) {
 
     // Enviar email de invitación (FUERA de la transacción)
     let inviteEmailSent = false;
+    let inviteEmailQueued = false;
     if (result.userId && data.employee.email) {
       try {
         const tokenResult = await createInviteToken(result.userId);
@@ -287,6 +288,7 @@ export async function POST(request: Request) {
           });
 
           inviteEmailSent = emailResult.success;
+          inviteEmailQueued = emailResult.queued ?? false;
           console.log("📧 [WIZARD API] Email de invitación:", inviteEmailSent ? "enviado" : "falló");
         }
       } catch (emailError) {
@@ -299,6 +301,7 @@ export async function POST(request: Request) {
       {
         ...result,
         inviteEmailSent,
+        inviteEmailQueued,
         // Solo incluir contraseña temporal si NO se envió el email
         temporaryPassword: inviteEmailSent ? undefined : result.temporaryPassword,
       },

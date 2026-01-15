@@ -44,6 +44,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
     temporaryPassword?: string;
     inviteEmailSent?: boolean;
     inviteEmailRequested?: boolean;
+    inviteEmailQueued?: boolean;
     userEmail?: string;
   } | null>(null);
 
@@ -129,6 +130,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
         temporaryPassword: data.temporaryPassword ?? undefined,
         inviteEmailSent: data.inviteEmailSent ?? false,
         inviteEmailRequested: data.inviteEmailRequested ?? values.sendInvite,
+        inviteEmailQueued: data.inviteEmailQueued ?? false,
         userEmail: createdEmail,
       });
       form.reset({
@@ -180,10 +182,17 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
               {creationResult.inviteEmailRequested && (
                 <div className="mb-4">
                   {creationResult.inviteEmailSent ? (
-                    <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200">
-                      Invitación enviada a {creationResult.userEmail ?? "el email indicado"}. El usuario podrá crear su
-                      contraseña desde el enlace recibido.
-                    </div>
+                    creationResult.inviteEmailQueued ? (
+                      <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+                        Invitación en cola para {creationResult.userEmail ?? "el email indicado"}. El correo se enviará
+                        en unos minutos.
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200">
+                        Invitación enviada a {creationResult.userEmail ?? "el email indicado"}. El usuario podrá crear
+                        su contraseña desde el enlace recibido.
+                      </div>
+                    )
                   ) : (
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                       No se pudo enviar la invitación por email. Comparte la contraseña temporal con el usuario.

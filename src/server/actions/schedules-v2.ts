@@ -1042,6 +1042,7 @@ export async function updateWorkDayPattern(
           slotType: slot.slotType,
           presenceType: slot.presenceType,
           description: slot.description,
+          countsAsWork: slot.countsAsWork ?? (slot.slotType === "BREAK" ? false : true),
           // Pausas Automáticas (Mejora 6)
           isAutomatic: slot.isAutomatic ?? false,
         })),
@@ -1091,6 +1092,7 @@ export async function copyWorkDayPattern(
           slotType: slot.slotType,
           presenceType: slot.presenceType,
           description: slot.description ?? undefined,
+          countsAsWork: slot.countsAsWork ?? (slot.slotType === "BREAK" ? false : true),
           // Pausas Automáticas (Mejora 6)
           isAutomatic: slot.isAutomatic ?? false,
         })),

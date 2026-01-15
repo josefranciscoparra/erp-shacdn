@@ -244,6 +244,8 @@ export interface CreateTimeSlotInput {
   slotType: TimeSlotType;
   presenceType: PresenceType;
   description?: string;
+  /** Si este tramo computa como trabajo (aplica a BREAK/ON_CALL) */
+  countsAsWork?: boolean;
   // Pausas Automáticas (Mejora 6)
   isAutomatic?: boolean;
 }

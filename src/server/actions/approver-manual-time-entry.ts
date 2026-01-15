@@ -6,8 +6,12 @@ import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
+import { calculateWorkdayTotals, extractPaidBreakSlots } from "@/services/time-tracking";
+import type { EffectiveSchedule } from "@/types/schedule";
 
 import { createNotification } from "./notifications";
+import { resolvePaidBreakSlotIdsFromEntries } from "./shared/paid-breaks";
 
 type ApproverRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -111,62 +115,6 @@ export async function getManualTimeEntryRequestsToApprove(status: ApproverReques
     console.error("Error al obtener solicitudes de fichaje manual:", error);
     throw error;
   }
-}
-
-/**
- * Helper para calcular minutos trabajados desde las entradas
- */
-function calculateWorkedMinutes(entries: any[]): { worked: number; break: number } {
-  let totalWorked = 0;
-  let totalBreak = 0;
-  let lastClockIn: Date | null = null;
-  let lastBreakStart: Date | null = null;
-
-  const sorted = entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-  for (const entry of sorted) {
-    switch (entry.entryType) {
-      case "CLOCK_IN":
-        lastClockIn = entry.timestamp;
-        break;
-
-      case "BREAK_START":
-        if (lastClockIn) {
-          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
-          totalWorked += minutes;
-          lastBreakStart = entry.timestamp;
-          lastClockIn = null;
-        }
-        break;
-
-      case "BREAK_END":
-        if (lastBreakStart) {
-          const minutes = (entry.timestamp.getTime() - lastBreakStart.getTime()) / (1000 * 60);
-          totalBreak += minutes;
-          lastClockIn = entry.timestamp;
-          lastBreakStart = null;
-        }
-        break;
-
-      case "CLOCK_OUT":
-        if (lastClockIn) {
-          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
-          totalWorked += minutes;
-          lastClockIn = null;
-        }
-        if (lastBreakStart) {
-          const minutes = (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
-          totalBreak += minutes;
-          lastBreakStart = null;
-        }
-        break;
-    }
-  }
-
-  return {
-    worked: totalWorked,
-    break: totalBreak,
-  };
 }
 
 /**
@@ -336,10 +284,30 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       );
     }
 
-    const { worked, break: breakTime } = calculateWorkedMinutes(activeEntries);
+    let effectiveSchedule: EffectiveSchedule | null = null;
+    try {
+      effectiveSchedule = await getEffectiveSchedule(request.employeeId, dayStart);
+    } catch {
+      effectiveSchedule = null;
+    }
+
+    const paidBreakSlotIds = await resolvePaidBreakSlotIdsFromEntries(activeEntries);
+    const paidBreakSlots = extractPaidBreakSlots(effectiveSchedule);
+    const totals = calculateWorkdayTotals(activeEntries, dayStart, {
+      paidBreakSlotIds,
+      paidBreakSlots,
+    });
+
+    const worked = totals.workedMinutes;
+    const breakTime = totals.breakMinutes;
 
     console.log(`   💡 Calculado: ${worked.toFixed(2)} min trabajados (${(worked / 60).toFixed(2)}h)`);
     console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)}h)`);
+    if (totals.paidBreakMinutes > 0) {
+      console.log(
+        `   ✅ Pausas computables: ${totals.paidBreakMinutes.toFixed(2)} min (${(totals.paidBreakMinutes / 60).toFixed(2)}h)`,
+      );
+    }
 
     const firstEntry = activeEntries.find((e) => e.entryType === "CLOCK_IN");
     const lastExit = [...activeEntries].reverse().find((e) => e.entryType === "CLOCK_OUT");

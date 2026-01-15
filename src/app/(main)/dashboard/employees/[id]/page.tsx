@@ -352,9 +352,12 @@ export default function EmployeeProfilePage() {
     try {
       const result = await resendInviteEmail(employee.user.id);
       if (result.success) {
+        const inviteQueued = result.data?.queued ?? false;
         setInviteResendResult({
           success: true,
-          message: "Email de invitación enviado correctamente",
+          message: inviteQueued
+            ? "Invitación en cola. El correo se enviará en unos minutos."
+            : "Email de invitación enviado correctamente",
         });
       } else {
         setInviteResendResult({
