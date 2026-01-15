@@ -10,7 +10,7 @@ import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
-import { createInviteToken } from "@/server/actions/auth-tokens";
+import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 
 // Schema de validación para el wizard completo
@@ -271,7 +271,7 @@ export async function POST(request: Request) {
         const tokenResult = await createInviteToken(result.userId);
 
         if (tokenResult.success && tokenResult.data) {
-          const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite?token=${tokenResult.data.token}`;
+          const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
 
           const emailResult = await sendAuthInviteEmail({
             to: {
