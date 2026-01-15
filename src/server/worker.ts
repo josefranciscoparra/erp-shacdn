@@ -1,4 +1,5 @@
 import { getBoss, stopBoss } from "@/server/jobs/boss";
+import { registerEmailSendWorker } from "@/server/jobs/email-send-worker";
 import { registerEmployeeImportInviteWorker } from "@/server/jobs/employee-import-invite-worker";
 import { registerEmployeeImportSimulationWorker } from "@/server/jobs/employee-import-simulate-worker";
 import { registerEmployeeImportWorker } from "@/server/jobs/employee-import-worker";
@@ -10,6 +11,7 @@ async function startWorker() {
   await registerEmployeeImportWorker(boss);
   await registerEmployeeImportInviteWorker(boss);
   await registerEmployeeImportSimulationWorker(boss);
+  await registerEmailSendWorker(boss);
   await registerPayslipWorker(boss);
   await registerSignatureBatchWorker(boss);
   console.log("[Worker] Job runner iniciado");

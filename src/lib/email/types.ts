@@ -23,4 +23,5 @@ export interface EmailSendResult {
   id?: string;
   error?: string;
   provider?: "resend";
+  queued?: boolean;
 }

@@ -33,6 +33,7 @@ export async function sendEmployeeImportInvite(
       inviteLink,
       orgId,
       userId,
+      sendMode: "immediate",
       companyName: organizationName ?? undefined,
       inviterName: performedBy.name ?? performedBy.email ?? undefined,
       expiresAt: inviteToken.data.expiresAt,
