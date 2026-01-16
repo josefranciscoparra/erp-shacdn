@@ -49,7 +49,6 @@ import { type DocumentKind } from "@/lib/validations/document";
 import { type EmployeeAdditionalField, type EmployeeGender } from "@/lib/validations/employee";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
 import { resendInviteEmail } from "@/server/actions/auth-tokens";
-import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 import { getEmployeeCurrentAssignment } from "@/server/actions/schedules-v2";
 import { getEmployeeSettlements, type SettlementListItem } from "@/server/actions/vacation-settlement";
 import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/stores/documents-store";
@@ -201,6 +200,7 @@ export default function EmployeeProfilePage() {
   const canManageEmployees = hasPermission("manage_employees");
   const canViewContracts = hasPermission("view_contracts") || hasPermission("manage_contracts");
   const canViewSchedules = canViewContracts;
+  const canManagePto = hasPermission("manage_pto_admin");
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -214,7 +214,6 @@ export default function EmployeeProfilePage() {
   const [ptoBalance, setPtoBalance] = useState<any>(null);
   const [ptoRequests, setPtoRequests] = useState<any[]>([]);
   const [isPtoLoading, setIsPtoLoading] = useState(false);
-  const [canManagePto, setCanManagePto] = useState(false);
 
   // Estado para asignación de horario V2
   const [scheduleAssignment, setScheduleAssignment] = useState<any>(null);
@@ -280,10 +279,6 @@ export default function EmployeeProfilePage() {
       }
       const data = await response.json();
       setEmployee(data);
-
-      // Verificar permisos de gestión de PTO
-      const userRole = await getCurrentUserRole();
-      setCanManagePto(userRole ? ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(userRole) : false);
     } catch (error: any) {
       setError(error.message);
     } finally {

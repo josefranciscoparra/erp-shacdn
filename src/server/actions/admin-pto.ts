@@ -5,6 +5,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { addWeeks } from "date-fns";
 
 import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth-guard";
 import { normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
@@ -14,34 +15,17 @@ import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
 
 /**
- * Verifica que el usuario tenga permisos de administrador de RRHH
+ * Verifica que el usuario tenga permisos de gestión avanzada de vacaciones
  */
-async function requireHRAdmin() {
-  const session = await auth();
+async function requirePtoAdmin() {
+  const { session } = await requirePermission("manage_pto_admin");
 
-  if (!session?.user?.id) {
-    throw new Error("Usuario no autenticado");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      orgId: true,
-      role: true,
-      name: true,
-    },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
-
-  if (!["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(user.role)) {
-    throw new Error("No tienes permisos para realizar esta acción");
-  }
-
-  return user;
+  return {
+    id: session.user.id,
+    orgId: session.user.orgId,
+    role: session.user.role,
+    name: session.user.name ?? null,
+  };
 }
 
 async function notifyParticipants(params: {
@@ -135,7 +119,7 @@ async function recalcForRequest(employeeId: string, orgId: string, startDate: Da
 // ==================== GESTIÓN DE SOLICITUDES POR RRHH ====================
 
 export async function adminApprovePtoRequest(requestId: string, comments?: string) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   const request = await prisma.ptoRequest.findFirst({
     where: {
@@ -193,7 +177,7 @@ export async function adminApprovePtoRequest(requestId: string, comments?: strin
 }
 
 export async function adminRejectPtoRequest(requestId: string, reason: string, comments?: string) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   if (!reason?.trim()) {
     throw new Error("Debes proporcionar un motivo de rechazo");
@@ -255,7 +239,7 @@ export async function adminRejectPtoRequest(requestId: string, reason: string, c
 }
 
 export async function adminCancelPtoRequest(requestId: string, reason?: string) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   const request = await prisma.ptoRequest.findFirst({
     where: {
@@ -648,7 +632,7 @@ interface AdjustBalanceParams {
  * Ajusta manualmente el balance de PTO de un empleado
  */
 export async function adjustPtoBalance(params: AdjustBalanceParams) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   const {
     employeeId,
@@ -833,7 +817,7 @@ interface RegisterManualAbsenceParams {
  * Registra una ausencia manualmente (sin solicitud previa del empleado)
  */
 export async function registerManualAbsence(params: RegisterManualAbsenceParams) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   const { employeeId, absenceTypeId, startDate, endDate, reason, notes } = params;
   const normalizedStartDate = normalizeDateToLocalNoon(startDate);
@@ -878,12 +862,7 @@ export async function registerManualAbsence(params: RegisterManualAbsenceParams)
   }
 
   // Calcular días hábiles
-  const { workingDays } = await calculateWorkingDays(
-    normalizedStartDate,
-    normalizedEndDate,
-    employeeId,
-    user.orgId,
-  );
+  const { workingDays } = await calculateWorkingDays(normalizedStartDate, normalizedEndDate, employeeId, user.orgId);
 
   // Crear la solicitud directamente como APROBADA
   const ptoRequest = await prisma.ptoRequest.create({
@@ -937,7 +916,7 @@ interface MaternityPaternityParams {
  * Registra una baja maternal o paternal
  */
 export async function applyMaternityPaternityLeave(params: MaternityPaternityParams) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   const { employeeId, type, startDate, notes } = params;
 
@@ -1026,7 +1005,7 @@ interface SeniorityRule {
  * Calcula y aplica días adicionales por antigüedad
  */
 export async function applySeniorityBonus(employeeId: string) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   // Obtener empleado y su contrato más antiguo
   const employee = await prisma.employee.findFirst({
@@ -1120,7 +1099,7 @@ interface UpdatePtoConfigParams {
  * Actualiza la configuración de PTO de la organización
  */
 export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
   const updateData: UpdatePtoConfigParams = { ...params };
   const annualPtoDays = params.annualPtoDays;
 
@@ -1258,7 +1237,7 @@ export async function getRecurringAdjustments(employeeId: string) {
  * Desactiva un ajuste recurrente
  */
 export async function deactivateRecurringAdjustment(adjustmentId: string) {
-  const user = await requireHRAdmin();
+  const user = await requirePtoAdmin();
 
   // Verificar que el ajuste existe y pertenece a la organización
   const adjustment = await prisma.recurringPtoAdjustment.findFirst({

@@ -13,13 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   getEmployeePtoBalance,
   getEmployeePtoRequests,
   getEmployeePtoAdjustments,
   getRecurringAdjustments,
 } from "@/server/actions/admin-pto";
-import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 
 import { EmployeePtoRequestsTable } from "../_components/employee-pto-requests-table";
 import { EmployeePtoSummary } from "../_components/employee-pto-summary";
@@ -75,6 +75,8 @@ export default function EmployeePtoManagementPage() {
   );
   const params = useParams();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageRequests = hasPermission("manage_pto_admin");
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [ptoBalance, setPtoBalance] = useState<any>(null);
   const [ptoRequests, setPtoRequests] = useState<any[]>([]);
@@ -83,7 +85,6 @@ export default function EmployeePtoManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adjustBalanceDialogOpen, setAdjustBalanceDialogOpen] = useState(false);
-  const [canManageRequests, setCanManageRequests] = useState(false);
 
   const loadData = async (silent = false) => {
     if (!silent) {
@@ -100,19 +101,17 @@ export default function EmployeePtoManagementPage() {
       setEmployee(empData);
 
       // Cargar datos de PTO y rol del usuario actual
-      const [balance, requests, adjustments, recurring, role] = await Promise.all([
+      const [balance, requests, adjustments, recurring] = await Promise.all([
         getEmployeePtoBalance(params.id as string),
         getEmployeePtoRequests(params.id as string),
         getEmployeePtoAdjustments(params.id as string),
         getRecurringAdjustments(params.id as string),
-        getCurrentUserRole(),
       ]);
 
       setPtoBalance(balance);
       setPtoRequests(requests);
       setPtoAdjustments(adjustments);
       setRecurringAdjustments(recurring);
-      setCanManageRequests(role ? ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(role) : false);
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -130,7 +129,7 @@ export default function EmployeePtoManagementPage() {
 
   if (isLoading) {
     return (
-      <PermissionGuard permission="manage_employees" fallback={permissionFallback}>
+      <PermissionGuard permission="manage_pto_admin" fallback={permissionFallback}>
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <div className="flex items-center justify-center py-12">
             <div className="animate-pulse">Cargando gestión de vacaciones...</div>
@@ -142,7 +141,7 @@ export default function EmployeePtoManagementPage() {
 
   if (error ?? !employee) {
     return (
-      <PermissionGuard permission="manage_employees" fallback={permissionFallback}>
+      <PermissionGuard permission="manage_pto_admin" fallback={permissionFallback}>
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader
             title="Error"
@@ -164,7 +163,7 @@ export default function EmployeePtoManagementPage() {
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
   return (
-    <PermissionGuard permission="manage_employees" fallback={permissionFallback}>
+    <PermissionGuard permission="manage_pto_admin" fallback={permissionFallback}>
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         {/* Header */}
         <div className="flex items-center gap-4">

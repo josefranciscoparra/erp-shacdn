@@ -57,6 +57,7 @@ export const ALL_PERMISSIONS = [
   "has_employee_profile",
   // Aprobaciones
   "approve_requests",
+  "manage_pto_admin",
   // Gestión de usuarios
   "manage_users",
   "view_all_users",
@@ -136,6 +137,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "manage_pto_admin",
     "manage_users",
     "view_all_users",
     "create_users",
@@ -181,6 +183,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "manage_pto_admin",
     "manage_users",
     "view_all_users",
     "create_users",
@@ -225,6 +228,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "manage_pto_admin",
     "manage_users",
     "view_all_users",
     "create_users",

@@ -188,6 +188,10 @@ const PERMISSION_INFO: Record<string, { label: string; description: string }> = 
     label: "Aprobar solicitudes",
     description: "Aprobar vacaciones, ausencias y otras solicitudes",
   },
+  manage_pto_admin: {
+    label: "Gestión avanzada de vacaciones",
+    description: "Ajustar balances y gestionar solicitudes de vacaciones a nivel administrativo",
+  },
   manage_users: {
     label: "Gestionar usuarios",
     description: "Administrar cuentas de usuario del sistema",
@@ -263,6 +267,7 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
     "export_time_tracking",
     "validate_time_entries",
   ],
+  Vacaciones: ["manage_pto_admin"],
   Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles", "manage_user_organizations"],
   Sistema: ["manage_organization", "view_reports", "approve_requests", "manage_permission_overrides"],
   "Perfil Personal": ["view_own_profile", "edit_own_profile", "has_employee_profile"],
