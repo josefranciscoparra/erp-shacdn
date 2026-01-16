@@ -236,7 +236,15 @@ export class PrivateExpenseService implements IExpenseService {
   async submit(id: string, userId: string) {
     const expense = await prisma.expense.findUnique({
       where: { id },
-      include: { approvals: true },
+      include: {
+        approvals: true,
+        employee: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
     if (!expense) return { success: false, error: "Gasto no encontrado" };
     if (expense.status !== "DRAFT") return { success: false, error: "El gasto no está en borrador" };
@@ -273,8 +281,23 @@ export class PrivateExpenseService implements IExpenseService {
       });
     });
 
-    // TODO: Notificar al manager
-    // await createNotification(...)
+    const requesterName =
+      [expense.employee?.firstName, expense.employee?.lastName].filter(Boolean).join(" ") || "El empleado";
+    const totalAmount = Number(expense.totalAmount).toFixed(2);
+    const message = `${requesterName} ha enviado un gasto de ${totalAmount}€ (${expense.category})`;
+
+    for (const recipientId of approverChain) {
+      await createNotification(
+        recipientId,
+        expense.orgId,
+        "EXPENSE_SUBMITTED",
+        "Nuevo gasto para aprobar",
+        message,
+        undefined,
+        undefined,
+        expense.id,
+      );
+    }
 
     return { success: true, expense: updatedExpense };
   }
