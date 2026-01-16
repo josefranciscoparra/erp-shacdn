@@ -48,7 +48,8 @@ const criterionLabels: Record<ApprovalCriterion, string> = {
   TEAM_RESPONSIBLE: "Responsable de equipo",
   DEPARTMENT_RESPONSIBLE: "Responsable de departamento",
   COST_CENTER_RESPONSIBLE: "Responsable de centro de coste",
-  HR_ADMIN: "Recursos humanos (RRHH)",
+  HR_ADMIN: "RRHH (empresa)",
+  GROUP_HR: "RRHH del grupo",
 };
 
 const criterionOptions: ApprovalCriterion[] = [
@@ -57,6 +58,7 @@ const criterionOptions: ApprovalCriterion[] = [
   "DEPARTMENT_RESPONSIBLE",
   "COST_CENTER_RESPONSIBLE",
   "HR_ADMIN",
+  "GROUP_HR",
 ];
 
 type ApproverUser = {
@@ -65,12 +67,15 @@ type ApproverUser = {
   email: string;
   role: string;
   image: string | null;
+  source?: "ORG" | "GROUP";
+  baseOrgName?: string | null;
 };
 
 const roleLabels: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Organizacion",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };
@@ -165,16 +170,30 @@ function ApproverListEditor({
   value,
   onChange,
   isLoading,
+  hasGroupScope,
 }: {
   users: ApproverUser[];
   value: string[];
   onChange: (next: string[]) => void;
   isLoading: boolean;
+  hasGroupScope: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   const selectedUsers = useMemo(() => users.filter((user) => value.includes(user.id)), [users, value]);
   const missingCount = value.length - selectedUsers.length;
+  const { orgUsers, groupUsers } = useMemo(() => {
+    const orgList: ApproverUser[] = [];
+    const groupList: ApproverUser[] = [];
+    users.forEach((user) => {
+      if (user.source === "GROUP") {
+        groupList.push(user);
+      } else {
+        orgList.push(user);
+      }
+    });
+    return { orgUsers: orgList, groupUsers: groupList };
+  }, [users]);
 
   const toggleUser = (userId: string) => {
     if (value.includes(userId)) {
@@ -212,8 +231,8 @@ function ApproverListEditor({
               ) : (
                 <>
                   <CommandEmpty>No se encontraron usuarios.</CommandEmpty>
-                  <CommandGroup>
-                    {users.map((user) => {
+                  <CommandGroup heading="Usuarios de la organizacion">
+                    {orgUsers.map((user) => {
                       const isSelected = value.includes(user.id);
                       return (
                         <CommandItem
@@ -238,14 +257,61 @@ function ApproverListEditor({
                               <span className="truncate">{user.name}</span>
                               <span className="text-muted-foreground truncate text-xs">{user.email}</span>
                             </div>
-                            <Badge variant="outline" className="shrink-0">
-                              {roleLabels[user.role] ?? user.role}
-                            </Badge>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Badge variant="outline">{roleLabels[user.role] ?? user.role}</Badge>
+                              <Badge variant="secondary">Empresa</Badge>
+                            </div>
                           </div>
                         </CommandItem>
                       );
                     })}
                   </CommandGroup>
+                  {(hasGroupScope || groupUsers.length > 0) && (
+                    <CommandGroup heading="Usuarios del grupo">
+                      {groupUsers.length === 0 ? (
+                        <div className="text-muted-foreground px-3 py-4 text-xs">
+                          No hay usuarios del grupo disponibles en esta organizacion.
+                        </div>
+                      ) : (
+                        groupUsers.map((user) => {
+                          const isSelected = value.includes(user.id);
+                          const groupLabel = user.baseOrgName ? `Grupo: ${user.baseOrgName}` : "Grupo";
+                          return (
+                            <CommandItem
+                              key={user.id}
+                              value={`${user.name} ${user.email}`}
+                              onSelect={() => toggleUser(user.id)}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="mr-2 h-7 w-7">
+                                <AvatarImage src={user.image ?? undefined} alt={user.name} />
+                                <AvatarFallback className="text-xs">
+                                  {user.name
+                                    .split(" ")
+                                    .map((part) => part[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-1 items-center justify-between gap-3">
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate">{user.name}</span>
+                                  <span className="text-muted-foreground truncate text-xs">
+                                    {user.email} • {groupLabel}
+                                  </span>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Badge variant="outline">{roleLabels[user.role] ?? user.role}</Badge>
+                                  <Badge variant="secondary">Grupo</Badge>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          );
+                        })
+                      )}
+                    </CommandGroup>
+                  )}
                 </>
               )}
             </CommandList>
@@ -289,6 +355,7 @@ export function ApprovalSettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [approverUsers, setApproverUsers] = useState<ApproverUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [hasGroupScope, setHasGroupScope] = useState(false);
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
@@ -311,7 +378,7 @@ export function ApprovalSettingsTab() {
   const loadApproverUsers = useCallback(async () => {
     try {
       setIsLoadingUsers(true);
-      const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,ORG_ADMIN,SUPER_ADMIN");
+      const response = await fetch("/api/users?roles=MANAGER,HR_ASSISTANT,HR_ADMIN,ORG_ADMIN");
 
       if (!response.ok) {
         throw new Error("No se pudieron cargar los usuarios");
@@ -319,9 +386,11 @@ export function ApprovalSettingsTab() {
 
       const data = await response.json();
       setApproverUsers(data.users ?? []);
+      setHasGroupScope(data.hasGroupScope ?? false);
     } catch (error) {
       console.error("Error al cargar usuarios para aprobaciones:", error);
       toast.error("No se pudieron cargar los usuarios para aprobaciones");
+      setHasGroupScope(false);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -476,6 +545,7 @@ export function ApprovalSettingsTab() {
                         )
                       }
                       isLoading={isLoadingUsers}
+                      hasGroupScope={hasGroupScope}
                     />
                   </div>
                 </>

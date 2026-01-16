@@ -441,7 +441,7 @@ export function useSidebarItems(): NavGroup[] {
             permission: "manage_user_organizations",
             items: [
               {
-                title: "Usuarios por grupo",
+                title: "Administradores de grupo",
                 url: "/dashboard/admin/group-users",
                 icon: Users,
                 permission: "manage_user_organizations",

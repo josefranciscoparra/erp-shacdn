@@ -23,14 +23,96 @@ export async function GET(request: NextRequest) {
     const withEmployeeParam = searchParams.get("withEmployee");
 
     // Construir filtro de roles
-    const roleFilter = rolesParam ? rolesParam.split(",") : undefined;
+    const rawRoleFilter = rolesParam ? rolesParam.split(",") : undefined;
+    const roleFilter = rawRoleFilter ? rawRoleFilter.filter((role) => role !== "SUPER_ADMIN") : undefined;
     const requireEmployee = withEmployeeParam === "true";
 
-    // Obtener usuarios de la organización
-    const users = await prisma.user.findMany({
+    // Identificar miembros de grupos que incluyan esta organización (para etiquetar "Grupo")
+    const groupMemberships = await prisma.organizationGroupOrganization.findMany({
+      where: {
+        organizationId: session.user.orgId,
+        status: "ACTIVE",
+        group: { isActive: true },
+      },
+      select: {
+        groupId: true,
+      },
+    });
+
+    const groupIds = groupMemberships.map((membership) => membership.groupId);
+    const groupMemberIds = new Set<string>();
+
+    if (groupIds.length > 0) {
+      const groupUsers = await prisma.organizationGroupUser.findMany({
+        where: {
+          groupId: { in: groupIds },
+          isActive: true,
+        },
+        select: { userId: true },
+      });
+
+      groupUsers.forEach((user) => groupMemberIds.add(user.userId));
+    }
+
+    const groupOrganizations =
+      groupIds.length > 0
+        ? await prisma.organizationGroupOrganization.findMany({
+            where: {
+              groupId: { in: groupIds },
+              status: "ACTIVE",
+            },
+            select: { organizationId: true },
+          })
+        : [];
+    const groupOrgIds = groupOrganizations.map((membership) => membership.organizationId);
+
+    // Priorizar la membresía por organización para soportar usuarios multi-org
+    const membershipUsers = await prisma.userOrganization.findMany({
+      where: {
+        orgId: session.user.orgId,
+        isActive: true,
+        ...(roleFilter && {
+          role: {
+            in: roleFilter,
+          },
+        }),
+        user: {
+          active: true,
+          role: { not: "SUPER_ADMIN" },
+          ...(requireEmployee && {
+            employee: {
+              isNot: null,
+            },
+          }),
+        },
+      },
+      select: {
+        role: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            image: true,
+            orgId: true,
+            organization: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Fallback para usuarios sin membresía registrada (casos legacy)
+    const directUsers = await prisma.user.findMany({
       where: {
         orgId: session.user.orgId,
         active: true,
+        role: { not: "SUPER_ADMIN" },
         ...(roleFilter && {
           role: {
             in: roleFilter,
@@ -48,13 +130,101 @@ export async function GET(request: NextRequest) {
         email: true,
         role: true,
         image: true,
-      },
-      orderBy: {
-        name: "asc",
+        orgId: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json({ users });
+    const candidateUserIds = new Set<string>();
+    membershipUsers.forEach((membership) => {
+      if (membership.user?.id) {
+        candidateUserIds.add(membership.user.id);
+      }
+    });
+    directUsers.forEach((user) => candidateUserIds.add(user.id));
+
+    const groupOrgMemberships =
+      groupOrgIds.length > 0 && candidateUserIds.size > 0
+        ? await prisma.userOrganization.findMany({
+            where: {
+              userId: { in: Array.from(candidateUserIds) },
+              orgId: { in: groupOrgIds },
+              isActive: true,
+            },
+            select: { userId: true, orgId: true },
+          })
+        : [];
+
+    const groupOrgIndex = new Map<string, Set<string>>();
+    groupOrgMemberships.forEach((membership) => {
+      if (!groupOrgIndex.has(membership.userId)) {
+        groupOrgIndex.set(membership.userId, new Set());
+      }
+      groupOrgIndex.get(membership.userId)?.add(membership.orgId);
+    });
+
+    const userMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        image: string | null;
+        baseOrgId?: string;
+        baseOrgName?: string | null;
+        source?: "ORG" | "GROUP";
+      }
+    >();
+
+    membershipUsers.forEach((membership) => {
+      const user = membership.user;
+      if (!user) return;
+      const userGroupOrgs = groupOrgIndex.get(user.id);
+      const hasGroupScope = groupOrgIds.length > 0;
+      const hasOtherGroupOrg = userGroupOrgs && (userGroupOrgs.size > 1 || !userGroupOrgs.has(session.user.orgId));
+      const source = hasGroupScope && (hasOtherGroupOrg || groupMemberIds.has(user.id)) ? "GROUP" : "ORG";
+      userMap.set(user.id, {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: membership.role,
+        image: user.image,
+        baseOrgId: user.orgId,
+        baseOrgName: user.organization?.name ?? null,
+        source,
+      });
+    });
+
+    directUsers.forEach((user) => {
+      if (!userMap.has(user.id)) {
+        const userGroupOrgs = groupOrgIndex.get(user.id);
+        const hasGroupScope = groupOrgIds.length > 0;
+        const hasOtherGroupOrg = userGroupOrgs && (userGroupOrgs.size > 1 || !userGroupOrgs.has(session.user.orgId));
+        const source = hasGroupScope && (hasOtherGroupOrg || groupMemberIds.has(user.id)) ? "GROUP" : "ORG";
+        userMap.set(user.id, {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          image: user.image,
+          baseOrgId: user.orgId,
+          baseOrgName: user.organization?.name ?? null,
+          source,
+        });
+      }
+    });
+
+    const users = Array.from(userMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    const hasGroupScope = groupOrgIds.length > 1;
+
+    return NextResponse.json({ users, hasGroupScope });
   } catch (error) {
     console.error("Error en GET /api/users:", error);
     return NextResponse.json({ error: "Error al obtener usuarios" }, { status: 500 });

@@ -63,7 +63,7 @@ export default function GroupUsersLandingPage() {
       mode="all"
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
-          <SectionHeader title="Usuarios por grupo" subtitle="Gestiona usuarios y permisos en grupos multiempresa" />
+          <SectionHeader title="Administradores de grupo" subtitle="Gestiona accesos y permisos por grupo" />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
             title="Acceso denegado"
@@ -73,7 +73,7 @@ export default function GroupUsersLandingPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Gestión de grupos" subtitle="Administra usuarios y permisos en tus grupos multiempresa" />
+        <SectionHeader title="Administradores de grupo" subtitle="Administra accesos y permisos en tus grupos" />
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -139,7 +139,7 @@ export default function GroupUsersLandingPage() {
                   <Button asChild className="w-full gap-2">
                     <Link href={`/g/${group.id}/dashboard/admin/users`}>
                       <Users className="h-4 w-4" />
-                      <span>Gestionar usuarios</span>
+                      <span>Gestionar administradores</span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>
                   </Button>

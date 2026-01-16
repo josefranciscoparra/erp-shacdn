@@ -22,6 +22,7 @@ export type AuthorizedApprover = {
     | "DEPARTMENT_RESPONSIBLE"
     | "COST_CENTER_RESPONSIBLE"
     | "APPROVER_LIST"
+    | "GROUP_HR"
     | "HR_ADMIN"
     | "ORG_ADMIN";
   level: number;
@@ -52,6 +53,8 @@ export const APPROVAL_PERMISSIONS: Record<ApprovalRequestType, ScopePermission> 
   TIME_BANK: "APPROVE_PTO_REQUESTS",
   EXPENSE: "APPROVE_EXPENSES",
 };
+
+const HR_APPROVER_ROLES = ["HR_ADMIN", "HR_ASSISTANT"] as const;
 
 async function getApprovalSettingsForOrg(orgId: string) {
   const org = await prisma.organization.findUnique({
@@ -107,13 +110,13 @@ async function getEmployeeApprovalContext(employeeId: string): Promise<EmployeeA
   };
 }
 
-async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "ORG_ADMIN" | "SUPER_ADMIN">) {
+async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "HR_ASSISTANT" | "ORG_ADMIN">) {
   const memberships = await prisma.userOrganization.findMany({
     where: {
       orgId,
       isActive: true,
       role: { in: roles },
-      user: { active: true },
+      user: { active: true, role: { not: "SUPER_ADMIN" } },
     },
     include: {
       user: {
@@ -128,7 +131,7 @@ async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "ORG_AD
   });
 
   const uniqueApprovers = new Map<string, AuthorizedApprover>();
-  const source = roles.includes("HR_ADMIN") ? "HR_ADMIN" : "ORG_ADMIN";
+  const source = roles.some((role) => role === "HR_ADMIN" || role === "HR_ASSISTANT") ? "HR_ADMIN" : "ORG_ADMIN";
 
   for (const membership of memberships) {
     if (!membership.user) {
@@ -148,13 +151,112 @@ async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "ORG_AD
   return Array.from(uniqueApprovers.values());
 }
 
-async function getFallbackApprovers(orgId: string): Promise<AuthorizedApprover[]> {
-  const hrApprovers = await getRoleApprovers(orgId, ["HR_ADMIN"]);
-  if (hrApprovers.length > 0) {
-    return hrApprovers;
+async function getLocalHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      orgId,
+      isActive: true,
+      role: { in: HR_APPROVER_ROLES },
+      user: {
+        active: true,
+        role: { not: "SUPER_ADMIN" },
+        orgId,
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return memberships
+    .filter((membership) => membership.user)
+    .map((membership) => ({
+      userId: membership.user!.id,
+      name: membership.user!.name,
+      email: membership.user!.email,
+      role: membership.role,
+      source: "HR_ADMIN",
+      level: 5,
+    }));
+}
+
+async function getGroupHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const groupMemberships = await prisma.organizationGroupOrganization.findMany({
+    where: {
+      organizationId: orgId,
+      status: "ACTIVE",
+      group: { isActive: true },
+    },
+    select: { groupId: true },
+  });
+
+  if (groupMemberships.length === 0) {
+    return [];
   }
 
-  return await getRoleApprovers(orgId, ["ORG_ADMIN", "SUPER_ADMIN"]);
+  const groupIds = groupMemberships.map((membership) => membership.groupId);
+
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      orgId,
+      isActive: true,
+      role: { in: HR_APPROVER_ROLES },
+      user: {
+        active: true,
+        role: { not: "SUPER_ADMIN" },
+        orgId: { not: orgId },
+        organizationGroupMemberships: {
+          some: {
+            groupId: { in: groupIds },
+            isActive: true,
+            role: { in: HR_APPROVER_ROLES },
+          },
+        },
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return memberships
+    .filter((membership) => membership.user)
+    .map((membership) => ({
+      userId: membership.user!.id,
+      name: membership.user!.name,
+      email: membership.user!.email,
+      role: membership.role,
+      source: "GROUP_HR",
+      level: 5,
+    }));
+}
+
+async function getFallbackApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const localHr = await getLocalHrApprovers(orgId);
+  if (localHr.length > 0) {
+    return localHr;
+  }
+
+  const groupHr = await getGroupHrApprovers(orgId);
+  if (groupHr.length > 0) {
+    return groupHr;
+  }
+
+  return await getRoleApprovers(orgId, ["ORG_ADMIN"]);
 }
 
 async function getListApprovers(orgId: string, approverList: string[]): Promise<AuthorizedApprover[]> {
@@ -167,6 +269,7 @@ async function getListApprovers(orgId: string, approverList: string[]): Promise<
       orgId,
       id: { in: approverList },
       active: true,
+      role: { not: "SUPER_ADMIN" },
     },
     select: { id: true, name: true, email: true, role: true },
   });
@@ -184,6 +287,79 @@ async function getListApprovers(orgId: string, approverList: string[]): Promise<
     source: "APPROVER_LIST",
     level: 1,
   }));
+}
+
+async function hasActiveOrgMembership(userId: string, orgId: string): Promise<boolean> {
+  const membership = await prisma.userOrganization.findFirst({
+    where: {
+      userId,
+      orgId,
+      isActive: true,
+      user: { active: true, role: { not: "SUPER_ADMIN" } },
+    },
+    select: { id: true },
+  });
+
+  return !!membership;
+}
+
+async function hasLocalHrMembership(userId: string, orgId: string): Promise<boolean> {
+  const membership = await prisma.userOrganization.findFirst({
+    where: {
+      userId,
+      orgId,
+      isActive: true,
+      role: { in: HR_APPROVER_ROLES },
+      user: { active: true, role: { not: "SUPER_ADMIN" } },
+    },
+    select: { id: true },
+  });
+
+  return !!membership;
+}
+
+async function hasGroupHrMembership(userId: string, orgId: string): Promise<boolean> {
+  const groupMemberships = await prisma.organizationGroupOrganization.findMany({
+    where: {
+      organizationId: orgId,
+      status: "ACTIVE",
+      group: { isActive: true },
+    },
+    select: { groupId: true },
+  });
+
+  if (groupMemberships.length === 0) {
+    return false;
+  }
+
+  const groupIds = groupMemberships.map((membership) => membership.groupId);
+
+  const membership = await prisma.organizationGroupUser.findFirst({
+    where: {
+      userId,
+      isActive: true,
+      role: { in: HR_APPROVER_ROLES },
+      groupId: { in: groupIds },
+      user: { active: true, role: { not: "SUPER_ADMIN" } },
+    },
+    select: { id: true },
+  });
+
+  return !!membership;
+}
+
+export async function hasHrApprovalAccess(userId: string, orgId: string): Promise<boolean> {
+  const hasLocalHr = await hasLocalHrMembership(userId, orgId);
+  if (hasLocalHr) {
+    return true;
+  }
+
+  const hasMembership = await hasActiveOrgMembership(userId, orgId);
+  if (!hasMembership) {
+    return false;
+  }
+
+  return await hasGroupHrMembership(userId, orgId);
 }
 
 async function getResponsibleApprovers(
@@ -268,7 +444,9 @@ async function resolveCandidatesByCriterion(
         "COST_CENTER_RESPONSIBLE",
       );
     case "HR_ADMIN":
-      return await getRoleApprovers(context.orgId, ["HR_ADMIN"]);
+      return await getLocalHrApprovers(context.orgId);
+    case "GROUP_HR":
+      return await getGroupHrApprovers(context.orgId);
     default:
       return [];
   }
@@ -330,6 +508,12 @@ export async function canUserApprove(
   employeeId: string,
   requestType: ApprovalRequestType,
 ): Promise<boolean> {
+  const context = await getEmployeeApprovalContext(employeeId);
+  const hasHrAccess = await hasHrApprovalAccess(approverUserId, context.orgId);
+  if (hasHrAccess) {
+    return true;
+  }
+
   const approvers = await getAuthorizedApprovers(employeeId, requestType);
   return approvers.some((approver) => approver.userId === approverUserId);
 }

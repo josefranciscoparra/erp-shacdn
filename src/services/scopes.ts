@@ -16,7 +16,7 @@ export type UserScope = {
 /**
  * Roles que tienen visibilidad global por defecto
  */
-const GLOBAL_ROLES: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+const GLOBAL_ROLES: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
 
 /**
  * Calcula el alcance de visibilidad de un usuario dentro de una organización.

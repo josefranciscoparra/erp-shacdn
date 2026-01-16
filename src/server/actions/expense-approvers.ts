@@ -37,7 +37,7 @@ export async function getOrganizationApprovers() {
   }
 
   const approvers = await prisma.expenseApprover.findMany({
-    where: { orgId: session.user.orgId },
+    where: { orgId: session.user.orgId, user: { role: { not: "SUPER_ADMIN" } } },
     include: {
       user: {
         select: {
@@ -96,7 +96,7 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
   }
 
   // Validar que el usuario tiene rol adecuado
-  if (!["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(targetUser.role)) {
+  if (!["MANAGER", "HR_ADMIN", "ORG_ADMIN"].includes(targetUser.role)) {
     return {
       success: false,
       error: "El usuario debe tener rol MANAGER o superior para ser aprobador",
@@ -215,7 +215,7 @@ export async function removeOrganizationApprover(expenseApproverId: string) {
 
   // Verificar que no sea el último aprobador
   const count = await prisma.expenseApprover.count({
-    where: { orgId: session.user.orgId },
+    where: { orgId: session.user.orgId, user: { role: { not: "SUPER_ADMIN" } } },
   });
 
   if (count <= 1) {
@@ -487,7 +487,7 @@ export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApprov
   }
 
   // Validar que el usuario tiene rol adecuado
-  if (!["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(targetUser.role)) {
+  if (!["MANAGER", "HR_ADMIN", "ORG_ADMIN"].includes(targetUser.role)) {
     return {
       success: false,
       error: "El usuario debe tener rol MANAGER o superior para ser aprobador",
@@ -566,7 +566,7 @@ export async function getEmployeeApprover(employeeId: string) {
 
   // Caso B: Usar aprobadores organizacionales
   const orgApprovers = await prisma.expenseApprover.findMany({
-    where: { orgId: session.user.orgId },
+    where: { orgId: session.user.orgId, user: { role: { not: "SUPER_ADMIN" } } },
     include: {
       user: {
         select: {

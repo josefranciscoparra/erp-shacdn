@@ -335,6 +335,7 @@ export async function getMyApprover() {
         DEPARTMENT_RESPONSIBLE: "Responsable de departamento",
         COST_CENTER_RESPONSIBLE: "Responsable de centro de coste",
         APPROVER_LIST: "Lista de aprobadores",
+        GROUP_HR: "RRHH del grupo",
         HR_ADMIN: "RRHH",
         ORG_ADMIN: "Administración",
       };

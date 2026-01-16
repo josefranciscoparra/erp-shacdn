@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthorizedApprovers } from "@/lib/approvals/approval-engine";
+import { getAuthorizedApprovers, hasHrApprovalAccess } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -111,6 +111,7 @@ export async function getMyApprovals(
     }
 
     const orgFilterIds = [targetOrgId];
+    const hasHrAccess = await hasHrApprovalAccess(userId, targetOrgId);
 
     const items: PendingApprovalItem[] = [];
     const isHistory = filter === "history";
@@ -247,111 +248,103 @@ export async function getMyApprovals(
 
     // --- PROCESAR PTO ---
     for (const req of ptoRequests) {
-      let canView = false;
-      if (!isHistory) {
+      // Determinar visibilidad con early-continue
+      if (!isHistory && !hasHrAccess) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "PTO");
-        if (approvers.some((a) => a.userId === userId)) canView = true;
-      } else if (isHistory) {
-        canView = true; // Ya filtrado por approverId en query
+        if (!approvers.some((a) => a.userId === userId)) continue;
       }
 
-      if (canView) {
-        const activeContract = req.employee.employmentContracts[0];
-        items.push({
-          id: req.id,
-          type: "PTO",
-          employeeId: req.employeeId,
-          employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
-          employeeImage: req.employee.photoUrl,
-          orgId: req.orgId,
-          organization: req.organization
-            ? {
-                id: req.organization.id,
-                name: req.organization.name,
-              }
-            : undefined,
-          date: req.startDate.toISOString(),
-          summary: `${req.absenceType.name} (${Number(req.workingDays)} días)`,
-          status: req.status,
-          createdAt: req.submittedAt,
-          details: {
-            startDate: req.startDate.toISOString(),
-            endDate: req.endDate.toISOString(),
-            days: Number(req.workingDays),
-            reason: req.reason,
-            absenceType: req.absenceType.name,
-            color: req.absenceType.color,
-            position: activeContract?.position?.title,
-            department: activeContract?.department?.name,
-            approverComments: req.approverComments,
-            rejectionReason: req.rejectionReason,
-            documentsCount: req._count?.documents ?? 0,
-            documents: req.documents.map((doc) => ({
-              id: doc.id,
-              fileName: doc.fileName,
-              fileSize: doc.fileSize,
-              mimeType: doc.mimeType,
-              uploadedAt: doc.uploadedAt.toISOString(),
-            })),
-            requiresDocument: req.absenceType.requiresDocument,
-            audit: {
-              approvedAt: req.approvedAt?.toISOString(),
-              rejectedAt: req.rejectedAt?.toISOString(),
-              approverName: req.approver?.name,
-              approverImage: req.approver?.image,
-            },
+      const activeContract = req.employee.employmentContracts[0];
+      items.push({
+        id: req.id,
+        type: "PTO",
+        employeeId: req.employeeId,
+        employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
+        employeeImage: req.employee.photoUrl,
+        orgId: req.orgId,
+        organization: req.organization
+          ? {
+              id: req.organization.id,
+              name: req.organization.name,
+            }
+          : undefined,
+        date: req.startDate.toISOString(),
+        summary: `${req.absenceType.name} (${Number(req.workingDays)} días)`,
+        status: req.status,
+        createdAt: req.submittedAt,
+        details: {
+          startDate: req.startDate.toISOString(),
+          endDate: req.endDate.toISOString(),
+          days: Number(req.workingDays),
+          reason: req.reason,
+          absenceType: req.absenceType.name,
+          color: req.absenceType.color,
+          position: activeContract?.position?.title,
+          department: activeContract?.department?.name,
+          approverComments: req.approverComments,
+          rejectionReason: req.rejectionReason,
+          documentsCount: req._count?.documents ?? 0,
+          documents: req.documents.map((doc) => ({
+            id: doc.id,
+            fileName: doc.fileName,
+            fileSize: doc.fileSize,
+            mimeType: doc.mimeType,
+            uploadedAt: doc.uploadedAt.toISOString(),
+          })),
+          requiresDocument: req.absenceType.requiresDocument,
+          audit: {
+            approvedAt: req.approvedAt?.toISOString(),
+            rejectedAt: req.rejectedAt?.toISOString(),
+            approverName: req.approver?.name,
+            approverImage: req.approver?.image,
           },
-        });
-      }
+        },
+      });
     }
 
     // --- PROCESAR MANUAL TIME ENTRIES ---
     for (const req of manualRequests) {
-      let canView = false;
-      if (!isHistory) {
+      // Determinar visibilidad con early-continue
+      if (!isHistory && !hasHrAccess) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "MANUAL_TIME_ENTRY");
-        if (approvers.some((a) => a.userId === userId)) canView = true;
-      } else if (isHistory) {
-        canView = true;
+        if (!approvers.some((a) => a.userId === userId)) continue;
       }
 
-      if (canView) {
-        const activeContract = req.employee.employmentContracts?.[0];
-        items.push({
-          id: req.id,
-          type: "MANUAL_TIME_ENTRY",
-          employeeId: req.employeeId,
-          employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
-          employeeImage: req.employee.photoUrl,
-          orgId: req.orgId,
-          organization: req.organization
-            ? {
-                id: req.organization.id,
-                name: req.organization.name,
-              }
-            : undefined,
+      const activeContract = req.employee.employmentContracts?.[0];
+      items.push({
+        id: req.id,
+        type: "MANUAL_TIME_ENTRY",
+        employeeId: req.employeeId,
+        employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
+        employeeImage: req.employee.photoUrl,
+        orgId: req.orgId,
+        organization: req.organization
+          ? {
+              id: req.organization.id,
+              name: req.organization.name,
+            }
+          : undefined,
+        date: req.date.toISOString(),
+        summary: `Corrección fichaje: ${req.reason}`,
+        status: req.status,
+        createdAt: req.submittedAt,
+        details: {
           date: req.date.toISOString(),
-          summary: `Corrección fichaje: ${req.reason}`,
-          status: req.status,
-          createdAt: req.submittedAt,
-          details: {
-            date: req.date.toISOString(),
-            clockIn: req.clockInTime.toISOString(),
-            clockOut: req.clockOutTime.toISOString(),
-            reason: req.reason,
-            position: activeContract?.position?.title,
-            department: activeContract?.department?.name,
-            approverComments: req.approverComments,
-            rejectionReason: req.rejectionReason,
-            audit: {
-              approvedAt: req.approvedAt?.toISOString(),
-              rejectedAt: req.rejectedAt?.toISOString(),
-              approverName: req.approver?.name,
-              approverImage: req.approver?.image,
-            },
+          clockIn: req.clockInTime.toISOString(),
+          clockOut: req.clockOutTime.toISOString(),
+          reason: req.reason,
+          position: activeContract?.position?.title,
+          department: activeContract?.department?.name,
+          approverComments: req.approverComments,
+          rejectionReason: req.rejectionReason,
+          audit: {
+            approvedAt: req.approvedAt?.toISOString(),
+            rejectedAt: req.rejectedAt?.toISOString(),
+            approverName: req.approver?.name,
+            approverImage: req.approver?.image,
           },
-        });
-      }
+        },
+      });
     }
 
     // --- PROCESAR EXPENSES ---

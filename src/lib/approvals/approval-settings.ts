@@ -9,6 +9,7 @@ export const ApprovalCriterionSchema = z.enum([
   "DEPARTMENT_RESPONSIBLE",
   "COST_CENTER_RESPONSIBLE",
   "HR_ADMIN",
+  "GROUP_HR",
 ]);
 export type ApprovalCriterion = z.infer<typeof ApprovalCriterionSchema>;
 

@@ -46,7 +46,12 @@ export async function buildScopeFilter(userId: string, permission?: Permission) 
   });
 
   // BYPASS para roles globales (ADMIN, RRHH)
-  if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "HR_ADMIN") {
+  if (
+    user?.role === "ORG_ADMIN" ||
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "HR_ADMIN" ||
+    user?.role === "HR_ASSISTANT"
+  ) {
     return {}; // Sin restricciones - acceso total
   }
 

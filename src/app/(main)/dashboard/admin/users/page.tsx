@@ -157,10 +157,10 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
-          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          title={groupId ? "Administradores de grupo" : "Usuarios y Roles"}
           subtitle={
             groupId
-              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              ? "Gestiona accesos y permisos dentro del grupo seleccionado"
               : "Gestiona los usuarios y sus permisos en el sistema"
           }
           backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}
@@ -177,10 +177,10 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
-          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          title={groupId ? "Administradores de grupo" : "Usuarios y Roles"}
           subtitle={
             groupId
-              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              ? "Gestiona accesos y permisos dentro del grupo seleccionado"
               : "Gestiona los usuarios y sus permisos en el sistema"
           }
           backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}
@@ -212,10 +212,10 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
-          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          title={groupId ? "Administradores de grupo" : "Usuarios y Roles"}
           subtitle={
             groupId
-              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              ? "Gestiona accesos y permisos dentro del grupo seleccionado"
               : "Gestiona los usuarios y sus permisos en el sistema"
           }
           backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}

@@ -68,7 +68,7 @@ export function SetEmployeeApproverDialog({
   const loadEligibleUsers = async () => {
     try {
       setIsLoadingUsers(true);
-      const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,ORG_ADMIN,SUPER_ADMIN");
+      const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,ORG_ADMIN");
 
       if (!response.ok) {
         throw new Error("Error al cargar usuarios");
