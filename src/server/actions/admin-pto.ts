@@ -2,9 +2,10 @@
 
 import type { Prisma, PtoAdjustmentType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { addWeeks, startOfDay } from "date-fns";
+import { addWeeks } from "date-fns";
 
 import { auth } from "@/lib/auth";
+import { normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
 
@@ -835,9 +836,11 @@ export async function registerManualAbsence(params: RegisterManualAbsenceParams)
   const user = await requireHRAdmin();
 
   const { employeeId, absenceTypeId, startDate, endDate, reason, notes } = params;
+  const normalizedStartDate = normalizeDateToLocalNoon(startDate);
+  const normalizedEndDate = normalizeDateToLocalNoon(endDate);
 
   // Verificar que las fechas son válidas
-  if (startDate > endDate) {
+  if (normalizedStartDate > normalizedEndDate) {
     throw new Error("La fecha de inicio no puede ser posterior a la fecha de fin");
   }
 
@@ -875,15 +878,20 @@ export async function registerManualAbsence(params: RegisterManualAbsenceParams)
   }
 
   // Calcular días hábiles
-  const { workingDays } = await calculateWorkingDays(startDate, endDate, employeeId, user.orgId);
+  const { workingDays } = await calculateWorkingDays(
+    normalizedStartDate,
+    normalizedEndDate,
+    employeeId,
+    user.orgId,
+  );
 
   // Crear la solicitud directamente como APROBADA
   const ptoRequest = await prisma.ptoRequest.create({
     data: {
       employeeId,
       absenceTypeId,
-      startDate: startOfDay(startDate),
-      endDate: startOfDay(endDate),
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
       workingDays: new Decimal(workingDays),
       status: "APPROVED",
       reason: `${reason}${notes ? `\n\nNotas: ${notes}` : ""}`,

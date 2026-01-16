@@ -66,6 +66,11 @@ interface TimeBankRequestDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const dateFromInput = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+};
+
 export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDialogProps) {
   const [selectedType, setSelectedType] = useState<"RECOVERY" | "FESTIVE_COMPENSATION">("RECOVERY");
   const { createRequest, isSubmitting } = useTimeBankRequestsStore();
@@ -89,7 +94,7 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
 
       await createRequest({
         type: values.type,
-        date: new Date(values.date),
+        date: dateFromInput(values.date),
         minutes,
         reason: values.reason,
       });

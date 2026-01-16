@@ -5,6 +5,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { getActionError } from "@/lib/auth-guard";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
+import { getLocalDayRange, normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 import { calculatePtoBalanceByType } from "@/lib/pto/balance-service";
 import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
@@ -163,6 +164,11 @@ export async function calculateWorkingDays(
     }
   }
 
+  const normalizedStart = normalizeDateToLocalNoon(startDate);
+  const normalizedEnd = normalizeDateToLocalNoon(endDate);
+  const rangeStart = getLocalDayRange(normalizedStart).start;
+  const rangeEnd = getLocalDayRange(normalizedEnd).end;
+
   // Obtener el centro de coste del empleado para saber qué calendarios aplican
   let calendars: any[] = [];
 
@@ -182,11 +188,11 @@ export async function calculateWorkingDays(
                       where: {
                         eventType: "HOLIDAY",
                         date: {
-                          gte: startDate,
-                          lte: endDate,
-                        },
-                      },
+                      gte: rangeStart,
+                      lte: rangeEnd,
                     },
+                  },
+                },
                   },
                 },
               },
@@ -216,8 +222,10 @@ export async function calculateWorkingDays(
 
   // Contar días
   let workingDays = 0;
-  const currentDate = new Date(startDate);
-  const end = new Date(endDate);
+  const currentDate = new Date(normalizedStart);
+  currentDate.setHours(12, 0, 0, 0);
+  const end = new Date(normalizedEnd);
+  end.setHours(12, 0, 0, 0);
 
   while (currentDate <= end) {
     const dateStr = currentDate.toISOString().split("T")[0];
@@ -463,8 +471,11 @@ export async function createPtoRequest(data: {
       requireActiveContract: true,
     });
 
+    const normalizedStartDate = normalizeDateToLocalNoon(data.startDate);
+    const normalizedEndDate = normalizeDateToLocalNoon(data.endDate);
+
     // Validar fechas
-    if (data.startDate > data.endDate) {
+    if (normalizedStartDate > normalizedEndDate) {
       return fail("La fecha de inicio debe ser anterior a la fecha de fin");
     }
 
@@ -477,7 +488,12 @@ export async function createPtoRequest(data: {
       return fail("Tipo de ausencia no válido");
     }
 
-    const isPausedForRange = await isEmployeePausedDuringRange(employeeId, data.startDate, data.endDate, orgId);
+    const isPausedForRange = await isEmployeePausedDuringRange(
+      employeeId,
+      normalizedStartDate,
+      normalizedEndDate,
+      orgId,
+    );
     if (isPausedForRange) {
       return fail("Tu contrato fijo discontinuo está pausado en las fechas solicitadas.");
     }
@@ -499,7 +515,7 @@ export async function createPtoRequest(data: {
         return fail("Para ausencias parciales debes indicar la hora de inicio y la de fin");
       }
 
-      if (data.startDate.getTime() !== data.endDate.getTime()) {
+      if (normalizedStartDate.getTime() !== normalizedEndDate.getTime()) {
         return fail("Las ausencias parciales solo pueden ser para un mismo día");
       }
 
@@ -532,9 +548,7 @@ export async function createPtoRequest(data: {
         );
       }
 
-      const normalizedDate = new Date(data.startDate);
-      normalizedDate.setHours(12, 0, 0, 0);
-      const employeeSchedule = await getEffectiveSchedule(employeeId, normalizedDate);
+      const employeeSchedule = await getEffectiveSchedule(employeeId, normalizedStartDate);
 
       if (!employeeSchedule.isWorkingDay) {
         return fail("El día seleccionado no es un día laboral según tu horario");
@@ -601,13 +615,19 @@ export async function createPtoRequest(data: {
       scheduledMinutesInRange = requestedDurationMinutes;
     } else {
       // Para días completos: calcular días hábiles excluyendo festivos (o naturales si aplica)
-      const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId, countsCalendarDays);
+      const result = await calculateWorkingDays(
+        normalizedStartDate,
+        normalizedEndDate,
+        employeeId,
+        orgId,
+        countsCalendarDays,
+      );
       holidays = result.holidays;
 
       if (countsCalendarDays) {
         workingDays = result.workingDays;
       } else {
-        const schedules = await getEffectiveScheduleForRange(employeeId, data.startDate, data.endDate);
+        const schedules = await getEffectiveScheduleForRange(employeeId, normalizedStartDate, normalizedEndDate);
 
         if (schedules.length === 0) {
           return fail("No se pudo resolver tu horario para las fechas seleccionadas.");
@@ -629,7 +649,9 @@ export async function createPtoRequest(data: {
     }
 
     // Validar días de anticipación
-    const daysUntilStart = Math.ceil((data.startDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntilStart = Math.ceil(
+      (normalizedStartDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     if (absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
       return fail(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
@@ -644,10 +666,10 @@ export async function createPtoRequest(data: {
         OR: [
           {
             startDate: {
-              lte: data.endDate,
+              lte: normalizedEndDate,
             },
             endDate: {
-              gte: data.startDate,
+              gte: normalizedStartDate,
             },
           },
         ],
@@ -695,7 +717,7 @@ export async function createPtoRequest(data: {
     // Si afecta al balance, validar días disponibles
     // 🆕 Usa cálculo en tiempo real (VacationService)
     if (absenceType.affectsBalance) {
-      const requestYear = data.startDate.getFullYear();
+      const requestYear = normalizedStartDate.getFullYear();
       const requestBalanceType =
         (absenceType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
       const balance = await calculatePtoBalanceByType(employeeId, requestBalanceType, { year: requestYear });
@@ -708,7 +730,7 @@ export async function createPtoRequest(data: {
             orgId,
             employeeId,
             requestYear,
-            data.endDate,
+            normalizedEndDate,
             workingDays,
           );
           if (carryoverMsg) {
@@ -762,8 +784,8 @@ export async function createPtoRequest(data: {
         orgId,
         employeeId,
         absenceTypeId: data.absenceTypeId,
-        startDate: data.startDate,
-        endDate: data.endDate,
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
         workingDays: new Decimal(workingDays),
         reason: (data.reason ?? "") + systemWarningReason, // Añadir warning al motivo
         attachmentUrl: data.attachmentUrl,

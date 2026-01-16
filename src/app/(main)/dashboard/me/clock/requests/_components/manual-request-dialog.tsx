@@ -28,6 +28,11 @@ interface ManualRequestDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const dateFromInput = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+};
+
 export function ManualRequestDialog({ open, onOpenChange }: ManualRequestDialogProps) {
   const { createRequest, isLoading } = useManualTimeEntryStore();
 
@@ -44,7 +49,7 @@ export function ManualRequestDialog({ open, onOpenChange }: ManualRequestDialogP
 
   const handleSubmit = async (values: ManualRequestFormValues) => {
     try {
-      const date = new Date(values.date);
+      const date = dateFromInput(values.date);
       const [inHours, inMinutes] = values.clockInTime.split(":").map(Number);
       const [outHours, outMinutes] = values.clockOutTime.split(":").map(Number);
 

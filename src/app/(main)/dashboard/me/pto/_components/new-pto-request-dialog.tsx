@@ -331,6 +331,8 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   };
 
   const normalizeToLocalDate = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const normalizeToLocalNoon = (value: Date) =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0, 0);
 
   const dayMarkers = useMemo(() => {
     if (!requests.length) return [];
@@ -484,7 +486,9 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       // Debounce para evitar cálculos mientras el usuario selecciona
       const timeout = setTimeout(() => {
         setIsCalculating(true);
-        calculateWorkingDays(dateRange.from, dateRange.to, selectedTypeId)
+        const normalizedStart = normalizeToLocalNoon(dateRange.from);
+        const normalizedEnd = normalizeToLocalNoon(dateRange.to);
+        calculateWorkingDays(normalizedStart, normalizedEnd, selectedTypeId)
           .then((result) => {
             setWorkingDaysCalc(result.workingDays);
             setHolidays(result.holidays);
@@ -560,10 +564,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     }
 
     try {
+      const normalizedStart = normalizeToLocalNoon(dateRange.from);
+      const normalizedEnd = normalizeToLocalNoon(dateRange.to);
+
       const requestData: any = {
         absenceTypeId: selectedTypeId,
-        startDate: dateRange.from,
-        endDate: dateRange.to,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
         reason: reason.trim() || undefined,
       };
 

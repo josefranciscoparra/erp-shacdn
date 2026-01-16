@@ -18,6 +18,7 @@ import { endOfDay, startOfDay } from "date-fns";
 
 import { canUserApprove, resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { safePermission } from "@/lib/auth-guard";
+import { getLocalDayRange, normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -485,9 +486,7 @@ export interface TimeBankRequestListResult {
 }
 
 function normalizeRequestDate(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
+  return normalizeDateToLocalNoon(date);
 }
 
 async function ensureReviewerPermission() {
@@ -616,11 +615,16 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
     throw new Error(`Supera el máximo permitido. Máximo solicitables: ${formatMinutesForMessage(maxAllowed)}`);
   }
 
+  const { start: dayRangeStart, end: dayRangeEnd } = getLocalDayRange(normalizedDate);
+
   const pendingRequest = await prisma.timeBankRequest.findFirst({
     where: {
       orgId,
       employeeId,
-      date: normalizedDate,
+      date: {
+        gte: dayRangeStart,
+        lte: dayRangeEnd,
+      },
       status: "PENDING",
     },
   });
