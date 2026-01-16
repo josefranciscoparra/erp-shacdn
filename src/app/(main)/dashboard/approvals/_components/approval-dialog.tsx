@@ -330,6 +330,9 @@ function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
   const category = item.details?.category as string | undefined;
   const merchant = item.details?.merchant as string | undefined;
   const notes = item.details?.notes as string | undefined;
+  const currentApprovers =
+    (item.details?.currentApprovers as Array<{ id: string; name: string }> | undefined) ?? item.currentApprovers;
+  const hasCurrentApprovers = item.status === "SUBMITTED" && Array.isArray(currentApprovers);
 
   const handlePreview = async () => {
     if (!downloadUrl) return;
@@ -364,6 +367,23 @@ function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
           {category ? (expenseCategories[category] ?? category) : "-"}
         </Badge>
       </div>
+
+      {hasCurrentApprovers && (
+        <div className="rounded-lg border p-3">
+          <span className="text-muted-foreground block text-xs font-medium">En bandeja de</span>
+          {currentApprovers.length === 0 ? (
+            <p className="text-sm font-medium">Sin aprobadores asignados</p>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {currentApprovers.map((approver) => (
+                <Badge key={approver.id} variant="secondary" className="text-[11px]">
+                  {approver.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
@@ -446,7 +466,9 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
 
   if (!item) return null;
 
-  const isReadOnly = item.status !== "PENDING";
+  const canApprove = item.canApprove !== false;
+  const isPending = item.type === "EXPENSE" ? item.status === "SUBMITTED" : item.status === "PENDING";
+  const isReadOnly = !isPending || !canApprove;
 
   const handleActionClick = (type: "approve" | "reject") => {
     setAction(type);
@@ -552,9 +574,16 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
                 <span>Solicitado el {format(new Date(item.createdAt), "PPP", { locale: es })}</span>
               </div>
             </div>
-            <Badge variant="outline" className="shrink-0 px-3 py-1 text-sm">
-              {item.summary}
-            </Badge>
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant="outline" className="shrink-0 px-3 py-1 text-sm">
+                {item.summary}
+              </Badge>
+              {!canApprove && isPending && (
+                <Badge variant="secondary" className="text-xs">
+                  Solo lectura
+                </Badge>
+              )}
+            </div>
           </div>
         </DialogHeader>
 

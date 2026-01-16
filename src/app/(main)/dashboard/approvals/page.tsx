@@ -12,8 +12,11 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getMyApprovals, type PendingApprovalItem } from "@/server/actions/approvals";
 
 import { ApprovalDialog } from "./_components/approval-dialog";
@@ -47,6 +50,7 @@ function collectAdditionalOrgItems(results: PromiseSettledResult<GetMyApprovalsR
 export default function ApprovalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const rawOrgIdFromQuery = searchParams.get("orgId");
   const orgIdFromQuery = rawOrgIdFromQuery?.trim() ? rawOrgIdFromQuery : null;
   const searchParamsString = searchParams.toString();
@@ -57,10 +61,13 @@ export default function ApprovalsPage() {
   const [filterType, setFilterType] = useState("all");
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<string>(orgIdFromQuery ?? "all");
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
 
   // Estado para el diálogo de aprobación
   const [selectedItem, setSelectedItem] = useState<PendingApprovalItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canViewAllExpenses = hasPermission("view_expense_approvals_all");
+  const includeAllExpenses = canViewAllExpenses && showAllExpenses;
 
   const normalizedOrgId = useMemo(
     () => (selectedOrganization === "all" ? undefined : selectedOrganization),
@@ -71,6 +78,12 @@ export default function ApprovalsPage() {
     const nextSelection = orgIdFromQuery ?? "all";
     setSelectedOrganization((prev) => (prev === nextSelection ? prev : nextSelection));
   }, [orgIdFromQuery]);
+
+  useEffect(() => {
+    if (!canViewAllExpenses && showAllExpenses) {
+      setShowAllExpenses(false);
+    }
+  }, [canViewAllExpenses, showAllExpenses]);
 
   useEffect(() => {
     const currentOrgId = orgIdFromQuery;
@@ -97,7 +110,8 @@ export default function ApprovalsPage() {
       setLoading(true);
       try {
         const targetOrgId = orgOverride ?? normalizedOrgId;
-        const result = await getMyApprovals(selectedTab, targetOrgId);
+        const options = includeAllExpenses ? { includeAllExpenses: true } : undefined;
+        const result = await getMyApprovals(selectedTab, targetOrgId, options);
 
         if (!result.success) {
           setItems([]);
@@ -124,7 +138,7 @@ export default function ApprovalsPage() {
 
           if (otherOrgIds.length > 0) {
             const otherResults = await Promise.allSettled(
-              otherOrgIds.map((orgId) => getMyApprovals(selectedTab, orgId)),
+              otherOrgIds.map((orgId) => getMyApprovals(selectedTab, orgId, options)),
             );
             const { items: additionalItems, partialFailure } = collectAdditionalOrgItems(otherResults);
             if (partialFailure) {
@@ -149,7 +163,7 @@ export default function ApprovalsPage() {
         setLoading(false);
       }
     },
-    [normalizedOrgId, selectedOrganization, selectedTab],
+    [includeAllExpenses, normalizedOrgId, selectedOrganization, selectedTab],
   );
 
   useEffect(() => {
@@ -274,6 +288,17 @@ export default function ApprovalsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+              {canViewAllExpenses && (
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <Switch id="show-all-expenses" checked={showAllExpenses} onCheckedChange={setShowAllExpenses} />
+                  <div className="flex flex-col">
+                    <Label htmlFor="show-all-expenses" className="text-xs font-medium">
+                      Ver gastos no asignados
+                    </Label>
+                    <span className="text-muted-foreground text-[11px]">Solo afecta a gastos</span>
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getAuthorizedApprovers, hasHrApprovalAccess } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 // Dynamic import to avoid circular dependency
@@ -24,6 +25,8 @@ export type PendingApprovalItem = {
   summary: string;
   status: string;
   createdAt: Date;
+  canApprove?: boolean;
+  currentApprovers?: Array<{ id: string; name: string }>;
   details: Record<string, any>; // Datos flexibles para el diálogo de detalle
 };
 
@@ -80,6 +83,7 @@ async function getAccessibleOrganizations(userId: string, role: string): Promise
 export async function getMyApprovals(
   filter: "pending" | "history" = "pending",
   orgId?: string,
+  options?: { includeAllExpenses?: boolean },
 ): Promise<{
   success: boolean;
   items: PendingApprovalItem[];
@@ -98,6 +102,8 @@ export async function getMyApprovals(
     }
 
     const userId = session.user.id;
+    const canViewAllExpensesResult = await safePermission("view_expense_approvals_all");
+    const includeAllExpenses = Boolean(options?.includeAllExpenses && canViewAllExpensesResult.ok);
     const organizations = await getAccessibleOrganizations(userId, session.user.role);
 
     if (organizations.length === 0) {
@@ -203,7 +209,7 @@ export async function getMyApprovals(
       status: expenseStatus,
     };
 
-    if (!isHistory || !hasHrAccess) {
+    if (!includeAllExpenses && (!isHistory || !hasHrAccess)) {
       expensesWhere.approvals = {
         some: {
           approverId: userId,
@@ -230,8 +236,12 @@ export async function getMyApprovals(
             },
           },
         },
-        approvals:
-          hasHrAccess && isHistory
+        approvals: includeAllExpenses
+          ? {
+              orderBy: { level: "asc" },
+              include: { approver: { select: { id: true, name: true, image: true } } },
+            }
+          : hasHrAccess && isHistory
             ? {
                 orderBy: { decidedAt: "desc" },
                 take: 1,
@@ -357,7 +367,23 @@ export async function getMyApprovals(
 
     // --- PROCESAR EXPENSES ---
     for (const expense of expenses) {
-      const myApproval = expense.approvals[0];
+      const approvals = expense.approvals ?? [];
+      const sortedApprovals = includeAllExpenses ? [...approvals].sort((a, b) => a.level - b.level) : approvals;
+      const firstPending = sortedApprovals.find((approval) => approval.decision !== "APPROVED");
+      const currentApproverLevel = includeAllExpenses ? (firstPending?.level ?? null) : null;
+      const currentApprovers =
+        includeAllExpenses && currentApproverLevel !== null
+          ? sortedApprovals
+              .filter((approval) => approval.level === currentApproverLevel && approval.decision === "PENDING")
+              .map((approval) => ({
+                id: approval.approver?.id ?? approval.approverId,
+                name: approval.approver?.name ?? "Sin asignar",
+              }))
+          : undefined;
+      const canApprove = includeAllExpenses
+        ? Boolean(currentApprovers?.some((approver) => approver.id === userId))
+        : true;
+      const myApproval = approvals[0];
       const activeContract = expense.employee.employmentContracts[0];
       items.push({
         id: expense.id,
@@ -376,6 +402,8 @@ export async function getMyApprovals(
         summary: `Gasto: ${Number(expense.totalAmount).toFixed(2)}€ (${expense.category})`,
         status: expense.status,
         createdAt: expense.createdAt,
+        canApprove,
+        currentApprovers,
         details: {
           amount: Number(expense.totalAmount),
           category: expense.category,
@@ -386,6 +414,7 @@ export async function getMyApprovals(
           rejectionReason: myApproval?.decision === "REJECTED" ? myApproval.comment : undefined,
           position: activeContract?.position?.title,
           department: activeContract?.department?.name,
+          currentApprovers,
           audit: {
             decidedAt: myApproval?.decidedAt?.toISOString(),
             approverName: myApproval?.approver?.name,

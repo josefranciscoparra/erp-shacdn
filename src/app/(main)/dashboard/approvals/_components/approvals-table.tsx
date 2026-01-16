@@ -62,8 +62,16 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
     return orgIds.size > 1;
   }, [items]);
 
-  const columns: ColumnDef<PendingApprovalItem>[] = useMemo(
-    () => [
+  const showApproverColumn = useMemo(
+    () =>
+      items.some(
+        (item) => item.type === "EXPENSE" && item.status === "SUBMITTED" && item.currentApprovers !== undefined,
+      ),
+    [items],
+  );
+
+  const columns: ColumnDef<PendingApprovalItem>[] = useMemo(() => {
+    const baseColumns: ColumnDef<PendingApprovalItem>[] = [
       {
         id: "select",
         header: ({ table }) => (
@@ -181,6 +189,45 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
           );
         },
       },
+    ];
+
+    if (showApproverColumn) {
+      baseColumns.push({
+        id: "currentApprovers",
+        header: "En bandeja de",
+        cell: ({ row }) => {
+          const item = row.original;
+          if (item.type !== "EXPENSE") {
+            return <span className="text-muted-foreground text-xs">-</span>;
+          }
+
+          const approvers = item.currentApprovers ?? [];
+          if (approvers.length === 0) {
+            return <span className="text-muted-foreground text-xs">Sin asignar</span>;
+          }
+
+          const visibleApprovers = approvers.slice(0, 2);
+          const extraCount = approvers.length - visibleApprovers.length;
+
+          return (
+            <div className="flex flex-wrap gap-1">
+              {visibleApprovers.map((approver) => (
+                <Badge key={approver.id} variant="secondary" className="text-[11px]">
+                  {approver.name}
+                </Badge>
+              ))}
+              {extraCount > 0 && (
+                <Badge variant="outline" className="text-[11px]">
+                  +{extraCount}
+                </Badge>
+              )}
+            </div>
+          );
+        },
+      });
+    }
+
+    baseColumns.push(
       {
         accessorKey: "date",
         header: "Fecha Efectiva",
@@ -203,15 +250,9 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         id: "actions",
         cell: ({ row }) => {
           const item = row.original;
-          let isPending = false;
-          switch (item.type) {
-            case "EXPENSE":
-              isPending = item.status === "SUBMITTED";
-              break;
-            default:
-              isPending = item.status === "PENDING";
-              break;
-          }
+          const canApprove = item.canApprove !== false;
+          const isPending = item.type === "EXPENSE" ? item.status === "SUBMITTED" : item.status === "PENDING";
+          const shouldReview = isPending && canApprove;
 
           return (
             <Button
@@ -220,7 +261,7 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
               size="sm"
               className="text-primary hover:text-primary/80 gap-2"
             >
-              {isPending ? (
+              {shouldReview ? (
                 <>
                   Revisar <ArrowRight className="h-3.5 w-3.5" />
                 </>
@@ -233,9 +274,10 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
           );
         },
       },
-    ],
-    [onReview, showOrgBadges],
-  );
+    );
+
+    return baseColumns;
+  }, [onReview, showApproverColumn, showOrgBadges]);
 
   // Filtrar solicitudes
   const filteredItems = useMemo(() => {
@@ -262,7 +304,8 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
       rowSelection,
     },
     // Solo permitir selección si son pendientes Y NO SON GASTOS (requieren revisión manual)
-    enableRowSelection: (row) => row.original.status === "PENDING" && row.original.type !== "EXPENSE",
+    enableRowSelection: (row) =>
+      row.original.status === "PENDING" && row.original.type !== "EXPENSE" && row.original.canApprove !== false,
     initialState: {
       pagination: {
         pageSize: 10,
