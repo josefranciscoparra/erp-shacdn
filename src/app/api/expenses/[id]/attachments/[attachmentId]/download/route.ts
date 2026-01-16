@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 
@@ -11,23 +14,11 @@ import { documentStorageService } from "@/lib/storage";
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; attachmentId: string }> }) {
   try {
     const session = await auth();
-    if (!session?.user?.orgId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { id: expenseId, attachmentId } = await params;
-
-    // Buscar el empleado asociado al usuario de la sesión
-    const employee = await prisma.employee.findUnique({
-      where: {
-        userId: session.user.id,
-        orgId: session.user.orgId,
-      },
-    });
-
-    if (!employee) {
-      return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
-    }
 
     // Verificar que el adjunto existe
     const attachment = await prisma.expenseAttachment.findUnique({
@@ -35,7 +26,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       include: {
         storedFile: true,
         expense: {
-          include: {
+          select: {
+            orgId: true,
+            createdBy: true,
             approvals: {
               select: {
                 approverId: true,
@@ -55,12 +48,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Adjunto no pertenece a este gasto" }, { status: 400 });
     }
 
-    // Validar permisos: solo el owner o el aprobador pueden ver los adjuntos
-    const isOwner = attachment.expense.employeeId === employee.id;
+    // Validar permisos: owner, aprobador, RRHH con permiso o SUPER_ADMIN
+    const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+    const isOwner = attachment.expense.createdBy === session.user.id;
     const isApprover = attachment.expense.approvals.some((approval) => approval.approverId === session.user.id);
 
-    if (!isOwner && !isApprover) {
-      return NextResponse.json({ error: "No tienes permisos para ver este adjunto" }, { status: 403 });
+    if (!isSuperAdmin && !isOwner && !isApprover) {
+      const membership = await prisma.userOrganization.findFirst({
+        where: {
+          userId: session.user.id,
+          orgId: attachment.expense.orgId,
+          isActive: true,
+          user: { active: true, role: { not: "SUPER_ADMIN" } },
+        },
+        select: { id: true },
+      });
+
+      if (!membership) {
+        return NextResponse.json({ error: "No tienes permisos para ver este adjunto" }, { status: 403 });
+      }
+
+      const permissions = await computeEffectivePermissions({
+        role: session.user.role as Role,
+        orgId: attachment.expense.orgId,
+        userId: session.user.id,
+      });
+
+      const canViewAll = permissions.has("view_expense_approvals_all") || permissions.has("reassign_expense_approvals");
+
+      if (!canViewAll) {
+        return NextResponse.json({ error: "No tienes permisos para ver este adjunto" }, { status: 403 });
+      }
     }
 
     let filePath = attachment.storedFile?.path;
