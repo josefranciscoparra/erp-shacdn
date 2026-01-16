@@ -188,6 +188,14 @@ const PERMISSION_INFO: Record<string, { label: string; description: string }> = 
     label: "Aprobar solicitudes",
     description: "Aprobar vacaciones, ausencias y otras solicitudes",
   },
+  view_expense_approvals_all: {
+    label: "Ver todos los gastos en aprobación",
+    description: "Acceder a todas las solicitudes de gasto y ver quién las tiene asignadas",
+  },
+  reassign_expense_approvals: {
+    label: "Reasignar aprobadores de gastos",
+    description: "Reasignar el aprobador actual de un gasto en revisión",
+  },
   manage_pto_admin: {
     label: "Gestión avanzada de vacaciones",
     description: "Ajustar balances y gestionar solicitudes de vacaciones a nivel administrativo",
@@ -267,9 +275,10 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
     "export_time_tracking",
     "validate_time_entries",
   ],
+  Aprobaciones: ["approve_requests", "view_expense_approvals_all", "reassign_expense_approvals"],
   Vacaciones: ["manage_pto_admin"],
   Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles", "manage_user_organizations"],
-  Sistema: ["manage_organization", "view_reports", "approve_requests", "manage_permission_overrides"],
+  Sistema: ["manage_organization", "view_reports", "manage_permission_overrides"],
   "Perfil Personal": ["view_own_profile", "edit_own_profile", "has_employee_profile"],
   "Datos Sensibles": ["view_sensitive_data"],
 };

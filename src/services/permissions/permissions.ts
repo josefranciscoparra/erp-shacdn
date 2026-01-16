@@ -57,6 +57,8 @@ export const ALL_PERMISSIONS = [
   "has_employee_profile",
   // Aprobaciones
   "approve_requests",
+  "view_expense_approvals_all",
+  "reassign_expense_approvals",
   "manage_pto_admin",
   // Gestión de usuarios
   "manage_users",
@@ -137,6 +139,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "view_expense_approvals_all",
+    "reassign_expense_approvals",
     "manage_pto_admin",
     "manage_users",
     "view_all_users",
@@ -183,6 +187,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "view_expense_approvals_all",
+    "reassign_expense_approvals",
     "manage_pto_admin",
     "manage_users",
     "view_all_users",
@@ -228,6 +234,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_time_tracking",
     "export_time_tracking",
     "approve_requests",
+    "view_expense_approvals_all",
+    "reassign_expense_approvals",
     "manage_pto_admin",
     "manage_users",
     "view_all_users",
@@ -262,6 +270,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "clock_in_out",
     "view_time_tracking",
     "approve_requests",
+    "view_expense_approvals_all",
     "view_all_users",
     "restore_trash", // Restaurar pero NO purgar
     // SIN: manage_trash, manage_payslips, view_sensitive_data, manage_payroll

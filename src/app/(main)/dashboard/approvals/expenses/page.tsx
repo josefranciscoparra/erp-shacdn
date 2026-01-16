@@ -37,11 +37,13 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   getPendingApprovals,
   getApprovalHistory,
   approveExpense,
   rejectExpense,
+  reassignExpenseApproval,
 } from "@/server/actions/expense-approvals";
 
 import { ExpenseDetailSheet } from "./_components/expense-detail-sheet";
@@ -81,6 +83,11 @@ interface ExpenseApproval {
       name: string;
     };
   }>;
+  currentApprovers?: Array<{
+    id: string;
+    name: string;
+  }>;
+  canApprove?: boolean;
   attachments?: Array<{
     id: string;
     url: string;
@@ -127,6 +134,10 @@ export default function ExpenseApprovalsPage() {
       />
     </div>
   );
+  const { hasPermission } = usePermissions();
+  const canApproveRequests = hasPermission("approve_requests");
+  const canViewAll = hasPermission("view_expense_approvals_all");
+  const canReassign = hasPermission("reassign_expense_approvals");
   const [tabData, setTabData] = useState<Record<TabKey, ExpenseApproval[]>>({
     pending: [],
     approved: [],
@@ -314,6 +325,22 @@ export default function ExpenseApprovalsPage() {
           ),
       },
       {
+        id: "currentApprover",
+        header: "En bandeja de",
+        cell: ({ row }) => {
+          if (!canViewAll) {
+            return <span className="text-muted-foreground text-xs">-</span>;
+          }
+
+          const approvers = row.original.currentApprovers ?? [];
+          if (approvers.length === 0) {
+            return <span className="text-muted-foreground text-xs">Sin aprobador</span>;
+          }
+
+          return <span className="text-sm">{approvers.map((approver) => approver.name).join(", ")}</span>;
+        },
+      },
+      {
         id: "detail",
         cell: ({ row }) => {
           const expense = row.original;
@@ -336,6 +363,11 @@ export default function ExpenseApprovalsPage() {
         id: "actions",
         cell: ({ row }) => {
           const expense = row.original;
+          const canAct = canApproveRequests && (expense.canApprove ?? false);
+          if (!canAct) {
+            return <span className="text-muted-foreground text-xs">Solo lectura</span>;
+          }
+
           return (
             <div className="flex gap-2">
               <Button
@@ -361,7 +393,7 @@ export default function ExpenseApprovalsPage() {
         },
       },
     ],
-    [handleAction],
+    [canApproveRequests, canViewAll, handleAction],
   );
 
   const historyColumns: ColumnDef<ExpenseApproval>[] = useMemo(
@@ -482,7 +514,7 @@ export default function ExpenseApprovalsPage() {
   });
 
   return (
-    <PermissionGuard permission="approve_requests" fallback={permissionFallback}>
+    <PermissionGuard permissions={["approve_requests", "view_expense_approvals_all"]} fallback={permissionFallback}>
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <div>
           <Button variant="ghost" size="sm" asChild className="text-muted-foreground mb-2">
@@ -798,8 +830,20 @@ export default function ExpenseApprovalsPage() {
             }}
             open={detailSheetOpen}
             onOpenChange={setDetailSheetOpen}
-            onApprove={handleDetailSheetApprove}
-            onReject={handleDetailSheetReject}
+            onApprove={canApproveRequests && (detailExpense.canApprove ?? false) ? handleDetailSheetApprove : undefined}
+            onReject={canApproveRequests && (detailExpense.canApprove ?? false) ? handleDetailSheetReject : undefined}
+            canReassign={canReassign && canViewAll}
+            onReassign={async (newApproverId) => {
+              const result = await reassignExpenseApproval(detailExpense.id, newApproverId);
+              if (result.success) {
+                toast.success("Aprobador reasignado correctamente");
+                await loadExpenses("pending");
+                await loadExpenses("approved");
+                await loadExpenses("rejected");
+              } else {
+                toast.error(result.error ?? "No se pudo reasignar el aprobador");
+              }
+            }}
           />
         )}
       </div>

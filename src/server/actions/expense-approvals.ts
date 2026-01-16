@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 
-import { hasHrApprovalAccess } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -38,11 +38,47 @@ async function getApproverBaseData() {
   return { session, user };
 }
 
+type PendingApproverInfo = {
+  id: string;
+  name: string;
+};
+
+function getCurrentPendingApprovers(
+  approvals: Array<{
+    level: number;
+    decision: string;
+    approverId: string;
+    approver?: { id: string; name: string | null } | null;
+  }>,
+): { level: number | null; approvers: PendingApproverInfo[] } {
+  if (approvals.length === 0) {
+    return { level: null, approvers: [] };
+  }
+
+  const sorted = [...approvals].sort((a, b) => a.level - b.level);
+  const firstPendingLevel = sorted.find((approval) => approval.decision !== "APPROVED");
+  if (!firstPendingLevel) {
+    return { level: null, approvers: [] };
+  }
+
+  const level = firstPendingLevel.level;
+  const pendingApprovers = sorted
+    .filter((approval) => approval.level === level && approval.decision === "PENDING")
+    .map((approval) => ({
+      id: approval.approver?.id ?? approval.approverId,
+      name: approval.approver?.name ?? "Sin asignar",
+    }));
+
+  return { level, approvers: pendingApprovers };
+}
+
 /**
  * Obtiene los gastos pendientes de aprobación para el usuario actual
  */
 export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFiltersSchema>) {
   const { user } = await getApproverBaseData();
+  const canViewAllResult = await safePermission("view_expense_approvals_all");
+  const canViewAll = canViewAllResult.ok;
 
   const validatedFilters = filters ? ApprovalFiltersSchema.parse(filters) : {};
 
@@ -50,12 +86,16 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
     where: {
       orgId: user.orgId,
       status: "SUBMITTED",
-      approvals: {
-        some: {
-          approverId: user.id,
-          decision: "PENDING",
-        },
-      },
+      ...(canViewAll
+        ? {}
+        : {
+            approvals: {
+              some: {
+                approverId: user.id,
+                decision: "PENDING",
+              },
+            },
+          }),
       ...(validatedFilters.employeeId && { employeeId: validatedFilters.employeeId }),
       ...(validatedFilters.category && { category: validatedFilters.category }),
       ...(validatedFilters.dateFrom && { date: { gte: validatedFilters.dateFrom } }),
@@ -106,18 +146,18 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
     },
   });
 
-  // Filtrar para mostrar solo el nivel actual (aprobaciones previas deben estar aprobadas)
-  const filteredExpenses = expenses.filter((expense) => {
-    const myApproval = expense.approvals.find(
-      (approval) => approval.approverId === user.id && approval.decision === "PENDING",
-    );
-    if (!myApproval) return false;
+  const normalizedExpenses = expenses.map((expense) => {
+    const currentApprovers = getCurrentPendingApprovers(expense.approvals);
+    const canApprove = currentApprovers.approvers.some((approver) => approver.id === user.id);
 
-    const hasBlockingLevel = expense.approvals.some(
-      (approval) => approval.level < myApproval.level && approval.decision !== "APPROVED",
-    );
-    return !hasBlockingLevel;
+    return {
+      ...expense,
+      currentApprovers: canViewAll ? currentApprovers.approvers : undefined,
+      canApprove,
+    };
   });
+
+  const filteredExpenses = canViewAll ? normalizedExpenses : normalizedExpenses.filter((expense) => expense.canApprove);
 
   // Convertir Decimals a números para el cliente y devolver solo la aprobación del usuario para la UI
   const serializedExpenses = filteredExpenses.map((expense) => ({
@@ -127,9 +167,9 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
     totalAmount: Number(expense.totalAmount),
     mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
     mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
-    approvals: expense.approvals
-      .filter((approval) => approval.approverId === user.id)
-      .map((approval) => ({ ...approval })),
+    approvals: canViewAll
+      ? expense.approvals.map((approval) => ({ ...approval }))
+      : expense.approvals.filter((approval) => approval.approverId === user.id).map((approval) => ({ ...approval })),
   }));
 
   return {
@@ -432,14 +472,15 @@ export async function getApprovalStats() {
  */
 export async function getApprovalHistory(limit: number = 50) {
   const { user } = await getApproverBaseData();
-  const hasHrAccess = await hasHrApprovalAccess(user.id, user.orgId);
+  const canViewAllResult = await safePermission("view_expense_approvals_all");
+  const canViewAll = canViewAllResult.ok;
   const statusFilter = { in: ["APPROVED", "REJECTED"] as const };
 
   const expenses = await prisma.expense.findMany({
     where: {
       orgId: user.orgId,
       status: statusFilter,
-      ...(hasHrAccess
+      ...(canViewAll
         ? {}
         : {
             approvals: {
@@ -473,7 +514,7 @@ export async function getApprovalHistory(limit: number = 50) {
         },
       },
       approvals: {
-        ...(hasHrAccess
+        ...(canViewAll
           ? {
               orderBy: { decidedAt: "desc" },
               take: 1,
@@ -515,10 +556,137 @@ export async function getApprovalHistory(limit: number = 50) {
     totalAmount: Number(expense.totalAmount),
     mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
     mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+    currentApprovers: undefined,
+    canApprove: false,
   }));
 
   return {
     success: true,
     expenses: serializedExpenses,
   };
+}
+
+export async function reassignExpenseApproval(expenseId: string, newApproverId: string) {
+  const authz = await safePermission("reassign_expense_approvals");
+  if (!authz.ok) {
+    return { success: false, error: authz.error };
+  }
+
+  const orgId = authz.session.user.orgId;
+
+  if (!expenseId || !newApproverId) {
+    return { success: false, error: "Datos incompletos para reasignar" };
+  }
+
+  const expense = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    include: {
+      approvals: {
+        include: {
+          approver: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { level: "asc" },
+      },
+      employee: {
+        select: { firstName: true, lastName: true },
+      },
+    },
+  });
+
+  if (!expense || expense.orgId !== orgId) {
+    return { success: false, error: "Gasto no encontrado" };
+  }
+
+  if (expense.status !== "SUBMITTED") {
+    return { success: false, error: "Solo se pueden reasignar gastos pendientes" };
+  }
+
+  const currentLevelInfo = getCurrentPendingApprovers(expense.approvals);
+  if (!currentLevelInfo.level) {
+    return { success: false, error: "No hay aprobaciones pendientes para reasignar" };
+  }
+
+  const pendingApprovals = expense.approvals.filter(
+    (approval) => approval.level === currentLevelInfo.level && approval.decision === "PENDING",
+  );
+
+  if (pendingApprovals.length === 0) {
+    return { success: false, error: "No hay aprobaciones pendientes en el nivel actual" };
+  }
+
+  if (pendingApprovals.length > 1) {
+    return { success: false, error: "Hay múltiples aprobadores en este nivel. Reasigna manualmente desde la lista." };
+  }
+
+  const pendingApproval = pendingApprovals[0];
+  if (pendingApproval.approverId === newApproverId) {
+    return { success: false, error: "El gasto ya está asignado a ese aprobador" };
+  }
+
+  const membership = await prisma.userOrganization.findFirst({
+    where: {
+      userId: newApproverId,
+      orgId,
+      isActive: true,
+      user: { active: true, role: { not: "SUPER_ADMIN" } },
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  });
+
+  const legacyUser = !membership
+    ? await prisma.user.findFirst({
+        where: {
+          id: newApproverId,
+          orgId,
+          active: true,
+          role: { not: "SUPER_ADMIN" },
+        },
+        select: { id: true, name: true, email: true, role: true },
+      })
+    : null;
+
+  const targetRole = membership?.role ?? legacyUser?.role ?? null;
+  const targetUser = membership?.user ?? legacyUser;
+
+  if (!targetRole || !targetUser) {
+    return { success: false, error: "El aprobador seleccionado no pertenece a esta organización" };
+  }
+
+  if (!["MANAGER", "HR_ADMIN", "HR_ASSISTANT", "ORG_ADMIN"].includes(targetRole)) {
+    return { success: false, error: "El aprobador debe ser manager o RRHH" };
+  }
+
+  await prisma.expenseApproval.update({
+    where: { id: pendingApproval.id },
+    data: {
+      approverId: newApproverId,
+      decision: "PENDING",
+      comment: null,
+      decidedAt: null,
+    },
+  });
+
+  const requesterNameParts = [expense.employee?.firstName, expense.employee?.lastName].filter(Boolean);
+  const requesterName = requesterNameParts.length > 0 ? requesterNameParts.join(" ") : "El empleado";
+  const totalAmount = Number(expense.totalAmount).toFixed(2);
+  const message = `${requesterName} ha enviado un gasto de ${totalAmount}€ (${expense.category})`;
+
+  await createNotification(
+    newApproverId,
+    expense.orgId,
+    "EXPENSE_SUBMITTED",
+    "Nuevo gasto para aprobar",
+    message,
+    undefined,
+    undefined,
+    expense.id,
+  );
+
+  return { success: true };
 }

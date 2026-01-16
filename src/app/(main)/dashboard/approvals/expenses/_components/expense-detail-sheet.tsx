@@ -12,20 +12,29 @@ import {
   Receipt,
   User,
   Building2,
-  CreditCard,
   X,
   Check,
   Loader2,
+  ChevronsUpDown,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import { ExpenseCategoryIcon, getCategoryLabel } from "./expense-category-icon";
 
@@ -66,6 +75,10 @@ interface ExpenseDetail {
       name: string;
     };
   }>;
+  currentApprovers?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 interface ExpenseDetailSheetProps {
@@ -74,12 +87,36 @@ interface ExpenseDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onApprove?: () => void;
   onReject?: () => void;
+  canReassign?: boolean;
+  onReassign?: (newApproverId: string) => Promise<void>;
 }
 
-export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onReject }: ExpenseDetailSheetProps) {
+type ApproverOption = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  image: string | null;
+};
+
+export function ExpenseDetailSheet({
+  expense,
+  open,
+  onOpenChange,
+  onApprove,
+  onReject,
+  canReassign,
+  onReassign,
+}: ExpenseDetailSheetProps) {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [approvers, setApprovers] = useState<ApproverOption[]>([]);
+  const [selectedApproverId, setSelectedApproverId] = useState<string | null>(null);
+  const [isLoadingApprovers, setIsLoadingApprovers] = useState(false);
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   // Cargar URLs firmadas cuando se abra el detalle
   useEffect(() => {
@@ -117,10 +154,48 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
     void loadSignedUrls();
   }, [expense?.id, expense?.attachments, open]);
 
+  useEffect(() => {
+    if (!reassignOpen) {
+      setSelectedApproverId(null);
+      return;
+    }
+
+    const loadApprovers = async () => {
+      setIsLoadingApprovers(true);
+      try {
+        const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,HR_ASSISTANT,ORG_ADMIN");
+        if (!response.ok) {
+          throw new Error("Error al cargar aprobadores");
+        }
+        const data = await response.json();
+        setApprovers(data.users ?? []);
+      } catch (error) {
+        console.error("Error loading approvers:", error);
+      } finally {
+        setIsLoadingApprovers(false);
+      }
+    };
+
+    void loadApprovers();
+  }, [reassignOpen]);
+
   if (!expense) return null;
 
   const isPending = expense.status === "SUBMITTED";
   const employeeInitials = `${expense.employee.firstName[0]}${expense.employee.lastName[0]}`;
+  const hasCurrentApprovers = Array.isArray(expense.currentApprovers);
+  const canShowReassign = Boolean(canReassign && onReassign && isPending && hasCurrentApprovers);
+
+  const handleReassign = async () => {
+    if (!onReassign || !selectedApproverId) return;
+    setIsReassigning(true);
+    try {
+      await onReassign(selectedApproverId);
+      setReassignOpen(false);
+    } finally {
+      setIsReassigning(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -161,6 +236,36 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                 </div>
               </div>
             </div>
+
+            {/* Estado de aprobación actual */}
+            {isPending && hasCurrentApprovers && (
+              <Card className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-2">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold">
+                      <User className="size-4" />
+                      En bandeja de
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(expense.currentApprovers ?? []).length === 0 ? (
+                        <span className="text-muted-foreground text-sm">Sin aprobador asignado</span>
+                      ) : (
+                        (expense.currentApprovers ?? []).map((approver) => (
+                          <Badge key={approver.id} variant="outline">
+                            {approver.name}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  {canShowReassign && (
+                    <Button variant="outline" size="sm" onClick={() => setReassignOpen(true)}>
+                      Reasignar aprobador
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
 
             {/* Galería de adjuntos */}
             {expense.attachments && expense.attachments.length > 0 && (
@@ -367,6 +472,92 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
               </Button>
             </div>
           </div>
+        )}
+
+        {canShowReassign && (
+          <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>Reasignar aprobador</DialogTitle>
+                <DialogDescription>Selecciona el usuario que recibirá este gasto en su bandeja.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Label>Nuevo aprobador</Label>
+                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={comboboxOpen}
+                      className="w-full justify-between"
+                      disabled={isLoadingApprovers}
+                    >
+                      {selectedApproverId
+                        ? approvers.find((user) => user.id === selectedApproverId)?.name
+                        : isLoadingApprovers
+                          ? "Cargando aprobadores..."
+                          : "Selecciona un aprobador"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[480px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar usuario..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron usuarios.</CommandEmpty>
+                        <CommandGroup>
+                          {approvers.map((user) => (
+                            <CommandItem
+                              key={user.id}
+                              value={user.name}
+                              onSelect={() => {
+                                setSelectedApproverId(user.id);
+                                setComboboxOpen(false);
+                              }}
+                            >
+                              <Avatar className="mr-2 h-6 w-6">
+                                <AvatarImage src={user.image ?? undefined} alt={user.name} />
+                                <AvatarFallback className="text-xs">
+                                  {user.name
+                                    .split(" ")
+                                    .map((part) => part[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-1 flex-col">
+                                <span className="text-sm">{user.name}</span>
+                                <span className="text-muted-foreground text-xs">{user.email}</span>
+                              </div>
+                              <Badge variant="outline" className="ml-2">
+                                {user.role}
+                              </Badge>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setReassignOpen(false)} disabled={isReassigning}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleReassign} disabled={!selectedApproverId || isReassigning}>
+                  {isReassigning ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Reasignando...
+                    </>
+                  ) : (
+                    "Reasignar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </SheetContent>
     </Sheet>
