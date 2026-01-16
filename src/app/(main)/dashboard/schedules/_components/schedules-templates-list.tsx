@@ -65,6 +65,9 @@ function TemplateCard({ template }: { template: TemplateWithCount }) {
         toast.success("Plantilla duplicada", {
           description: `Se ha creado una copia de "${template.name}"`,
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        }
         router.refresh();
       } else {
         toast.error("Error al duplicar plantilla", {
@@ -107,6 +110,9 @@ function TemplateCard({ template }: { template: TemplateWithCount }) {
         toast.success("Plantilla eliminada", {
           description: `La plantilla "${template.name}" ha sido eliminada correctamente`,
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        }
         router.refresh();
       } else {
         toast.error("Error al eliminar plantilla", {

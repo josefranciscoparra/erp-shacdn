@@ -83,6 +83,10 @@ export function AssignedEmployeesList({ templateId }: AssignedEmployeesListProps
         toast.success("Asignación eliminada", {
           description: `Se ha desasignado a ${employeeName} de esta plantilla`,
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-template:assignments-updated", { detail: { templateId } }));
+          window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        }
         router.refresh();
         loadAssignedEmployees();
       } else {

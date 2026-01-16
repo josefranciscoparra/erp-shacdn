@@ -85,6 +85,9 @@ export function CreateTemplateDialog() {
         });
         setOpen(false);
         form.reset();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        }
 
         // Redirigir a la página de edición de la nueva plantilla
         router.push(`/dashboard/schedules/${result.data.id}`);

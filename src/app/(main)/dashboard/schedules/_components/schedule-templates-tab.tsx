@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Calendar } from "lucide-react";
 
@@ -18,20 +18,47 @@ export function ScheduleTemplatesTab() {
   const canManageSchedules = hasPermission("manage_contracts");
   const [templates, setTemplates] = useState<Awaited<ReturnType<typeof getScheduleTemplates>>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function loadTemplates() {
+  const loadTemplates = useCallback(async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") {
       setIsLoading(true);
-      try {
-        const data = await getScheduleTemplates();
-        setTemplates(data);
-      } finally {
-        setIsLoading(false);
-      }
+    } else {
+      setIsRefreshing(true);
     }
 
-    loadTemplates();
+    try {
+      const data = await getScheduleTemplates();
+      setTemplates(data);
+    } finally {
+      if (mode === "initial") {
+        setIsLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    loadTemplates("initial");
+  }, [loadTemplates]);
+
+  useEffect(() => {
+    function handleTemplatesUpdated() {
+      loadTemplates("refresh");
+    }
+
+    function handleAssignmentsUpdated() {
+      loadTemplates("refresh");
+    }
+
+    window.addEventListener("schedule-templates:updated", handleTemplatesUpdated);
+    window.addEventListener("schedule-template:assignments-updated", handleAssignmentsUpdated);
+    return () => {
+      window.removeEventListener("schedule-templates:updated", handleTemplatesUpdated);
+      window.removeEventListener("schedule-template:assignments-updated", handleAssignmentsUpdated);
+    };
+  }, [loadTemplates]);
 
   if (isLoading) {
     return (
@@ -74,9 +101,12 @@ export function ScheduleTemplatesTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">
-          Gestionando <strong>{templates.length}</strong> plantillas activas
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-muted-foreground text-sm">
+            Gestionando <strong>{templates.length}</strong> plantillas activas
+          </p>
+          {isRefreshing && <span className="text-muted-foreground text-xs">Actualizando...</span>}
+        </div>
         {canManageSchedules && <CreateTemplateDialog />}
       </div>
       <ScheduleTemplatesList templates={templates} />

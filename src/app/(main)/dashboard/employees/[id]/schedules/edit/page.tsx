@@ -142,6 +142,8 @@ export default function EditEmployeeSchedulePage() {
 
     setIsSaving(true);
     try {
+      const previousTemplateId = currentAssignment ? currentAssignment.scheduleTemplateId : null;
+
       // If there's a current assignment, end it first
       if (currentAssignment) {
         const endResult = await endEmployeeAssignment(
@@ -169,6 +171,20 @@ export default function EditEmployeeSchedulePage() {
       toast.success("Horario actualizado", {
         description: "El horario del empleado ha sido actualizado correctamente",
       });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        if (previousTemplateId && previousTemplateId !== selectedTemplateId) {
+          window.dispatchEvent(
+            new CustomEvent("schedule-template:assignments-updated", { detail: { templateId: previousTemplateId } }),
+          );
+        }
+        if (selectedTemplateId) {
+          window.dispatchEvent(
+            new CustomEvent("schedule-template:assignments-updated", { detail: { templateId: selectedTemplateId } }),
+          );
+        }
+      }
 
       router.push(`/dashboard/employees/${params.id}/schedules`);
     } catch (err: unknown) {

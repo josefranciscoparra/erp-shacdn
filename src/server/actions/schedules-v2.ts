@@ -542,12 +542,14 @@ export async function deleteScheduleTemplate(id: string): Promise<ActionResponse
   try {
     const { session } = await requirePermission("manage_time_tracking");
     const orgId = session.user.orgId;
+    const now = new Date();
 
     // Verificar que no esté asignada a ningún empleado
     const assignmentsCount = await prisma.employeeScheduleAssignment.count({
       where: {
         scheduleTemplateId: id,
         isActive: true,
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
     });
 

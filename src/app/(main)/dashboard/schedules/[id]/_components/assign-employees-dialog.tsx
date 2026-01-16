@@ -96,6 +96,7 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
       let successCount = 0;
       let errorCount = 0;
       let closedAssignmentsCount = 0;
+      const errorMessages: string[] = [];
 
       // Asignar cada empleado seleccionado
       for (const employeeId of selectedEmployeeIds) {
@@ -115,6 +116,10 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
           }
         } else {
           errorCount++;
+          const employee = availableEmployees.find((candidate) => candidate.id === employeeId);
+          const employeeLabel = employee ? employee.fullName : "Empleado";
+          const reason = result.error ?? "Error desconocido";
+          errorMessages.push(`${employeeLabel}: ${reason}`);
         }
       }
 
@@ -136,8 +141,12 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
       }
 
       if (errorCount > 0) {
+        const preview = errorMessages.slice(0, 3).join(" | ");
+        const extraCount = errorMessages.length > 3 ? errorMessages.length - 3 : 0;
+        const extraSuffix = extraCount > 0 ? ` (+${extraCount} más)` : "";
         toast.error(`Error al asignar ${errorCount} empleado${errorCount > 1 ? "s" : ""}`, {
-          description: "Algunos empleados no pudieron ser asignados",
+          description:
+            errorMessages.length > 0 ? `${preview}${extraSuffix}` : "Algunos empleados no pudieron ser asignados",
         });
       }
     } catch (error) {

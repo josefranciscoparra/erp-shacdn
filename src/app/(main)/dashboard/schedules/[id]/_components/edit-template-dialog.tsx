@@ -99,6 +99,9 @@ export function EditTemplateDialog({ template, variant = "outline", size = "sm" 
           description: `La plantilla "${data.name}" se ha actualizado correctamente`,
         });
         setOpen(false);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-templates:updated"));
+        }
         router.refresh();
       } else {
         toast.error("Error al actualizar plantilla", {
