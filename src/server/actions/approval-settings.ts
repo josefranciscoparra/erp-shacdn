@@ -13,14 +13,14 @@ import { prisma } from "@/lib/prisma";
 
 const WorkflowSchema = ApprovalSettingsSchema.shape.workflows.shape.PTO;
 
+export type ApprovalSettingsConfig = {
+  settings: ApprovalSettings;
+  groupHrApprovalsEnabled: boolean;
+};
+
 const ApprovalSettingsInputSchema = z.object({
-  version: z.literal(1),
-  workflows: z.object({
-    PTO: WorkflowSchema,
-    MANUAL_TIME_ENTRY: WorkflowSchema,
-    TIME_BANK: WorkflowSchema,
-    EXPENSE: WorkflowSchema,
-  }),
+  settings: ApprovalSettingsSchema,
+  groupHrApprovalsEnabled: z.boolean().optional(),
 });
 
 function hasUniqueCriteria(criteria: string[]) {
@@ -55,18 +55,21 @@ async function getAdminSession() {
   return session;
 }
 
-export async function getApprovalSettings(): Promise<ApprovalSettings> {
+export async function getApprovalSettings(): Promise<ApprovalSettingsConfig> {
   const session = await getAdminSession();
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.orgId },
-    select: { approvalSettings: true },
+    select: { approvalSettings: true, groupHrApprovalsEnabled: true },
   });
 
-  return normalizeApprovalSettings(org?.approvalSettings ?? DEFAULT_APPROVAL_SETTINGS);
+  const settings = normalizeApprovalSettings(org?.approvalSettings ?? DEFAULT_APPROVAL_SETTINGS);
+  const groupHrApprovalsEnabled = org ? org.groupHrApprovalsEnabled : true;
+
+  return { settings, groupHrApprovalsEnabled };
 }
 
-export async function updateApprovalSettings(input: ApprovalSettings) {
+export async function updateApprovalSettings(input: ApprovalSettingsConfig) {
   const session = await getAdminSession();
   const parsed = ApprovalSettingsInputSchema.safeParse(input);
 
@@ -75,13 +78,19 @@ export async function updateApprovalSettings(input: ApprovalSettings) {
   }
 
   try {
-    validateSettings(parsed.data);
+    validateSettings(parsed.data.settings);
+
+    const updateData: { approvalSettings: ApprovalSettings; groupHrApprovalsEnabled?: boolean } = {
+      approvalSettings: parsed.data.settings,
+    };
+
+    if (typeof parsed.data.groupHrApprovalsEnabled === "boolean") {
+      updateData.groupHrApprovalsEnabled = parsed.data.groupHrApprovalsEnabled;
+    }
 
     await prisma.organization.update({
       where: { id: session.user.orgId },
-      data: {
-        approvalSettings: parsed.data,
-      },
+      data: updateData,
     });
 
     return { success: true };

@@ -40,20 +40,6 @@ export async function GET(request: NextRequest) {
     });
 
     const groupIds = groupMemberships.map((membership) => membership.groupId);
-    const groupMemberIds = new Set<string>();
-
-    if (groupIds.length > 0) {
-      const groupUsers = await prisma.organizationGroupUser.findMany({
-        where: {
-          groupId: { in: groupIds },
-          isActive: true,
-        },
-        select: { userId: true },
-      });
-
-      groupUsers.forEach((user) => groupMemberIds.add(user.userId));
-    }
-
     const groupOrganizations =
       groupIds.length > 0
         ? await prisma.organizationGroupOrganization.findMany({
@@ -188,7 +174,7 @@ export async function GET(request: NextRequest) {
       const userGroupOrgs = groupOrgIndex.get(user.id);
       const hasGroupScope = groupOrgIds.length > 0;
       const hasOtherGroupOrg = userGroupOrgs && (userGroupOrgs.size > 1 || !userGroupOrgs.has(session.user.orgId));
-      const source = hasGroupScope && (hasOtherGroupOrg || groupMemberIds.has(user.id)) ? "GROUP" : "ORG";
+      const source = hasGroupScope && hasOtherGroupOrg ? "GROUP" : "ORG";
       userMap.set(user.id, {
         id: user.id,
         name: user.name,
@@ -206,7 +192,7 @@ export async function GET(request: NextRequest) {
         const userGroupOrgs = groupOrgIndex.get(user.id);
         const hasGroupScope = groupOrgIds.length > 0;
         const hasOtherGroupOrg = userGroupOrgs && (userGroupOrgs.size > 1 || !userGroupOrgs.has(session.user.orgId));
-        const source = hasGroupScope && (hasOtherGroupOrg || groupMemberIds.has(user.id)) ? "GROUP" : "ORG";
+        const source = hasGroupScope && hasOtherGroupOrg ? "GROUP" : "ORG";
         userMap.set(user.id, {
           id: user.id,
           name: user.name,
@@ -222,7 +208,7 @@ export async function GET(request: NextRequest) {
 
     const users = Array.from(userMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
-    const hasGroupScope = groupOrgIds.length > 1;
+    const hasGroupScope = groupOrgIds.length > 0;
 
     return NextResponse.json({ users, hasGroupScope });
   } catch (error) {

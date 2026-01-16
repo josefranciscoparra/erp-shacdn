@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { hasHrApprovalAccess } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -431,18 +432,25 @@ export async function getApprovalStats() {
  */
 export async function getApprovalHistory(limit: number = 50) {
   const { user } = await getApproverBaseData();
+  const hasHrAccess = await hasHrApprovalAccess(user.id, user.orgId);
+  const statusFilter = { in: ["APPROVED", "REJECTED"] as const };
 
   const expenses = await prisma.expense.findMany({
     where: {
       orgId: user.orgId,
-      approvals: {
-        some: {
-          approverId: user.id,
-          decision: {
-            in: ["APPROVED", "REJECTED"],
-          },
-        },
-      },
+      status: statusFilter,
+      ...(hasHrAccess
+        ? {}
+        : {
+            approvals: {
+              some: {
+                approverId: user.id,
+                decision: {
+                  in: ["APPROVED", "REJECTED"],
+                },
+              },
+            },
+          }),
     },
     include: {
       employee: {
@@ -465,9 +473,16 @@ export async function getApprovalHistory(limit: number = 50) {
         },
       },
       approvals: {
-        where: {
-          approverId: user.id,
-        },
+        ...(hasHrAccess
+          ? {
+              orderBy: { decidedAt: "desc" },
+              take: 1,
+            }
+          : {
+              where: {
+                approverId: user.id,
+              },
+            }),
         include: {
           approver: {
             select: {

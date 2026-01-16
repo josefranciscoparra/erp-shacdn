@@ -56,6 +56,19 @@ export const APPROVAL_PERMISSIONS: Record<ApprovalRequestType, ScopePermission> 
 
 const HR_APPROVER_ROLES = ["HR_ADMIN", "HR_ASSISTANT"] as const;
 
+async function getGroupHrApprovalsEnabled(orgId: string): Promise<boolean> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { groupHrApprovalsEnabled: true },
+  });
+
+  if (!org) {
+    return true;
+  }
+
+  return org.groupHrApprovalsEnabled;
+}
+
 async function getApprovalSettingsForOrg(orgId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -188,6 +201,11 @@ async function getLocalHrApprovers(orgId: string): Promise<AuthorizedApprover[]>
 }
 
 async function getGroupHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const isEnabled = await getGroupHrApprovalsEnabled(orgId);
+  if (!isEnabled) {
+    return [];
+  }
+
   const groupMemberships = await prisma.organizationGroupOrganization.findMany({
     where: {
       organizationId: orgId,
@@ -264,19 +282,58 @@ async function getListApprovers(orgId: string, approverList: string[]): Promise<
     return [];
   }
 
-  const users = await prisma.user.findMany({
+  const memberships = await prisma.userOrganization.findMany({
     where: {
       orgId,
-      id: { in: approverList },
-      active: true,
-      role: { not: "SUPER_ADMIN" },
+      isActive: true,
+      userId: { in: approverList },
+      user: {
+        active: true,
+        role: { not: "SUPER_ADMIN" },
+      },
     },
-    select: { id: true, name: true, email: true, role: true },
+    select: {
+      role: true,
+      user: {
+        select: { id: true, name: true, email: true, role: true },
+      },
+    },
   });
 
-  const userMap = new Map(users.map((user) => [user.id, user]));
+  const membershipMap = new Map(
+    memberships
+      .filter((membership) => membership.user)
+      .map((membership) => [
+        membership.user.id,
+        {
+          id: membership.user.id,
+          name: membership.user.name,
+          email: membership.user.email,
+          role: membership.role,
+        },
+      ]),
+  );
+
+  const missingUserIds = approverList.filter((id) => !membershipMap.has(id));
+  const legacyUsers =
+    missingUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: {
+            id: { in: missingUserIds },
+            orgId,
+            active: true,
+            role: { not: "SUPER_ADMIN" },
+          },
+          select: { id: true, name: true, email: true, role: true },
+        })
+      : [];
+
+  legacyUsers.forEach((user) => {
+    membershipMap.set(user.id, user);
+  });
+
   const ordered = approverList
-    .map((id) => userMap.get(id))
+    .map((id) => membershipMap.get(id))
     .filter((user): user is NonNullable<typeof user> => Boolean(user));
 
   return ordered.map((user) => ({
@@ -319,6 +376,11 @@ async function hasLocalHrMembership(userId: string, orgId: string): Promise<bool
 }
 
 async function hasGroupHrMembership(userId: string, orgId: string): Promise<boolean> {
+  const isEnabled = await getGroupHrApprovalsEnabled(orgId);
+  if (!isEnabled) {
+    return false;
+  }
+
   const groupMemberships = await prisma.organizationGroupOrganization.findMany({
     where: {
       organizationId: orgId,

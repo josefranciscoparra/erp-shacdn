@@ -117,9 +117,8 @@ export async function getMyApprovals(
     const isHistory = filter === "history";
     const statusFilter = isHistory ? { in: ["APPROVED", "REJECTED"] } : "PENDING";
 
-    // Si es historial, buscamos explícitamente donde el usuario actuó como aprobador
-    // O si es admin, quizás quiera ver todo, pero por ahora limitamos a "Mis acciones" para consistencia
-    const historyWhereClause = isHistory ? { approverId: userId } : {};
+    // Si es historial, mostramos todo para RRHH; para el resto, solo sus acciones.
+    const historyWhereClause = isHistory && !hasHrAccess ? { approverId: userId } : {};
     // --- PREPARAR CONSULTAS ---
 
     // 1. PTO Promise
@@ -204,12 +203,14 @@ export async function getMyApprovals(
       status: expenseStatus,
     };
 
-    expensesWhere.approvals = {
-      some: {
-        approverId: userId,
-        ...expenseApprovalsFilter,
-      },
-    };
+    if (!isHistory || !hasHrAccess) {
+      expensesWhere.approvals = {
+        some: {
+          approverId: userId,
+          ...expenseApprovalsFilter,
+        },
+      };
+    }
 
     const expensesPromise = prisma.expense.findMany({
       where: expensesWhere,
@@ -229,11 +230,18 @@ export async function getMyApprovals(
             },
           },
         },
-        approvals: {
-          where: { approverId: userId },
-          take: 1,
-          include: { approver: { select: { name: true, image: true } } },
-        },
+        approvals:
+          hasHrAccess && isHistory
+            ? {
+                orderBy: { decidedAt: "desc" },
+                take: 1,
+                include: { approver: { select: { name: true, image: true } } },
+              }
+            : {
+                where: { approverId: userId },
+                take: 1,
+                include: { approver: { select: { name: true, image: true } } },
+              },
         attachments: {
           take: 1,
           select: { id: true },

@@ -26,6 +26,7 @@ model Organization {
 
   // Configuración de aprobaciones por tipo de solicitud (flujo configurable)
   approvalSettings Json @default("{}")
+  groupHrApprovalsEnabled Boolean @default(true) // Permitir RRHH del grupo en aprobaciones
 
   // Configuración de identidad de empleados (numeración automática)
   employeeNumberPrefix  String? // Prefijo para números de empleado (ej: "TMNW", "ACME")

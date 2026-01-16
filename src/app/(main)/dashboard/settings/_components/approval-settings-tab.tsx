@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   type ApprovalCriterion,
   type ApprovalRequestType,
@@ -52,7 +53,7 @@ const criterionLabels: Record<ApprovalCriterion, string> = {
   GROUP_HR: "RRHH del grupo",
 };
 
-const criterionOptions: ApprovalCriterion[] = [
+const baseCriterionOptions: ApprovalCriterion[] = [
   "DIRECT_MANAGER",
   "TEAM_RESPONSIBLE",
   "DEPARTMENT_RESPONSIBLE",
@@ -83,11 +84,16 @@ const roleLabels: Record<string, string> = {
 function ApprovalOrderEditor({
   order,
   onChange,
+  availableCriteria,
 }: {
   order: ApprovalCriterion[];
   onChange: (next: ApprovalCriterion[]) => void;
+  availableCriteria: ApprovalCriterion[];
 }) {
-  const availableOptions = useMemo(() => criterionOptions.filter((option) => !order.includes(option)), [order]);
+  const availableOptions = useMemo(
+    () => availableCriteria.filter((option) => !order.includes(option)),
+    [availableCriteria, order],
+  );
 
   const moveItem = (from: number, to: number) => {
     const next = [...order];
@@ -170,13 +176,13 @@ function ApproverListEditor({
   value,
   onChange,
   isLoading,
-  hasGroupScope,
+  allowGroupUsers,
 }: {
   users: ApproverUser[];
   value: string[];
   onChange: (next: string[]) => void;
   isLoading: boolean;
-  hasGroupScope: boolean;
+  allowGroupUsers: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -266,7 +272,7 @@ function ApproverListEditor({
                       );
                     })}
                   </CommandGroup>
-                  {(hasGroupScope || groupUsers.length > 0) && (
+                  {allowGroupUsers && (
                     <CommandGroup heading="Usuarios del grupo">
                       {groupUsers.length === 0 ? (
                         <div className="text-muted-foreground px-3 py-4 text-xs">
@@ -355,16 +361,19 @@ export function ApprovalSettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [approverUsers, setApproverUsers] = useState<ApproverUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [hasGroupScope, setHasGroupScope] = useState(false);
+  const [hasGroupScope, setHasGroupScope] = useState<boolean | null>(null);
+  const [groupHrApprovalsEnabled, setGroupHrApprovalsEnabled] = useState(true);
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await getApprovalSettings();
-      setSettings(data);
+      setSettings(data.settings);
+      setGroupHrApprovalsEnabled(data.groupHrApprovalsEnabled ?? true);
     } catch (error) {
       console.error("Error al cargar configuracion de aprobaciones:", error);
       setSettings(DEFAULT_APPROVAL_SETTINGS);
+      setGroupHrApprovalsEnabled(true);
       toast.error("No se pudo cargar la configuracion de aprobaciones");
     } finally {
       setIsLoading(false);
@@ -400,11 +409,79 @@ export function ApprovalSettingsTab() {
     void loadApproverUsers();
   }, [loadApproverUsers]);
 
+  const allowGroupHr = hasGroupScope === true && groupHrApprovalsEnabled;
+  const allowedCriteria = useMemo(
+    () => (allowGroupHr ? baseCriterionOptions : baseCriterionOptions.filter((option) => option !== "GROUP_HR")),
+    [allowGroupHr],
+  );
+  const groupUserIds = useMemo(
+    () => new Set(approverUsers.filter((user) => user.source === "GROUP").map((user) => user.id)),
+    [approverUsers],
+  );
+
+  const stripGroupCriteria = useCallback(
+    (workflows: ApprovalSettings["workflows"]) => ({
+      PTO: {
+        ...workflows.PTO,
+        criteriaOrder: workflows.PTO.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
+        approverList: workflows.PTO.approverList.filter((id) => !groupUserIds.has(id)),
+      },
+      MANUAL_TIME_ENTRY: {
+        ...workflows.MANUAL_TIME_ENTRY,
+        criteriaOrder: workflows.MANUAL_TIME_ENTRY.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
+        approverList: workflows.MANUAL_TIME_ENTRY.approverList.filter((id) => !groupUserIds.has(id)),
+      },
+      TIME_BANK: {
+        ...workflows.TIME_BANK,
+        criteriaOrder: workflows.TIME_BANK.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
+        approverList: workflows.TIME_BANK.approverList.filter((id) => !groupUserIds.has(id)),
+      },
+      EXPENSE: {
+        ...workflows.EXPENSE,
+        criteriaOrder: workflows.EXPENSE.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
+        approverList: workflows.EXPENSE.approverList.filter((id) => !groupUserIds.has(id)),
+      },
+    }),
+    [groupUserIds],
+  );
+
+  const handleGroupHrToggle = useCallback(
+    (next: boolean) => {
+      setGroupHrApprovalsEnabled(next);
+      if (!next) {
+        setSettings((prev) => (prev ? { ...prev, workflows: stripGroupCriteria(prev.workflows) } : prev));
+      }
+    },
+    [stripGroupCriteria],
+  );
+
+  useEffect(() => {
+    if (!settings || allowGroupHr || hasGroupScope === null) {
+      return;
+    }
+
+    const hasGroupCriteria = Object.values(settings.workflows).some((workflow) =>
+      workflow.criteriaOrder.includes("GROUP_HR"),
+    );
+    const hasGroupApprovers = Object.values(settings.workflows).some((workflow) =>
+      workflow.approverList.some((id) => groupUserIds.has(id)),
+    );
+
+    if (!hasGroupCriteria && !hasGroupApprovers) {
+      return;
+    }
+
+    setSettings((prev) => (prev ? { ...prev, workflows: stripGroupCriteria(prev.workflows) } : prev));
+  }, [allowGroupHr, groupUserIds, settings, stripGroupCriteria]);
+
   const handleSave = async () => {
     if (!settings) return;
     setIsSaving(true);
     try {
-      const result = await updateApprovalSettings(settings);
+      const result = await updateApprovalSettings({
+        settings,
+        groupHrApprovalsEnabled,
+      });
       if (result.success) {
         toast.success("Configuracion de aprobaciones guardada");
       } else {
@@ -438,6 +515,17 @@ export function ApprovalSettingsTab() {
               El sistema utiliza el primer criterio que aplique para cada empleado. Si no encuentra aprobadores, se
               activa el fallback de RRHH.
             </p>
+            {hasGroupScope && (
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">RRHH del grupo</p>
+                  <p className="text-muted-foreground text-xs">
+                    Permite a RRHH del grupo aprobar solicitudes en esta organizacion.
+                  </p>
+                </div>
+                <Switch checked={groupHrApprovalsEnabled} onCheckedChange={handleGroupHrToggle} disabled={isSaving} />
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -496,6 +584,7 @@ export function ApprovalSettingsTab() {
                 <p className="text-sm font-medium">Orden jerarquico</p>
                 <ApprovalOrderEditor
                   order={workflow.criteriaOrder}
+                  availableCriteria={allowedCriteria}
                   onChange={(next) =>
                     setSettings((prev) =>
                       prev
@@ -545,7 +634,7 @@ export function ApprovalSettingsTab() {
                         )
                       }
                       isLoading={isLoadingUsers}
-                      hasGroupScope={hasGroupScope}
+                      allowGroupUsers={allowGroupHr}
                     />
                   </div>
                 </>
