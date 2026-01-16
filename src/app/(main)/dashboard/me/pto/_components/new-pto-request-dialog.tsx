@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
 import { cn } from "@/lib/utils";
 import { getOrganizationPtoConfig } from "@/server/actions/admin-pto";
-import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
+import { formatMinutes, formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { usePtoStore, type PtoBalance } from "@/stores/pto-store";
 
 interface NewPtoRequestDialogProps {
@@ -32,6 +32,8 @@ interface WorkingDaysDisplayProps {
   selectedType: AbsenceType | null;
   balance: PtoBalance | null;
   workingDaysCalc: number | null;
+  partialDurationMinutes?: number | null;
+  workdayMinutesSnapshot?: number;
   holidays: Array<{ date: Date; name: string }>;
   isCalculating: boolean;
   isLoadingBalance: boolean;
@@ -64,6 +66,8 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   selectedType,
   balance,
   workingDaysCalc,
+  partialDurationMinutes,
+  workdayMinutesSnapshot,
   holidays,
   isCalculating,
   isLoadingBalance,
@@ -135,6 +139,14 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   const availableDisplay = balance ? formatDays(balance.daysAvailable) : null;
   const allowanceDisplay = balance ? formatDays(balance.annualAllowance) : null;
   const requestDisplay = workingDaysCalc !== null ? formatDays(workingDaysCalc) : null;
+  const hasPartialRequest = partialDurationMinutes !== null && partialDurationMinutes !== undefined;
+  const partialRequestLabel = hasPartialRequest
+    ? formatMinutes(partialDurationMinutes, workdayMinutesSnapshot ?? 480)
+    : null;
+  const partialDaysLabel =
+    hasPartialRequest && requestDisplay
+      ? `${requestDisplay.label} día${requestDisplay.rounded === 1 ? "" : "s"}`
+      : null;
   const missingDays = workingDaysCalc !== null ? workingDaysCalc - (balance?.daysAvailable ?? 0) : 0;
   const missingDisplay = formatDays(missingDays);
 
@@ -196,10 +208,19 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                   <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
                     Solicitud
                   </div>
-                  {requestDisplay && (
-                    <div className="text-xl font-bold text-green-600">
-                      +{requestDisplay.label} día{requestDisplay.rounded === 1 ? "" : "s"}
+                  {hasPartialRequest ? (
+                    <div className="flex flex-col items-center">
+                      <div className="text-xl font-bold text-green-600">+{partialRequestLabel}</div>
+                      {partialDaysLabel && (
+                        <div className="text-muted-foreground mt-1 text-xs">≈ {partialDaysLabel}</div>
+                      )}
                     </div>
+                  ) : (
+                    requestDisplay && (
+                      <div className="text-xl font-bold text-green-600">
+                        +{requestDisplay.label} día{requestDisplay.rounded === 1 ? "" : "s"}
+                      </div>
+                    )
                   )}
                 </div>
                 <div className="text-center">
@@ -416,6 +437,23 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     return { valid: true, error: null };
   }, [isPartialDay, startTime, endTime]);
 
+  const selectedType = absenceTypes.find((t) => t.id === selectedTypeId) ?? null;
+  const selectedBalanceType = useMemo<PtoBalanceType>(() => {
+    if (!selectedType) return DEFAULT_PTO_BALANCE_TYPE;
+    return (selectedType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
+  }, [selectedType]);
+  const balanceForType = selectedType?.affectsBalance
+    ? (balancesByType[selectedBalanceType] ?? (selectedBalanceType === "VACATION" ? balance : null))
+    : balance;
+  const isLoadingSelectedBalance = selectedType?.affectsBalance
+    ? (isLoadingBalanceByType[selectedBalanceType] ?? false)
+    : false;
+  const workdayMinutesSnapshot = balanceForType?.workdayMinutesSnapshot ?? balance?.workdayMinutesSnapshot ?? 480;
+  const partialDurationMinutes =
+    selectedType?.allowPartialDays && isPartialDay && isSingleDay && validateTimeRange.valid
+      ? calculateDuration(startTime, endTime)
+      : null;
+
   useEffect(() => {
     if (!open) return;
 
@@ -483,6 +521,21 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     }
 
     if (dateRange?.from && dateRange?.to && dateRange.from <= dateRange.to) {
+      if (isPartialDay && isSingleDay && selectedType?.allowPartialDays && !validateTimeRange.valid) {
+        setWorkingDaysCalc(null);
+        setHolidays([]);
+        setIsCalculating(false);
+        return;
+      }
+
+      if (partialDurationMinutes !== null) {
+        const safeWorkdayMinutes = workdayMinutesSnapshot > 0 ? workdayMinutesSnapshot : 480;
+        setWorkingDaysCalc(partialDurationMinutes / safeWorkdayMinutes);
+        setHolidays([]);
+        setIsCalculating(false);
+        return;
+      }
+
       // Debounce para evitar cálculos mientras el usuario selecciona
       const timeout = setTimeout(() => {
         setIsCalculating(true);
@@ -507,7 +560,18 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setWorkingDaysCalc(null);
       setHolidays([]);
     }
-  }, [hasActiveContract, dateRange, selectedTypeId, calculateWorkingDays]);
+  }, [
+    hasActiveContract,
+    dateRange,
+    selectedTypeId,
+    calculateWorkingDays,
+    isPartialDay,
+    isSingleDay,
+    selectedType?.allowPartialDays,
+    validateTimeRange.valid,
+    partialDurationMinutes,
+    workdayMinutesSnapshot,
+  ]);
 
   // 🆕 Función para subir archivos a una solicitud creada
   const uploadFilesToRequest = async (ptoRequestId: string): Promise<boolean> => {
@@ -605,19 +669,6 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     }
   };
 
-  const selectedType = absenceTypes.find((t) => t.id === selectedTypeId) ?? null;
-  const selectedBalanceType = useMemo<PtoBalanceType>(() => {
-    if (!selectedType) return DEFAULT_PTO_BALANCE_TYPE;
-    return (selectedType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
-  }, [selectedType]);
-
-  const balanceForType = selectedType?.affectsBalance
-    ? (balancesByType[selectedBalanceType] ?? (selectedBalanceType === "VACATION" ? balance : null))
-    : balance;
-  const isLoadingSelectedBalance = selectedType?.affectsBalance
-    ? (isLoadingBalanceByType[selectedBalanceType] ?? false)
-    : false;
-
   useEffect(() => {
     if (!selectedType?.affectsBalance) return;
     if (balancesByType[selectedBalanceType]) return;
@@ -700,6 +751,8 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               selectedType={selectedType}
               balance={balanceForType}
               workingDaysCalc={workingDaysCalc}
+              partialDurationMinutes={partialDurationMinutes}
+              workdayMinutesSnapshot={workdayMinutesSnapshot}
               holidays={holidays}
               isCalculating={isCalculating}
               isLoadingBalance={isLoadingSelectedBalance}

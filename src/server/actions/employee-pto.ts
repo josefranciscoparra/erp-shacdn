@@ -158,7 +158,7 @@ export async function calculateWorkingDays(
       const auth = await getAuthenticatedEmployee();
       employeeId = auth.employeeId;
       orgId = auth.orgId;
-    } catch (error) {
+    } catch {
       // Si falla la autenticación y no hay IDs, calculamos sin festivos (solo fines de semana)
       console.warn("calculateWorkingDays: No employeeId/orgId and no auth session");
     }
@@ -188,11 +188,11 @@ export async function calculateWorkingDays(
                       where: {
                         eventType: "HOLIDAY",
                         date: {
-                      gte: rangeStart,
-                      lte: rangeEnd,
+                          gte: rangeStart,
+                          lte: rangeEnd,
+                        },
+                      },
                     },
-                  },
-                },
                   },
                 },
               },
@@ -579,24 +579,7 @@ export async function createPtoRequest(data: {
     }
     // Si allowPartialDays=true pero NO se enviaron horas → día completo, válido
 
-    const rawBalanceType = (absenceType as { balanceType?: string | null }).balanceType;
-    const requestBalanceType = rawBalanceType ?? "VACATION";
-
-    if (requestBalanceType === "VACATION" && requestedDurationMinutes !== null) {
-      const ptoConfig = await prisma.organizationPtoConfig.findUnique({
-        where: { orgId },
-        select: { vacationRoundingUnit: true },
-      });
-      const rawRoundingUnit = ptoConfig?.vacationRoundingUnit;
-      const roundingUnit = rawRoundingUnit === null || rawRoundingUnit === undefined ? 0.1 : Number(rawRoundingUnit);
-      const requestedDays = requestedDurationMinutes / workdayMinutes;
-      const ratio = requestedDays / roundingUnit;
-      const isAligned = Math.abs(Math.round(ratio) - ratio) < 0.0001;
-
-      if (!isAligned) {
-        return fail(`Las vacaciones deben solicitarse en múltiplos de ${roundingUnit} días.`);
-      }
-    }
+    // Para ausencias parciales, la granularidad se controla por minutos.
 
     let forceManualReview = false;
     let systemWarningReason = "";
@@ -649,9 +632,7 @@ export async function createPtoRequest(data: {
     }
 
     // Validar días de anticipación
-    const daysUntilStart = Math.ceil(
-      (normalizedStartDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const daysUntilStart = Math.ceil((normalizedStartDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
     if (absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
       return fail(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
