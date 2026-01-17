@@ -60,6 +60,24 @@ const isClockActionFailure = (result: unknown): result is ClockActionFailure =>
   "success" in result &&
   (result as { success?: boolean }).success === false;
 
+const getAutoCorrectionMessage = (result: unknown): string | null => {
+  if (typeof result !== "object" || result === null) {
+    return null;
+  }
+
+  if (!("autoCorrectionMessage" in result)) {
+    return null;
+  }
+
+  const message = (result as { autoCorrectionMessage?: unknown }).autoCorrectionMessage;
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  const trimmed = message.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const isBootstrapReady = (result: ClockBootstrapResult): result is ClockBootstrapReady =>
   Boolean(result.success && result.todaySummary && result.currentStatus);
 
@@ -348,6 +366,15 @@ export function ClockIn() {
       const result = await action(latitude, longitude, accuracy, nextProjectId, nextTask);
       if (isClockActionFailure(result)) {
         toast.error(result.error ?? "No se pudo completar el fichaje");
+        return result;
+      }
+
+      const autoCorrectionMessage = getAutoCorrectionMessage(result);
+      if (autoCorrectionMessage) {
+        toast.info("Autocorrección aplicada", {
+          description: autoCorrectionMessage,
+          duration: 5000,
+        });
       }
       return result;
     };

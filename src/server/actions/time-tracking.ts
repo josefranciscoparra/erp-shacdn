@@ -936,19 +936,12 @@ export async function clockIn(
     // TRANSACCIÓN ATÓMICA: Previene race conditions
     const entry = await prisma.$transaction(
       async (tx) => {
-        // 1. Obtener último fichaje del día DENTRO de la transacción
-        const dayStart = startOfDay(now);
-        const dayEnd = endOfDay(now);
-
+        // 1. Obtener último fichaje (global) DENTRO de la transacción
         const lastEntry = await tx.timeEntry.findFirst({
           where: {
             employeeId,
             orgId,
             isCancelled: false,
-            timestamp: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
           },
           orderBy: {
             timestamp: "desc",
@@ -968,17 +961,55 @@ export async function clockIn(
 
         // 3. Validar transición con máquina de estados
         const action: TimeEntryAction = "CLOCK_IN";
+        let clockInTimestamp = new Date(now);
+        let autoCorrected = false;
+        let autoCorrectionMessage: string | null = null;
+
         if (!validateTransition(currentState, action)) {
-          throw new Error(getTransitionError(currentState, action));
+          if (currentState === "CLOCKED_IN" || currentState === "ON_BREAK") {
+            autoCorrected = true;
+            const breakEndTimestamp = new Date(now.getTime());
+            const clockOutTimestamp = new Date(now.getTime() + 1);
+            clockInTimestamp = new Date(now.getTime() + 2);
+
+            if (currentState === "ON_BREAK") {
+              await tx.timeEntry.create({
+                data: {
+                  orgId,
+                  employeeId,
+                  entryType: "BREAK_END",
+                  timestamp: breakEndTimestamp,
+                  notes: "Autocorrección: cierre automático de pausa previa.",
+                },
+              });
+            }
+
+            await tx.timeEntry.create({
+              data: {
+                orgId,
+                employeeId,
+                entryType: "CLOCK_OUT",
+                timestamp: clockOutTimestamp,
+                notes: "Autocorrección: cierre automático de sesión previa.",
+              },
+            });
+
+            autoCorrectionMessage =
+              currentState === "ON_BREAK"
+                ? "Se cerró automáticamente una pausa y la sesión anterior antes de fichar entrada."
+                : "Se cerró automáticamente la sesión anterior antes de fichar entrada.";
+          } else {
+            throw new Error(getTransitionError(currentState, action));
+          }
         }
 
         // 4. Crear el fichaje (dentro de la transacción)
-        return tx.timeEntry.create({
+        const createdEntry = await tx.timeEntry.create({
           data: {
             orgId,
             employeeId,
             entryType: "CLOCK_IN",
-            timestamp: now,
+            timestamp: clockInTimestamp,
             validationWarnings: validation.warnings ?? [],
             validationErrors: validation.errors ?? [],
             deviationMinutes: validation.deviationMinutes ?? null,
@@ -987,6 +1018,12 @@ export async function clockIn(
             ...geoData,
           },
         });
+
+        return {
+          entry: createdEntry,
+          autoCorrected,
+          autoCorrectionMessage,
+        };
       },
       {
         isolationLevel: "Serializable", // Máximo nivel de aislamiento
@@ -998,16 +1035,22 @@ export async function clockIn(
     await updateWorkdaySummary(employeeId, orgId, now);
 
     // Detectar alertas en tiempo real (FUERA de la transacción, no es crítico)
-    console.log("🚨 [CLOCK_IN] Iniciando detección de alertas para entry:", entry.id);
+    console.log("🚨 [CLOCK_IN] Iniciando detección de alertas para entry:", entry.entry.id);
     let alerts: any[] = [];
     try {
-      alerts = await detectAlertsForTimeEntry(entry.id);
+      alerts = await detectAlertsForTimeEntry(entry.entry.id);
       console.log("🚨 [CLOCK_IN] Alertas detectadas:", alerts.length, alerts);
     } catch (alertError) {
       console.error("🚨 [CLOCK_IN] Error al detectar alertas (no crítico):", alertError);
     }
 
-    return { success: true, entry: serializeTimeEntry(entry), alerts };
+    return {
+      success: true,
+      entry: serializeTimeEntry(entry.entry),
+      alerts,
+      autoCorrected: entry.autoCorrected,
+      autoCorrectionMessage: entry.autoCorrectionMessage,
+    };
   } catch (error) {
     const { message, shouldLog } = resolveClockActionError(error, "Error al fichar entrada");
     if (shouldLog) {
@@ -1048,19 +1091,12 @@ export async function clockOut(
     // TRANSACCIÓN ATÓMICA: Previene race conditions
     const result = await prisma.$transaction(
       async (tx) => {
-        // 1. Obtener último fichaje del día DENTRO de la transacción
-        const dayStart = startOfDay(now);
-        const dayEnd = endOfDay(now);
-
+        // 1. Obtener último fichaje (global) DENTRO de la transacción
         const lastEntry = await tx.timeEntry.findFirst({
           where: {
             employeeId,
             orgId,
             isCancelled: false,
-            timestamp: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
           },
           orderBy: {
             timestamp: "desc",
@@ -1078,9 +1114,27 @@ export async function clockOut(
           currentState = mapStatusToState(derivedStatus);
         }
 
-        // 3. Validar que pueda fichar salida
+        // 3. Autocorrección si intenta fichar salida sin sesión abierta
+        let autoCorrected = false;
+        let autoCorrectionMessage: string | null = null;
+        let clockOutTimestamp = new Date(now);
+
         if (currentState === "CLOCKED_OUT") {
-          throw new Error(getTransitionError(currentState, "CLOCK_OUT"));
+          autoCorrected = true;
+          const clockInTimestamp = new Date(now.getTime());
+          clockOutTimestamp = new Date(now.getTime() + 1);
+
+          await tx.timeEntry.create({
+            data: {
+              orgId,
+              employeeId,
+              entryType: "CLOCK_IN",
+              timestamp: clockInTimestamp,
+              notes: "Autocorrección: entrada automática para permitir la salida.",
+            },
+          });
+
+          autoCorrectionMessage = "Se creó automáticamente un fichaje de entrada para poder registrar la salida.";
         }
 
         // 4. Si está en pausa, cerrarla primero con el MISMO timestamp del CLOCK_OUT
@@ -1092,7 +1146,7 @@ export async function clockOut(
               orgId,
               employeeId,
               entryType: "BREAK_END",
-              timestamp: now, // ✅ CORREGIDO: Usa timestamp del CLOCK_OUT
+              timestamp: new Date(now), // ✅ CORREGIDO: Usa timestamp del CLOCK_OUT
             },
           });
         }
@@ -1120,7 +1174,7 @@ export async function clockOut(
               orgId,
               employeeId,
               entryType: "CLOCK_OUT",
-              timestamp: now,
+              timestamp: clockOutTimestamp,
               isCancelled: true,
               cancellationReason: cancellationInfo.reason,
               cancelledAt: now,
@@ -1130,7 +1184,13 @@ export async function clockOut(
             },
           });
 
-          return { entry: cancelledEntry, cancelled: true, breakEndEntry };
+          return {
+            entry: cancelledEntry,
+            cancelled: true,
+            breakEndEntry,
+            autoCorrected,
+            autoCorrectionMessage,
+          };
         }
 
         // 6. Fichaje normal (sin cancelación)
@@ -1139,7 +1199,7 @@ export async function clockOut(
             orgId,
             employeeId,
             entryType: "CLOCK_OUT",
-            timestamp: now,
+            timestamp: clockOutTimestamp,
             validationWarnings: validation.warnings ?? [],
             validationErrors: validation.errors ?? [],
             deviationMinutes: validation.deviationMinutes ?? null,
@@ -1147,7 +1207,13 @@ export async function clockOut(
           },
         });
 
-        return { entry, cancelled: false, breakEndEntry };
+        return {
+          entry,
+          cancelled: false,
+          breakEndEntry,
+          autoCorrected,
+          autoCorrectionMessage,
+        };
       },
       {
         isolationLevel: "Serializable",
@@ -1185,6 +1251,8 @@ export async function clockOut(
       entry: serializeTimeEntry(result.entry),
       cancelled: result.cancelled,
       alerts,
+      autoCorrected: result.autoCorrected,
+      autoCorrectionMessage: result.autoCorrectionMessage,
       // Información de pausas automáticas para feedback UX
       automaticBreaks: automaticBreaksResult
         ? {
