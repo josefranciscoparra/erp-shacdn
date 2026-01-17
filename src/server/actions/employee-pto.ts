@@ -467,7 +467,7 @@ export async function createPtoRequest(data: {
   try {
     const fail = (message: string) => ({ success: false as const, error: message });
 
-    const { employeeId, orgId, employee } = await getAuthenticatedEmployee({
+    const { employeeId, orgId, employee, userId } = await getAuthenticatedEmployee({
       requireActiveContract: true,
     });
 
@@ -764,6 +764,7 @@ export async function createPtoRequest(data: {
       data: {
         orgId,
         employeeId,
+        createdById: userId,
         absenceTypeId: data.absenceTypeId,
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,

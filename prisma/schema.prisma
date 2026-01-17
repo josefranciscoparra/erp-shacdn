@@ -312,6 +312,7 @@ model User {
   supportImpersonationTokens SupportImpersonationToken[] // Tokens de suplantación creados para este usuario
   createdSupportImpersonationTokens SupportImpersonationToken[] @relation("SupportImpersonationCreatedBy")
   approvedPtoRequests       PtoRequest[]             @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
+  createdPtoRequests        PtoRequest[]             @relation("PtoRequestCreator") // Solicitudes PTO creadas
   ptoNotifications          PtoNotification[] // Notificaciones recibidas
   ptoBalanceAdjustments     PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
   recurringPtoAdjustments   RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
@@ -1858,12 +1859,17 @@ model PtoRequest {
   // Información adicional
   reason        String? // Motivo de la ausencia
   attachmentUrl String? // URL del archivo adjunto (opcional)
+  internalNotes String? // Notas internas (solo RRHH)
 
   // Aprobación (UN solo aprobador)
   approverId       String?
   approver         User?     @relation("PtoApprover", fields: [approverId], references: [id])
   approvedAt       DateTime?
   approverComments String? // Comentarios del aprobador al aprobar
+
+  // Auditoría - Quién creó la solicitud
+  createdById String?
+  createdBy   User?   @relation("PtoRequestCreator", fields: [createdById], references: [id])
 
   // Rechazo
   rejectedAt      DateTime?
@@ -1897,6 +1903,7 @@ model PtoRequest {
   @@index([orgId])
   @@index([employeeId])
   @@index([approverId])
+  @@index([createdById])
   @@index([status])
   @@index([startDate])
   @@index([submittedAt])

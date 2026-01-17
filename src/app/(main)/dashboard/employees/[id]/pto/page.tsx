@@ -26,6 +26,7 @@ import { EmployeePtoSummary } from "../_components/employee-pto-summary";
 
 import { AdjustBalanceDialog } from "./_components/adjust-balance-dialog";
 import { RecurringAdjustmentsList } from "./_components/recurring-adjustments-list";
+import { RegisterAbsenceDialog } from "./_components/register-absence-dialog";
 
 interface Employee {
   id: string;
@@ -85,6 +86,8 @@ export default function EmployeePtoManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adjustBalanceDialogOpen, setAdjustBalanceDialogOpen] = useState(false);
+  const [registerAbsenceDialogOpen, setRegisterAbsenceDialogOpen] = useState(false);
+  const canRegisterAbsence = hasPermission("manage_pto_admin");
 
   const loadData = async (silent = false) => {
     if (!silent) {
@@ -195,7 +198,11 @@ export default function EmployeePtoManagementPage() {
             <CardContent>
               <div className="flex gap-3">
                 <Button onClick={() => setAdjustBalanceDialogOpen(true)}>Ajustar balance</Button>
-                <Button variant="outline" disabled>
+                <Button
+                  variant="outline"
+                  onClick={() => setRegisterAbsenceDialogOpen(true)}
+                  disabled={!canRegisterAbsence}
+                >
                   Registrar ausencia
                 </Button>
               </div>
@@ -290,6 +297,12 @@ export default function EmployeePtoManagementPage() {
           onOpenChange={setAdjustBalanceDialogOpen}
           employeeId={params.id as string}
           currentBalance={ptoBalance}
+          onSuccess={loadData}
+        />
+        <RegisterAbsenceDialog
+          open={registerAbsenceDialogOpen}
+          onOpenChange={setRegisterAbsenceDialogOpen}
+          employeeId={params.id as string}
           onSuccess={loadData}
         />
       </div>

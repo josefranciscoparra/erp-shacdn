@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Ban, CheckCircle2, Clock, Loader2, MoreHorizontal, XCircle } from "lucide-react";
+import { Ban, CheckCircle2, Clock, Eye, Loader2, MoreHorizontal, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -50,12 +50,21 @@ interface PtoRequest {
   workingDays: number;
   status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   reason?: string | null;
+  internalNotes?: string | null;
+  approverComments?: string | null;
+  rejectionReason?: string | null;
+  cancellationReason?: string | null;
   submittedAt: string;
   approvedAt?: string | null;
   rejectedAt?: string | null;
   cancelledAt?: string | null;
   absenceType: AbsenceType;
   approver?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  createdBy?: {
     id: string;
     name: string;
     email: string;
@@ -97,7 +106,7 @@ interface EmployeePtoRequestsTableProps {
   onRefresh?: () => Promise<void> | void;
 }
 
-type ActionType = "approve" | "reject" | "cancel";
+type ActionType = "approve" | "reject" | "cancel" | "view";
 
 export function EmployeePtoRequestsTable({
   requests,
@@ -129,6 +138,11 @@ export function EmployeePtoRequestsTable({
 
   const handleSubmitAction = async () => {
     if (!selectedRequest) return;
+
+    if (actionType === "view") {
+      closeActionDialog();
+      return;
+    }
 
     const trimmedComments = comments.trim();
     if ((actionType === "reject" || actionType === "cancel") && !trimmedComments) {
@@ -211,6 +225,15 @@ export function EmployeePtoRequestsTable({
         accessorKey: "submittedAt",
         header: "Solicitado",
         cell: ({ row }) => format(new Date(row.original.submittedAt), "PP", { locale: es }),
+      },
+      {
+        accessorKey: "createdBy",
+        header: "Creada por",
+        cell: ({ row }) => {
+          const createdBy = row.original.createdBy;
+          return <span className="text-sm">{createdBy ? createdBy.name : "—"}</span>;
+        },
+        enableSorting: false,
       },
     ];
 
@@ -316,11 +339,13 @@ export function EmployeePtoRequestsTable({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === "approve"
-                ? "Aprobar solicitud"
-                : actionType === "reject"
-                  ? "Rechazar solicitud"
-                  : "Cancelar solicitud"}
+              {actionType === "view"
+                ? "Detalles de la solicitud"
+                : actionType === "approve"
+                  ? "Aprobar solicitud"
+                  : actionType === "reject"
+                    ? "Rechazar solicitud"
+                    : "Cancelar solicitud"}
             </DialogTitle>
             <DialogDescription>
               {selectedRequest && selectedRequest.absenceType
@@ -343,64 +368,96 @@ export function EmployeePtoRequestsTable({
                       {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground">Estado:</span>
+                    <span className="ml-1 font-medium">{statusConfig[selectedRequest.status].label}</span>
+                  </div>
                   {selectedRequest.reason && (
                     <div>
                       <span className="text-muted-foreground">Motivo:</span>
                       <p className="mt-1 whitespace-pre-line">{selectedRequest.reason}</p>
                     </div>
                   )}
+                  {canManage && selectedRequest.internalNotes && (
+                    <div>
+                      <span className="text-muted-foreground">Notas internas (RRHH):</span>
+                      <p className="mt-1 whitespace-pre-line">{selectedRequest.internalNotes}</p>
+                    </div>
+                  )}
+                  {selectedRequest.approverComments && (
+                    <div>
+                      <span className="text-muted-foreground">Comentarios del aprobador:</span>
+                      <p className="mt-1 whitespace-pre-line">{selectedRequest.approverComments}</p>
+                    </div>
+                  )}
+                  {selectedRequest.rejectionReason && (
+                    <div>
+                      <span className="text-muted-foreground">Motivo de rechazo:</span>
+                      <p className="mt-1 whitespace-pre-line">{selectedRequest.rejectionReason}</p>
+                    </div>
+                  )}
+                  {selectedRequest.cancellationReason && (
+                    <div>
+                      <span className="text-muted-foreground">Motivo de cancelación:</span>
+                      <p className="mt-1 whitespace-pre-line">{selectedRequest.cancellationReason}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="action-comments">
-                  {actionType === "approve" ? "Comentarios (opcional)" : "Motivo (obligatorio)"}
-                </Label>
-                <Textarea
-                  id="action-comments"
-                  rows={4}
-                  value={comments}
-                  onChange={(event) => setComments(event.target.value)}
-                  placeholder={
-                    actionType === "approve"
-                      ? "Añade información para el historial (opcional)"
-                      : actionType === "reject"
-                        ? "Explica por qué se rechaza la solicitud"
-                        : "Explica por qué se cancela la solicitud"
-                  }
-                />
-              </div>
+              {actionType !== "view" && (
+                <div className="space-y-2">
+                  <Label htmlFor="action-comments">
+                    {actionType === "approve" ? "Comentarios (opcional)" : "Motivo (obligatorio)"}
+                  </Label>
+                  <Textarea
+                    id="action-comments"
+                    rows={4}
+                    value={comments}
+                    onChange={(event) => setComments(event.target.value)}
+                    placeholder={
+                      actionType === "approve"
+                        ? "Añade información para el historial (opcional)"
+                        : actionType === "reject"
+                          ? "Explica por qué se rechaza la solicitud"
+                          : "Explica por qué se cancela la solicitud"
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={closeActionDialog} disabled={isSubmitting}>
-              Cancelar
+              {actionType === "view" ? "Cerrar" : "Cancelar"}
             </Button>
-            <Button
-              onClick={handleSubmitAction}
-              disabled={isSubmitting}
-              className={
-                actionType === "approve"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : actionType === "reject"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-amber-600 hover:bg-amber-700"
-              }
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Procesando...
-                </>
-              ) : actionType === "approve" ? (
-                "Aprobar"
-              ) : actionType === "reject" ? (
-                "Rechazar"
-              ) : (
-                "Cancelar"
-              )}
-            </Button>
+            {actionType !== "view" && (
+              <Button
+                onClick={handleSubmitAction}
+                disabled={isSubmitting}
+                className={
+                  actionType === "approve"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : actionType === "reject"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-amber-600 hover:bg-amber-700"
+                }
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : actionType === "approve" ? (
+                  "Aprobar"
+                ) : actionType === "reject" ? (
+                  "Rechazar"
+                ) : (
+                  "Cancelar"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -419,10 +476,7 @@ function ActionsMenu({ request, onAction }: ActionsMenuProps) {
   const startDate = new Date(request.startDate).getTime();
   const canCancel = status === "APPROVED" && startDate > now;
   const canDecide = status === "PENDING";
-
-  if (!canDecide && !canCancel) {
-    return <span className="text-muted-foreground text-xs">—</span>;
-  }
+  const canView = true;
 
   return (
     <DropdownMenu>
@@ -433,6 +487,12 @@ function ActionsMenu({ request, onAction }: ActionsMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {canView && (
+          <DropdownMenuItem onClick={() => onAction("view")}>
+            <Eye className="mr-2 h-4 w-4 text-blue-600" />
+            Ver detalles
+          </DropdownMenuItem>
+        )}
         {canDecide && (
           <>
             <DropdownMenuItem onClick={() => onAction("approve")}>

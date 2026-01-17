@@ -5,7 +5,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { addWeeks } from "date-fns";
 
 import { auth } from "@/lib/auth";
-import { requirePermission } from "@/lib/auth-guard";
+import { computeEffectivePermissions, requirePermission } from "@/lib/auth-guard";
 import { normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
@@ -422,6 +422,12 @@ export async function getEmployeeVacationBalanceRealtime(employeeId: string) {
  */
 export async function getEmployeePtoRequests(employeeId: string) {
   const user = await getCurrentUser();
+  const effectivePermissions = await computeEffectivePermissions({
+    role: user.role,
+    orgId: user.orgId,
+    userId: user.id,
+  });
+  const canViewInternalNotes = effectivePermissions.has("manage_pto_admin");
 
   const requests = await prisma.ptoRequest.findMany({
     where: {
@@ -431,6 +437,13 @@ export async function getEmployeePtoRequests(employeeId: string) {
     include: {
       absenceType: true,
       approver: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      createdBy: {
         select: {
           id: true,
           name: true,
@@ -451,6 +464,7 @@ export async function getEmployeePtoRequests(employeeId: string) {
     workingDays: Number(request.workingDays),
     status: request.status,
     reason: request.reason,
+    internalNotes: canViewInternalNotes ? request.internalNotes : undefined,
     attachmentUrl: request.attachmentUrl,
     approverId: request.approverId,
     approvedAt: request.approvedAt?.toISOString() ?? null,
@@ -471,6 +485,7 @@ export async function getEmployeePtoRequests(employeeId: string) {
       balanceType: request.absenceType.balanceType ?? "VACATION",
     },
     approver: request.approver,
+    createdBy: request.createdBy,
   }));
 }
 
@@ -804,24 +819,39 @@ export async function adjustPtoBalance(params: AdjustBalanceParams) {
 
 // ==================== AUSENCIAS MANUALES ====================
 
-interface RegisterManualAbsenceParams {
-  employeeId: string;
-  absenceTypeId: string;
-  startDate: Date;
-  endDate: Date;
-  reason: string;
-  notes?: string;
-}
-
 /**
  * Registra una ausencia manualmente (sin solicitud previa del empleado)
  */
-export async function registerManualAbsence(params: RegisterManualAbsenceParams) {
+export async function registerManualAbsence(
+  employeeId: string,
+  absenceTypeId: string,
+  startDateMs: number,
+  endDateMs: number,
+  reason: string,
+  internalNotes?: string,
+) {
   const user = await requirePtoAdmin();
 
-  const { employeeId, absenceTypeId, startDate, endDate, reason, notes } = params;
+  if (!Number.isFinite(startDateMs)) {
+    throw new Error("La fecha de inicio no es válida");
+  }
+
+  if (!Number.isFinite(endDateMs)) {
+    throw new Error("La fecha de fin no es válida");
+  }
+
+  const startDate = new Date(startDateMs);
+  const endDate = new Date(endDateMs);
+
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) {
+    throw new Error("Debes indicar un motivo");
+  }
+
   const normalizedStartDate = normalizeDateToLocalNoon(startDate);
   const normalizedEndDate = normalizeDateToLocalNoon(endDate);
+  const normalizedInternalNotes = internalNotes ? internalNotes.trim() : "";
+  const finalInternalNotes = normalizedInternalNotes ? normalizedInternalNotes : undefined;
 
   // Verificar que las fechas son válidas
   if (normalizedStartDate > normalizedEndDate) {
@@ -873,12 +903,14 @@ export async function registerManualAbsence(params: RegisterManualAbsenceParams)
       endDate: normalizedEndDate,
       workingDays: new Decimal(workingDays),
       status: "APPROVED",
-      reason: `${reason}${notes ? `\n\nNotas: ${notes}` : ""}`,
+      reason: trimmedReason,
+      internalNotes: finalInternalNotes,
       approverId: user.id,
       approvedAt: new Date(),
       approverComments: "Registrada manualmente por RRHH",
       submittedAt: new Date(),
       orgId: user.orgId,
+      createdById: user.id,
     },
   });
 
@@ -895,12 +927,15 @@ export async function registerManualAbsence(params: RegisterManualAbsenceParams)
       user.orgId,
       "PTO_APPROVED",
       "Ausencia registrada",
-      `Se ha registrado una ausencia: ${absenceType.name} del ${startDate.toLocaleDateString()} al ${endDate.toLocaleDateString()} (${workingDays} días hábiles)`,
+      `Se ha registrado una ausencia: ${absenceType.name} del ${normalizedStartDate.toLocaleDateString()} al ${normalizedEndDate.toLocaleDateString()} (${workingDays} días hábiles)`,
       ptoRequest.id,
     );
   }
 
-  return ptoRequest;
+  return {
+    id: ptoRequest.id,
+    workingDays,
+  };
 }
 
 // ==================== BAJAS MATERNAL/PATERNAL ====================
@@ -956,14 +991,14 @@ export async function applyMaternityPaternityLeave(params: MaternityPaternityPar
     }));
 
   // Registrar la ausencia
-  const result = await registerManualAbsence({
+  const result = await registerManualAbsence(
     employeeId,
-    absenceTypeId: absenceType.id,
-    startDate,
-    endDate,
-    reason: `Baja ${type === "MATERNITY" ? "maternal" : "paternal"} (${weeks} semanas según legislación)`,
+    absenceType.id,
+    startDate.getTime(),
+    endDate.getTime(),
+    `Baja ${type === "MATERNITY" ? "maternal" : "paternal"} (${weeks} semanas según legislación)`,
     notes,
-  });
+  );
 
   // Crear ajuste en el historial para auditoría
   const currentYear = new Date().getFullYear();
