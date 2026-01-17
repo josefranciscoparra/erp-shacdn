@@ -16,7 +16,9 @@ import {
 
 import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
+import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
+import { minutesToTime } from "@/services/schedules/schedule-helpers";
+import type { EffectiveSchedule } from "@/types/schedule";
 
 function getLocalDateKey(date: Date): string {
   const localDate = new Date(date);
@@ -368,6 +370,23 @@ function getExpectedEntryTimeFromContract(contract: any, targetDate: Date): stri
 
   const startTime = isIntensivePeriod ? intensiveStartTimeFields[dayOfWeek] : startTimeFields[dayOfWeek];
   return startTime ?? null;
+}
+
+function getExpectedEntryTimeFromSchedule(schedule: EffectiveSchedule | null): string | null {
+  if (!schedule || !schedule.isWorkingDay) {
+    return null;
+  }
+
+  const workSlots = schedule.timeSlots.filter((slot) => slot.slotType === "WORK");
+  if (workSlots.length === 0) {
+    return null;
+  }
+
+  const firstWorkSlot = workSlots.reduce((earliest, slot) =>
+    slot.startMinutes < earliest.startMinutes ? slot : earliest,
+  );
+
+  return minutesToTime(firstWorkSlot.startMinutes);
 }
 
 async function getScheduleMapForRange(employeeId: string, rangeStart: Date, rangeEnd: Date) {
@@ -1614,6 +1633,10 @@ export async function getCurrentlyWorkingEmployees() {
               gte: dayStart,
               lte: dayEnd,
             },
+            isCancelled: false,
+            entryType: {
+              in: ["CLOCK_IN", "CLOCK_OUT", "BREAK_START", "BREAK_END"],
+            },
           },
           orderBy: {
             timestamp: "desc",
@@ -1622,7 +1645,10 @@ export async function getCurrentlyWorkingEmployees() {
         },
         workdaySummaries: {
           where: {
-            date: dayStart,
+            date: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
           },
           take: 1,
         },
@@ -1634,20 +1660,47 @@ export async function getCurrentlyWorkingEmployees() {
       },
     });
 
+    const scheduleDate = new Date(today);
+    scheduleDate.setHours(12, 0, 0, 0); // Normalizar a mediodía para evitar problemas de timezone
+
+    const scheduleEntries = await Promise.all(
+      employees.map(async (employee) => {
+        try {
+          const schedule = await getEffectiveSchedule(employee.id, new Date(scheduleDate));
+          return [employee.id, schedule] as const;
+        } catch (error) {
+          console.error(`Error al obtener horario efectivo para empleado ${employee.id}:`, error);
+          return [employee.id, null] as const;
+        }
+      }),
+    );
+
+    const scheduleByEmployee = new Map<string, EffectiveSchedule | null>(scheduleEntries);
+
     // Determinar el estado actual de cada empleado (con validación de días laborables)
     const employeesWithStatus = employees.map((employee) => {
       const lastEntry = employee.timeEntries[0];
       const todaySummary = employee.workdaySummaries[0];
       const contract = employee.employmentContracts[0];
 
-      const dayInfo = getExpectedHoursFromContract(contract, today, isHoliday);
-      const expectedEntryTime = dayInfo.isWorkingDay ? getExpectedEntryTimeFromContract(contract, today) : null;
+      const schedule = scheduleByEmployee.get(employee.id) ?? null;
+      const fallbackDayInfo = getExpectedHoursFromContract(contract, today, isHoliday);
+      const fallbackEntryTime = fallbackDayInfo.isWorkingDay ? getExpectedEntryTimeFromContract(contract, today) : null;
+
+      const scheduleEntryTime = getExpectedEntryTimeFromSchedule(schedule);
+      const isWorkingDay = isHoliday ? false : schedule ? schedule.isWorkingDay : fallbackDayInfo.isWorkingDay;
+      const expectedHours = isHoliday ? 0 : schedule ? schedule.expectedMinutes / 60 : fallbackDayInfo.hoursExpected;
+      const expectedEntryTime = isHoliday ? null : schedule ? scheduleEntryTime : fallbackEntryTime;
 
       // Determinar estado de fichaje actual
       let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
-      let lastAction = null;
+      let lastAction: Date | null = null;
+      const hasClockedOut = Boolean(todaySummary?.clockOut);
 
-      if (lastEntry) {
+      if (hasClockedOut) {
+        status = "CLOCKED_OUT";
+        lastAction = todaySummary?.clockOut ?? null;
+      } else if (lastEntry) {
         lastAction = lastEntry.timestamp;
         switch (lastEntry.entryType) {
           case "CLOCK_IN":
@@ -1666,7 +1719,8 @@ export async function getCurrentlyWorkingEmployees() {
 
       // Calcular si está ausente (solo si es día laborable y tiene hora de entrada definida)
       let isAbsent = false;
-      if (dayInfo.isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT") {
+      const hasClockedIn = Boolean(todaySummary?.clockIn) || Boolean(lastEntry);
+      if (isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT" && !hasClockedIn) {
         const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
         const expectedEntry = new Date(today);
         expectedEntry.setHours(entryHour, entryMinute, 0, 0);
@@ -1692,10 +1746,10 @@ export async function getCurrentlyWorkingEmployees() {
         clockIn: todaySummary?.clockIn,
         clockOut: todaySummary?.clockOut,
         // Nuevos campos
-        isWorkingDay: dayInfo.isWorkingDay,
+        isWorkingDay,
         isHoliday,
         holidayName,
-        expectedHours: dayInfo.hoursExpected,
+        expectedHours,
         expectedEntryTime,
         isAbsent,
       };
