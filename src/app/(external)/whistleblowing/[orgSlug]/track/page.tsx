@@ -17,13 +17,13 @@ type ReportStatus = "SUBMITTED" | "IN_REVIEW" | "RESOLVED" | "CLOSED";
 
 const statusConfig: Record<ReportStatus, { label: string; icon: typeof Clock; color: string; bgColor: string }> = {
   SUBMITTED: {
-    label: "Recibida - Pendiente de revisi\u00F3n",
+    label: "Recibida - Pendiente de revisión",
     icon: Clock,
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-100 dark:bg-amber-900",
   },
   IN_REVIEW: {
-    label: "En investigaci\u00F3n",
+    label: "En investigación",
     icon: FileSearch,
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-100 dark:bg-blue-900",
@@ -75,7 +75,7 @@ export default function TrackReportPage() {
         setError(response.error ?? "No se pudo verificar el estado");
       }
     } catch {
-      setError("Error de conexi\u00F3n. Intenta de nuevo.");
+      setError("Error de conexión. Intenta de nuevo.");
     } finally {
       setIsChecking(false);
     }
@@ -103,7 +103,7 @@ export default function TrackReportPage() {
             <Search className="text-primary h-6 w-6" />
           </div>
           <h1 className="text-xl font-bold">Consultar estado de denuncia</h1>
-          <p className="text-muted-foreground text-sm">Introduce tus c\u00F3digos para ver el estado actual</p>
+          <p className="text-muted-foreground text-sm">Introduce tus códigos para ver el estado actual</p>
         </div>
 
         {result ? (
@@ -118,7 +118,7 @@ export default function TrackReportPage() {
                 })()}
               </div>
               <CardTitle>Estado de tu denuncia</CardTitle>
-              <CardDescription>C\u00F3digo: {trackingCode.toUpperCase()}</CardDescription>
+              <CardDescription>Código: {trackingCode.toUpperCase()}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted rounded-lg p-4 text-center">
@@ -128,17 +128,17 @@ export default function TrackReportPage() {
               <div className="space-y-2 text-center">
                 {result.status === "SUBMITTED" && (
                   <p className="text-muted-foreground text-sm">
-                    Tu denuncia ha sido recibida y est\u00E1 pendiente de asignaci\u00F3n a un gestor.
+                    Tu denuncia ha sido recibida y está pendiente de asignación a un gestor.
                   </p>
                 )}
                 {result.status === "IN_REVIEW" && (
                   <p className="text-muted-foreground text-sm">
-                    Un gestor est\u00E1 investigando los hechos descritos en tu denuncia.
+                    Un gestor está investigando los hechos descritos en tu denuncia.
                   </p>
                 )}
                 {result.status === "RESOLVED" && (
                   <p className="text-muted-foreground text-sm">
-                    La investigaci\u00F3n ha concluido y se ha tomado una resoluci\u00F3n.
+                    La investigación ha concluido y se ha tomado una resolución.
                   </p>
                 )}
                 {result.status === "CLOSED" && (
@@ -155,12 +155,12 @@ export default function TrackReportPage() {
           <Card>
             <CardHeader>
               <CardTitle>Verificar estado</CardTitle>
-              <CardDescription>Introduce los c\u00F3digos que recibiste al enviar tu denuncia.</CardDescription>
+              <CardDescription>Introduce los códigos que recibiste al enviar tu denuncia.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="trackingCode">C\u00F3digo de seguimiento</Label>
+                  <Label htmlFor="trackingCode">Código de seguimiento</Label>
                   <Input
                     id="trackingCode"
                     placeholder="WB-XXXXXXXX-XXXXX"
@@ -171,7 +171,7 @@ export default function TrackReportPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="accessCode">C\u00F3digo de acceso</Label>
+                  <Label htmlFor="accessCode">Código de acceso</Label>
                   <Input
                     id="accessCode"
                     placeholder="XXXXXXXX"
@@ -208,7 +208,7 @@ export default function TrackReportPage() {
               <Shield className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
               <p className="text-muted-foreground text-xs">
                 Por motivos de confidencialidad, solo se muestra el estado general de la denuncia. La identidad del
-                denunciante y los detalles de la investigaci\u00F3n est\u00E1n protegidos.
+                denunciante y los detalles de la investigación están protegidos.
               </p>
             </div>
           </CardContent>

@@ -31,13 +31,13 @@ import {
 
 const formSchema = z.object({
   reporterType: z.enum(["ANONYMOUS", "EXTERNAL"]),
-  title: z.string().min(10, "El t\u00EDtulo debe tener al menos 10 caracteres").max(200, "M\u00E1ximo 200 caracteres"),
-  categoryId: z.string().min(1, "Selecciona una categor\u00EDa"),
-  description: z.string().min(50, "La descripci\u00F3n debe tener al menos 50 caracteres"),
+  title: z.string().min(10, "El título debe tener al menos 10 caracteres").max(200, "Máximo 200 caracteres"),
+  categoryId: z.string().min(1, "Selecciona una categoría"),
+  description: z.string().min(50, "La descripción debe tener al menos 50 caracteres"),
   incidentDate: z.date().optional(),
   incidentLocation: z.string().optional(),
   involvedParties: z.string().optional(),
-  contactEmail: z.string().email("Email no v\u00E1lido").optional().or(z.literal("")),
+  contactEmail: z.string().email("Email no válido").optional().or(z.literal("")),
   contactPhone: z.string().optional(),
 });
 
@@ -85,7 +85,7 @@ export default function NewAnonymousReportPage() {
       if (result.success && result.organization) {
         setOrgName(result.organization.name);
       } else {
-        setError("Organizaci\u00F3n no encontrada o canal no habilitado");
+        setError("Organización no encontrada o canal no habilitado");
       }
     } finally {
       setIsLoadingOrg(false);
@@ -141,7 +141,7 @@ export default function NewAnonymousReportPage() {
 
   async function copyToClipboard() {
     if (trackingCode && accessCode) {
-      const text = `C\u00F3digo de seguimiento: ${trackingCode}\nC\u00F3digo de acceso: ${accessCode}`;
+      const text = `Código de seguimiento: ${trackingCode}\nCódigo de acceso: ${accessCode}`;
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -177,35 +177,32 @@ export default function NewAnonymousReportPage() {
               <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle>Denuncia enviada correctamente</CardTitle>
-            <CardDescription>
-              Tu denuncia ha sido registrada y ser\u00E1 revisada por el equipo de gesti\u00F3n.
-            </CardDescription>
+            <CardDescription>Tu denuncia ha sido registrada y será revisada por el equipo de gestión.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 text-center">
             <div className="space-y-4">
               <div className="bg-muted rounded-lg p-4">
-                <p className="text-muted-foreground text-sm">C\u00F3digo de seguimiento</p>
+                <p className="text-muted-foreground text-sm">Código de seguimiento</p>
                 <p className="font-mono text-2xl font-bold">{trackingCode}</p>
               </div>
               <div className="bg-muted rounded-lg p-4">
-                <p className="text-muted-foreground text-sm">C\u00F3digo de acceso</p>
+                <p className="text-muted-foreground text-sm">Código de acceso</p>
                 <p className="font-mono text-2xl font-bold">{accessCode}</p>
               </div>
             </div>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
               <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                Guarda estos c\u00F3digos en un lugar seguro
+                Guarda estos códigos en un lugar seguro
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Los necesitar\u00E1s para consultar el estado de tu denuncia. El c\u00F3digo de acceso no se puede
-                recuperar.
+                Los necesitarás para consultar el estado de tu denuncia. El código de acceso no se puede recuperar.
               </p>
             </div>
 
             <Button variant="outline" className="w-full" onClick={copyToClipboard}>
               <Copy className="mr-2 h-4 w-4" />
-              {copied ? "Copiado" : "Copiar c\u00F3digos"}
+              {copied ? "Copiado" : "Copiar códigos"}
             </Button>
 
             <div className="flex flex-col gap-2 pt-4">
@@ -244,8 +241,8 @@ export default function NewAnonymousReportPage() {
           <CardHeader>
             <CardTitle>Formulario de denuncia</CardTitle>
             <CardDescription>
-              Completa el formulario con la mayor informaci\u00F3n posible para facilitar la investigaci\u00F3n. Tus
-              datos est\u00E1n protegidos conforme a la Ley 2/2023.
+              Completa el formulario con la mayor información posible para facilitar la investigación. Tus datos están
+              protegidos conforme a la Ley 2/2023.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -270,10 +267,10 @@ export default function NewAnonymousReportPage() {
                             <RadioGroupItem value="ANONYMOUS" id="anonymous" />
                             <div className="flex-1">
                               <label htmlFor="anonymous" className="cursor-pointer text-sm font-medium">
-                                An\u00F3nima
+                                Anónima
                               </label>
                               <p className="text-muted-foreground text-xs">
-                                Tu identidad permanecer\u00E1 completamente oculta
+                                Tu identidad permanecerá completamente oculta
                               </p>
                             </div>
                           </div>
@@ -295,17 +292,17 @@ export default function NewAnonymousReportPage() {
                   )}
                 />
 
-                {/* Categor\u00EDa */}
+                {/* Categoría */}
                 <FormField
                   control={form.control}
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categor\u00EDa *</FormLabel>
+                      <FormLabel>Categoría *</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingCategories}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categor\u00EDa" />
+                            <SelectValue placeholder="Selecciona una categoría" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -326,39 +323,37 @@ export default function NewAnonymousReportPage() {
                   )}
                 />
 
-                {/* T\u00EDtulo */}
+                {/* Título */}
                 <FormField
                   control={form.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>T\u00EDtulo de la denuncia *</FormLabel>
+                      <FormLabel>Título de la denuncia *</FormLabel>
                       <FormControl>
                         <Input placeholder="Describe brevemente el motivo de la denuncia" {...field} />
                       </FormControl>
-                      <FormDescription>M\u00EDnimo 10 caracteres</FormDescription>
+                      <FormDescription>Mínimo 10 caracteres</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Descripci\u00F3n */}
+                {/* Descripción */}
                 <FormField
                   control={form.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Descripci\u00F3n detallada *</FormLabel>
+                      <FormLabel>Descripción detallada *</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Describe los hechos con el mayor detalle posible: qu\u00E9 ocurri\u00F3, cu\u00E1ndo, c\u00F3mo, qui\u00E9nes estuvieron involucrados..."
+                          placeholder="Describe los hechos con el mayor detalle posible: qué ocurrió, cuándo, cómo, quiénes estuvieron involucrados..."
                           rows={6}
                           {...field}
                         />
                       </FormControl>
-                      <FormDescription>
-                        M\u00EDnimo 50 caracteres. S\u00E9 lo m\u00E1s espec\u00EDfico posible.
-                      </FormDescription>
+                      <FormDescription>Mínimo 50 caracteres. Sé lo más específico posible.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -417,7 +412,7 @@ export default function NewAnonymousReportPage() {
                         <FormControl>
                           <Input placeholder="Ej: Oficina central, planta 3" {...field} />
                         </FormControl>
-                        <FormDescription>Ubicaci\u00F3n donde ocurrieron los hechos</FormDescription>
+                        <FormDescription>Ubicación donde ocurrieron los hechos</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -433,13 +428,13 @@ export default function NewAnonymousReportPage() {
                       <FormLabel>Personas implicadas</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Indica los nombres de las personas involucradas (una por l\u00EDnea)"
+                          placeholder="Indica los nombres de las personas involucradas (una por línea)"
                           rows={3}
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        Esta informaci\u00F3n es confidencial y solo ser\u00E1 visible para los gestores.
+                        Esta información es confidencial y solo será visible para los gestores.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -451,7 +446,7 @@ export default function NewAnonymousReportPage() {
                   <div className="rounded-lg border p-4">
                     <h3 className="mb-2 text-sm font-medium">Datos de contacto (opcional)</h3>
                     <p className="text-muted-foreground mb-4 text-xs">
-                      Si deseas que los gestores puedan contactarte para solicitar m\u00E1s informaci\u00F3n.
+                      Si deseas que los gestores puedan contactarte para solicitar más información.
                     </p>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FormField
@@ -472,7 +467,7 @@ export default function NewAnonymousReportPage() {
                         name="contactPhone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Tel\u00E9fono de contacto</FormLabel>
+                            <FormLabel>Teléfono de contacto</FormLabel>
                             <FormControl>
                               <Input type="tel" placeholder="+34 600 000 000" {...field} />
                             </FormControl>
