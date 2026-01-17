@@ -177,6 +177,11 @@ export async function getMyApprovals(
         ...historyWhereClause,
       },
       include: {
+        slots: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
         organization: {
           select: {
             id: true,
@@ -351,6 +356,12 @@ export async function getMyApprovals(
           clockIn: req.clockInTime.toISOString(),
           clockOut: req.clockOutTime.toISOString(),
           reason: req.reason,
+          slots: req.slots.map((slot) => ({
+            slotType: slot.slotType,
+            startMinutes: slot.startMinutes,
+            endMinutes: slot.endMinutes,
+            sortOrder: slot.sortOrder,
+          })),
           position: activeContract?.position?.title,
           department: activeContract?.department?.name,
           approverComments: req.approverComments,

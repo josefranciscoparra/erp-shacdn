@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { downloadFileFromApi, openFilePreviewFromApi } from "@/lib/client/file-download";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
 import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
+import { minutesToTime } from "@/services/schedules/schedule-helpers";
 
 const expenseCategories: Record<string, string> = {
   FUEL: "Combustible",
@@ -296,6 +297,15 @@ function ManualEntryDetails({ item }: { item: PendingApprovalItem }) {
   const clockIn = item.details?.clockIn ? new Date(item.details.clockIn as string) : null;
   const clockOut = item.details?.clockOut ? new Date(item.details.clockOut as string) : null;
   const reason = item.details?.reason as string | undefined;
+  const slots =
+    (item.details?.slots as
+      | Array<{
+          slotType: "WORK" | "BREAK";
+          startMinutes: number;
+          endMinutes: number;
+          sortOrder: number;
+        }>
+      | undefined) ?? [];
 
   return (
     <div className="space-y-6">
@@ -313,6 +323,40 @@ function ManualEntryDetails({ item }: { item: PendingApprovalItem }) {
           <p className="text-lg font-medium">{clockOut ? format(clockOut, "HH:mm", { locale: es }) : "-"}</p>
         </div>
       </div>
+
+      {slots.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-muted-foreground block text-xs font-medium">Tramos solicitados</span>
+          <div className="space-y-2">
+            {slots.map((slot) => (
+              <div
+                key={`${slot.slotType}-${slot.sortOrder}`}
+                className={
+                  slot.slotType === "BREAK"
+                    ? "flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900 dark:bg-amber-950/30"
+                    : "flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 p-2 dark:border-emerald-900 dark:bg-emerald-950/30"
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className={
+                      slot.slotType === "BREAK"
+                        ? "bg-amber-100 text-xs text-amber-700 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
+                        : "text-xs"
+                    }
+                  >
+                    {slot.slotType === "WORK" ? "Trabajo" : "Pausa"}
+                  </Badge>
+                </div>
+                <span className="text-sm font-medium">
+                  {minutesToTime(slot.startMinutes)} - {minutesToTime(slot.endMinutes)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-muted/30 rounded-md p-3 text-sm">
         <span className="text-muted-foreground mb-1 block text-xs font-medium">Motivo de la corrección</span>

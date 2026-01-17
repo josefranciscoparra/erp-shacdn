@@ -2451,6 +2451,9 @@ model ManualTimeEntryRequest {
   replacedEntryIds        String[] @default([]) // IDs de las entradas que se reemplazan
   warningMessage          String? // Mensaje de advertencia mostrado al usuario
 
+  // Slots detallados (WORK / BREAK) para solicitudes con pausas
+  slots ManualTimeEntrySlot[]
+
   // Timestamps
   submittedAt DateTime @default(now()) // Cuando se envió la solicitud
   createdAt   DateTime @default(now())
@@ -2474,6 +2477,24 @@ model ManualTimeEntryRequest {
   @@index([date])
   @@index([submittedAt])
   @@map("manual_time_entry_requests")
+}
+
+model ManualTimeEntrySlot {
+  id String @id @default(cuid())
+
+  requestId String
+  request   ManualTimeEntryRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  slotType     TimeSlotType
+  startMinutes Int
+  endMinutes   Int
+  sortOrder    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requestId])
+  @@map("manual_time_entry_slots")
 }
 
 // Estados de solicitud de fichaje manual

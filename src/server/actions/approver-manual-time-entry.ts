@@ -1,7 +1,5 @@
 "use server";
 
-import { startOfDay, endOfDay } from "date-fns";
-
 import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
@@ -38,6 +36,135 @@ async function getApproverBaseData() {
   }
 
   return { session, user };
+}
+
+type ManualSlot = {
+  startMinutes: number;
+  endMinutes: number;
+  slotType: "WORK" | "BREAK";
+  sortOrder: number;
+};
+
+function buildUtcDayStart(date: Date): Date {
+  const year = date.getUTCFullYear();
+  const monthIndex = date.getUTCMonth();
+  const day = date.getUTCDate();
+  return new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+}
+
+function buildUtcDayEnd(date: Date): Date {
+  const dayStart = buildUtcDayStart(date);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCHours(23, 59, 59, 999);
+  return dayEnd;
+}
+
+function buildTimestamp(dayStartUtc: Date, minutes: number): Date {
+  return new Date(dayStartUtc.getTime() + minutes * 60 * 1000);
+}
+
+function normalizeManualSlots(rawSlots: ManualSlot[]): ManualSlot[] {
+  return [...rawSlots]
+    .map((slot, index) => ({
+      startMinutes: Number(slot.startMinutes),
+      endMinutes: Number(slot.endMinutes),
+      slotType: slot.slotType,
+      sortOrder: Number.isFinite(slot.sortOrder) ? slot.sortOrder : index,
+    }))
+    .sort((a, b) => {
+      if (a.sortOrder === b.sortOrder) {
+        return a.startMinutes - b.startMinutes;
+      }
+      return a.sortOrder - b.sortOrder;
+    });
+}
+
+function validateManualSlots(slots: ManualSlot[]) {
+  if (slots.length === 0) {
+    throw new Error("No hay tramos de trabajo válidos en la solicitud");
+  }
+
+  if (slots[0]?.slotType !== "WORK") {
+    throw new Error("El primer tramo debe ser de trabajo");
+  }
+
+  const lastSlot = slots[slots.length - 1];
+  if (lastSlot?.slotType !== "WORK") {
+    throw new Error("El último tramo debe ser de trabajo");
+  }
+
+  for (let i = 0; i < slots.length; i += 1) {
+    const slot = slots[i];
+    if (slot.slotType !== "WORK" && slot.slotType !== "BREAK") {
+      throw new Error("Tipo de tramo inválido en la solicitud");
+    }
+
+    if (!Number.isFinite(slot.startMinutes) || !Number.isFinite(slot.endMinutes)) {
+      throw new Error("Horas inválidas en los tramos");
+    }
+
+    if (slot.startMinutes < 0 || slot.endMinutes > 1440) {
+      throw new Error("Los tramos deben estar entre 00:00 y 24:00");
+    }
+
+    if (slot.startMinutes >= slot.endMinutes) {
+      throw new Error("La hora de inicio debe ser anterior a la hora de fin");
+    }
+
+    const prev = slots[i - 1];
+    if (prev && slot.startMinutes < prev.endMinutes) {
+      throw new Error("Hay solapamientos entre tramos");
+    }
+  }
+}
+
+function buildTimeEntriesFromSlots(dayStartUtc: Date, slots: ManualSlot[]) {
+  const entries: Array<{ entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END"; timestamp: Date }> = [];
+  const normalized = normalizeManualSlots(slots);
+  validateManualSlots(normalized);
+
+  let state: "OFF" | "WORK" | "BREAK" = "OFF";
+  let lastEnd: number | null = null;
+
+  for (const slot of normalized) {
+    if (lastEnd !== null && slot.startMinutes > lastEnd) {
+      if (state === "BREAK") {
+        entries.push({ entryType: "BREAK_END", timestamp: buildTimestamp(dayStartUtc, lastEnd) });
+      }
+      if (state === "WORK" || state === "BREAK") {
+        entries.push({ entryType: "CLOCK_OUT", timestamp: buildTimestamp(dayStartUtc, lastEnd) });
+      }
+      state = "OFF";
+    }
+
+    if (slot.slotType === "WORK") {
+      if (state === "OFF") {
+        entries.push({ entryType: "CLOCK_IN", timestamp: buildTimestamp(dayStartUtc, slot.startMinutes) });
+      } else if (state === "BREAK") {
+        entries.push({ entryType: "BREAK_END", timestamp: buildTimestamp(dayStartUtc, slot.startMinutes) });
+      }
+      state = "WORK";
+    } else {
+      if (state === "OFF") {
+        throw new Error("Hay una pausa sin tramo de trabajo previo");
+      }
+      if (state === "WORK") {
+        entries.push({ entryType: "BREAK_START", timestamp: buildTimestamp(dayStartUtc, slot.startMinutes) });
+      }
+      state = "BREAK";
+    }
+
+    lastEnd = slot.endMinutes;
+  }
+
+  if (lastEnd !== null && state === "WORK") {
+    entries.push({ entryType: "CLOCK_OUT", timestamp: buildTimestamp(dayStartUtc, lastEnd) });
+  } else if (lastEnd !== null && state === "BREAK") {
+    entries.push({ entryType: "BREAK_END", timestamp: buildTimestamp(dayStartUtc, lastEnd) });
+    entries.push({ entryType: "CLOCK_OUT", timestamp: buildTimestamp(dayStartUtc, lastEnd) });
+  }
+
+  return entries;
 }
 
 /**
@@ -141,6 +268,11 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
             userId: true,
           },
         },
+        slots: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
       },
     });
 
@@ -168,8 +300,8 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     }
 
     // Verificar nuevamente que no existan fichajes automáticos para ese día
-    const dayStart = startOfDay(request.date);
-    const dayEnd = endOfDay(request.date);
+    const dayStart = buildUtcDayStart(request.date);
+    const dayEnd = buildUtcDayEnd(request.date);
 
     const existingEntries = await prisma.timeEntry.findMany({
       where: {
@@ -223,30 +355,68 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       });
     }
 
-    // Crear los TimeEntry manuales
-    const clockInEntry = await prisma.timeEntry.create({
-      data: {
-        orgId: user.orgId,
-        employeeId: request.employeeId,
-        entryType: "CLOCK_IN",
-        timestamp: request.clockInTime,
-        isManual: true,
-        manualRequestId: request.id,
-        notes: `Fichaje manual aprobado. Motivo: ${request.reason}`,
-      },
-    });
+    const manualNote = `Fichaje manual aprobado. Motivo: ${request.reason}`;
+    const dayStartUtc = buildUtcDayStart(request.date);
 
-    const clockOutEntry = await prisma.timeEntry.create({
-      data: {
-        orgId: user.orgId,
-        employeeId: request.employeeId,
-        entryType: "CLOCK_OUT",
-        timestamp: request.clockOutTime,
-        isManual: true,
-        manualRequestId: request.id,
-        notes: `Fichaje manual aprobado. Motivo: ${request.reason}`,
-      },
-    });
+    let createdEntries: Array<{ id: string; entryType: string; timestamp: Date }> = [];
+
+    if (request.slots && request.slots.length > 0) {
+      const slotPayload = request.slots.map((slot) => ({
+        startMinutes: slot.startMinutes,
+        endMinutes: slot.endMinutes,
+        slotType: slot.slotType === "BREAK" ? "BREAK" : "WORK",
+        sortOrder: slot.sortOrder,
+      }));
+
+      const entriesToCreate = buildTimeEntriesFromSlots(dayStartUtc, slotPayload).sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+
+      createdEntries = await prisma.$transaction(
+        entriesToCreate.map((entry) =>
+          prisma.timeEntry.create({
+            data: {
+              orgId: user.orgId,
+              employeeId: request.employeeId,
+              entryType: entry.entryType,
+              timestamp: entry.timestamp,
+              isManual: true,
+              manualRequestId: request.id,
+              notes: manualNote,
+            },
+          }),
+        ),
+      );
+    } else {
+      const clockInEntry = await prisma.timeEntry.create({
+        data: {
+          orgId: user.orgId,
+          employeeId: request.employeeId,
+          entryType: "CLOCK_IN",
+          timestamp: request.clockInTime,
+          isManual: true,
+          manualRequestId: request.id,
+          notes: manualNote,
+        },
+      });
+
+      const clockOutEntry = await prisma.timeEntry.create({
+        data: {
+          orgId: user.orgId,
+          employeeId: request.employeeId,
+          entryType: "CLOCK_OUT",
+          timestamp: request.clockOutTime,
+          isManual: true,
+          manualRequestId: request.id,
+          notes: manualNote,
+        },
+      });
+
+      createdEntries = [clockInEntry, clockOutEntry];
+    }
+
+    const clockInEntry = createdEntries.find((entry) => entry.entryType === "CLOCK_IN") ?? null;
+    const clockOutEntry = [...createdEntries].reverse().find((entry) => entry.entryType === "CLOCK_OUT") ?? null;
 
     // Actualizar el WorkdaySummary del día
     console.log("📊 ACTUALIZANDO WorkdaySummary después de aprobar fichaje manual...");
@@ -355,8 +525,8 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
         approverId: session.user.id,
         approvedAt: new Date(),
         approverComments: input.comments,
-        createdClockInId: clockInEntry.id,
-        createdClockOutId: clockOutEntry.id,
+        createdClockInId: clockInEntry?.id ?? null,
+        createdClockOutId: clockOutEntry?.id ?? null,
       },
     });
 

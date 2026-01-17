@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { format, startOfDay, endOfDay, setHours, setMinutes, isPast, isFuture, isToday } from "date-fns";
+import { format, startOfDay, isPast, isFuture, isToday } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2, AlertTriangle, Clock, Check, User } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Loader2,
+  AlertTriangle,
+  Clock,
+  Check,
+  User,
+  Plus,
+  Trash2,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,9 +25,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { getMyApprover } from "@/server/actions/manual-time-entry";
+import { getManualTimeEntryPrefill, getMyApprover } from "@/server/actions/manual-time-entry";
+import { formatDuration, minutesToTime, timeToMinutes } from "@/services/schedules/schedule-helpers";
 import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
@@ -27,18 +39,36 @@ interface ManualTimeEntryDialogProps {
   initialDate?: Date;
 }
 
+type ManualSlotForm = {
+  id: string;
+  slotType: "WORK" | "BREAK";
+  startTime: string;
+  endTime: string;
+};
+
+const createSlotId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const buildDefaultSlots = (): ManualSlotForm[] => [
+  {
+    id: createSlotId(),
+    slotType: "WORK",
+    startTime: "09:00",
+    endTime: "18:00",
+  },
+];
+
 export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: ManualTimeEntryDialogProps) {
   const { createRequest, isLoading } = useManualTimeEntryStore();
   const { loadMonthlyData, selectedYear, selectedMonth } = useTimeCalendarStore();
 
   // Estados del formulario
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
-  const [clockInTime, setClockInTime] = useState<string>("09:00");
-  const [clockOutTime, setClockOutTime] = useState<string>("18:00");
+  const [slots, setSlots] = useState<ManualSlotForm[]>(buildDefaultSlots());
   const [reason, setReason] = useState<string>("");
 
   // Errores
   const [error, setError] = useState<string | null>(null);
+  const [prefillError, setPrefillError] = useState<string | null>(null);
 
   // Estados para advertencias de fichajes existentes
   const [confirmReplacement, setConfirmReplacement] = useState(false);
@@ -46,6 +76,89 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   // Aprobador
   const [approver, setApprover] = useState<{ name: string; role: string } | null>(null);
   const [loadingApprover, setLoadingApprover] = useState(false);
+
+  const [isPrefillLoading, setIsPrefillLoading] = useState(false);
+  const [hasManualChanges, setHasManualChanges] = useState(false);
+  const [prefillSource, setPrefillSource] = useState<"SCHEDULE" | "DEFAULT" | null>(null);
+
+  const resetForm = useCallback(() => {
+    setSelectedDate(initialDate);
+    setSlots(buildDefaultSlots());
+    setReason("");
+    setError(null);
+    setPrefillError(null);
+    setConfirmReplacement(false);
+    setHasManualChanges(false);
+    setPrefillSource(null);
+  }, [initialDate]);
+
+  const applyPrefill = useCallback(async (date: Date) => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    setIsPrefillLoading(true);
+    setPrefillError(null);
+    try {
+      const result = await getManualTimeEntryPrefill(dateKey);
+      if (result.success && result.slots.length > 0) {
+        setSlots(
+          result.slots.map((slot) => ({
+            id: createSlotId(),
+            slotType: slot.slotType === "BREAK" ? "BREAK" : "WORK",
+            startTime: minutesToTime(slot.startMinutes),
+            endTime: minutesToTime(slot.endMinutes),
+          })),
+        );
+        setPrefillSource("SCHEDULE");
+      } else {
+        setSlots(buildDefaultSlots());
+        setPrefillSource("DEFAULT");
+        if (!result.success && result.error) {
+          setPrefillError(result.error);
+        }
+      }
+    } catch (err) {
+      console.error("Error al precargar horario:", err);
+      setSlots(buildDefaultSlots());
+      setPrefillSource("DEFAULT");
+      setPrefillError("No se pudo cargar el horario");
+    } finally {
+      setIsPrefillLoading(false);
+    }
+  }, []);
+
+  const handleDateSelection = (date?: Date) => {
+    setSelectedDate(date);
+    setHasManualChanges(false);
+  };
+
+  const handleSlotChange = (slotId: string, field: "slotType" | "startTime" | "endTime", value: string) => {
+    setSlots((prev) => prev.map((slot) => (slot.id === slotId ? { ...slot, [field]: value } : slot)));
+    setHasManualChanges(true);
+  };
+
+  const handleAddSlot = (slotType: "WORK" | "BREAK") => {
+    setSlots((prev) => [
+      ...prev,
+      {
+        id: createSlotId(),
+        slotType,
+        startTime: "09:00",
+        endTime: "18:00",
+      },
+    ]);
+    setHasManualChanges(true);
+  };
+
+  const handleRemoveSlot = (slotId: string) => {
+    setSlots((prev) => prev.filter((slot) => slot.id !== slotId));
+    setHasManualChanges(true);
+  };
+
+  const handleRestoreSchedule = () => {
+    if (selectedDate) {
+      setHasManualChanges(false);
+      applyPrefill(selectedDate);
+    }
+  };
 
   // Actualizar fecha cuando cambie initialDate
   useEffect(() => {
@@ -80,13 +193,93 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     // Por ahora, solo mostramos un mensaje genérico de advertencia
   }, [selectedDate]);
 
-  // Reset del formulario
-  const resetForm = () => {
-    setSelectedDate(initialDate);
-    setClockInTime("09:00");
-    setClockOutTime("18:00");
-    setReason("");
-    setError(null);
+  useEffect(() => {
+    if (!open) {
+      resetForm();
+      return;
+    }
+
+    if (selectedDate && !hasManualChanges) {
+      applyPrefill(selectedDate);
+    }
+  }, [open, selectedDate, hasManualChanges, applyPrefill, resetForm]);
+
+  const parseSlotsForSubmit = () => {
+    if (slots.length === 0) {
+      setError("Añade al menos un tramo de trabajo");
+      return null;
+    }
+
+    const parsed = slots.map((slot, index) => {
+      try {
+        const startMinutes = timeToMinutes(slot.startTime);
+        const endMinutes = timeToMinutes(slot.endTime);
+        return {
+          startMinutes,
+          endMinutes,
+          slotType: slot.slotType,
+          order: index,
+        };
+      } catch {
+        return null;
+      }
+    });
+
+    if (parsed.some((slot) => !slot)) {
+      setError("Revisa las horas de los tramos");
+      return null;
+    }
+
+    const normalized = (
+      parsed.filter(Boolean) as Array<{
+        startMinutes: number;
+        endMinutes: number;
+        slotType: "WORK" | "BREAK";
+        order: number;
+      }>
+    ).sort((a, b) => {
+      if (a.startMinutes === b.startMinutes) {
+        return a.order - b.order;
+      }
+      return a.startMinutes - b.startMinutes;
+    });
+
+    if (normalized[0]?.slotType !== "WORK") {
+      setError("El primer tramo debe ser de trabajo");
+      return null;
+    }
+
+    const lastSlot = normalized[normalized.length - 1];
+    if (lastSlot?.slotType !== "WORK") {
+      setError("El último tramo debe ser de trabajo");
+      return null;
+    }
+
+    let totalWorkMinutes = 0;
+    for (let i = 0; i < normalized.length; i += 1) {
+      const slot = normalized[i];
+      if (slot.startMinutes >= slot.endMinutes) {
+        setError("La hora de inicio debe ser anterior a la hora de fin");
+        return null;
+      }
+
+      const prev = normalized[i - 1];
+      if (prev && slot.startMinutes < prev.endMinutes) {
+        setError("Hay solapamientos entre tramos");
+        return null;
+      }
+
+      if (slot.slotType === "WORK") {
+        totalWorkMinutes += slot.endMinutes - slot.startMinutes;
+      }
+    }
+
+    if (totalWorkMinutes <= 0) {
+      setError("Añade al menos un tramo de trabajo");
+      return null;
+    }
+
+    return normalized;
   };
 
   // Validar formulario
@@ -103,50 +296,66 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
       return false;
     }
 
-    if (!clockInTime || !clockOutTime) {
-      setError("Completa las horas de entrada y salida");
-      return false;
-    }
-
-    if (clockInTime >= clockOutTime) {
-      setError("La hora de entrada debe ser anterior a la hora de salida");
-      return false;
-    }
-
     if (!reason || reason.trim().length < 10) {
       setError("El motivo debe tener al menos 10 caracteres");
+      return false;
+    }
+
+    const slotsPayload = parseSlotsForSubmit();
+    if (!slotsPayload) {
       return false;
     }
 
     return true;
   };
 
+  const slotTotals = useMemo(() => {
+    let workMinutes = 0;
+    let breakMinutes = 0;
+    let hasInvalid = false;
+
+    slots.forEach((slot) => {
+      try {
+        const start = timeToMinutes(slot.startTime);
+        const end = timeToMinutes(slot.endTime);
+        if (end <= start) {
+          hasInvalid = true;
+          return;
+        }
+        if (slot.slotType === "WORK") {
+          workMinutes += end - start;
+        } else {
+          breakMinutes += end - start;
+        }
+      } catch {
+        hasInvalid = true;
+      }
+    });
+
+    return {
+      workMinutes,
+      breakMinutes,
+      hasInvalid,
+    };
+  }, [slots]);
+
   // Manejar envío
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
     try {
-      // Construir las fechas completas
-      const [inHours, inMinutes] = clockInTime.split(":").map(Number);
-      const [outHours, outMinutes] = clockOutTime.split(":").map(Number);
+      const slotsPayload = parseSlotsForSubmit();
+      if (!slotsPayload) {
+        return;
+      }
 
-      // IMPORTANTE: Enviar fecha a mediodía UTC para evitar problemas de timezone
-      // El servidor está en UTC, pero el navegador puede estar en UTC+1 (España)
-      // Si enviamos "5 nov 00:00 UTC+1", el servidor lo recibe como "4 nov 23:00 UTC"
-      // Solución: enviamos "5 nov 12:00" para que incluso con offset de timezone, el día se mantenga
-      const year = selectedDate!.getFullYear();
-      const month = selectedDate!.getMonth();
-      const day = selectedDate!.getDate();
-      const dateAtNoonUTC = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-
-      const clockInDateTime = setMinutes(setHours(selectedDate!, inHours), inMinutes);
-      const clockOutDateTime = setMinutes(setHours(selectedDate!, outHours), outMinutes);
+      const dateKey = format(selectedDate!, "yyyy-MM-dd");
 
       await createRequest({
-        date: dateAtNoonUTC,
-        clockInTime: clockInDateTime,
-        clockOutTime: clockOutDateTime,
+        dateKey,
+        slots: slotsPayload,
         reason: reason.trim(),
+        timezoneOffsetMinutes: selectedDate!.getTimezoneOffset(),
       });
 
       // Recargar el calendario para mostrar la solicitud pendiente
@@ -247,7 +456,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={setSelectedDate}
+                    onSelect={handleDateSelection}
                     disabled={(date) => isFuture(startOfDay(date)) || isToday(date)}
                     initialFocus
                     locale={es}
@@ -258,53 +467,127 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </div>
           </div>
 
-          {/* Sección 2: Hora de entrada / salida */}
+          {/* Sección 2: Tramos del día */}
           <div className="border-muted/30 space-y-4 border-b py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <Label htmlFor="clockInTime">Hora de entrada</Label>
-                <Input
-                  id="clockInTime"
-                  type="time"
-                  value={clockInTime}
-                  onChange={(e) => setClockInTime(e.target.value)}
-                  disabled={isLoading}
-                  className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
-                />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <Label>Tramos del día</Label>
+                <p className="text-muted-foreground text-xs">Añade trabajo y pausas según lo que realmente ocurrió.</p>
               </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="clockOutTime">Hora de salida</Label>
-                <Input
-                  id="clockOutTime"
-                  type="time"
-                  value={clockOutTime}
-                  onChange={(e) => setClockOutTime(e.target.value)}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddSlot("WORK")}
                   disabled={isLoading}
-                  className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
-                />
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Añadir trabajo
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddSlot("BREAK")}
+                  disabled={isLoading}
+                  className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Añadir pausa
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRestoreSchedule}
+                  disabled={!selectedDate || isPrefillLoading || isLoading}
+                  aria-label="Restaurar horario"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            {/* Tiempo total calculado - Badge Premium */}
-            {clockInTime && clockOutTime && clockInTime < clockOutTime && (
-              <div className="bg-primary/10 flex w-fit items-center gap-2 rounded-lg px-3 py-2">
-                <Clock className="text-primary h-4 w-4" />
-                <div>
-                  <p className="text-primary/70 text-xs font-medium">Tiempo total</p>
-                  <p className="text-primary text-sm font-semibold">
-                    {(() => {
-                      const [inH, inM] = clockInTime.split(":").map(Number);
-                      const [outH, outM] = clockOutTime.split(":").map(Number);
-                      const totalMinutes = outH * 60 + outM - (inH * 60 + inM);
-                      const hours = Math.floor(totalMinutes / 60);
-                      const minutes = totalMinutes % 60;
-                      return `${hours}h ${minutes}min`;
-                    })()}
-                  </p>
-                </div>
+            {isPrefillLoading && (
+              <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Precargando horario...
               </div>
             )}
+
+            {prefillSource && (
+              <div className="text-muted-foreground text-xs">
+                {prefillSource === "SCHEDULE"
+                  ? "Horario precargado automáticamente. Puedes editarlo libremente."
+                  : "Sin horario definido. Se cargó un tramo por defecto."}
+              </div>
+            )}
+
+            {prefillError && <div className="text-destructive text-xs">{prefillError}</div>}
+
+            <div className="space-y-2">
+              {slots.map((slot) => (
+                <div key={slot.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center">
+                  <Select value={slot.slotType} onValueChange={(value) => handleSlotChange(slot.id, "slotType", value)}>
+                    <SelectTrigger className="w-full sm:w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WORK">Trabajo</SelectItem>
+                      <SelectItem value="BREAK">Pausa</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex flex-1 items-center gap-2">
+                    <Input
+                      type="time"
+                      value={slot.startTime}
+                      onChange={(e) => handleSlotChange(slot.id, "startTime", e.target.value)}
+                      disabled={isLoading}
+                      className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
+                    />
+                    <span className="text-muted-foreground text-xs">—</span>
+                    <Input
+                      type="time"
+                      value={slot.endTime}
+                      onChange={(e) => handleSlotChange(slot.id, "endTime", e.target.value)}
+                      disabled={isLoading}
+                      className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveSlot(slot.id)}
+                    disabled={slots.length === 1 || isLoading}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="bg-primary/10 flex items-center gap-2 rounded-lg px-3 py-2">
+                <Clock className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-primary/70 text-xs font-medium">Trabajo total</p>
+                  <p className="text-primary text-sm font-semibold">{formatDuration(slotTotals.workMinutes)}</p>
+                </div>
+              </div>
+
+              <div className="bg-muted/30 flex items-center gap-2 rounded-lg px-3 py-2">
+                <Clock className="text-muted-foreground h-4 w-4" />
+                <div>
+                  <p className="text-muted-foreground text-xs font-medium">Pausas</p>
+                  <p className="text-sm font-semibold">{formatDuration(slotTotals.breakMinutes)}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Sección 3: Motivo */}

@@ -1,10 +1,13 @@
 "use server";
 
-import { startOfDay, endOfDay, isPast, isFuture, isToday } from "date-fns";
+import type { TimeSlotType } from "@prisma/client";
+import { isFuture } from "date-fns";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
+import { timeToMinutes } from "@/services/schedules/schedule-helpers";
 
 import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
@@ -12,53 +15,192 @@ import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 /**
  * Crear una nueva solicitud de fichaje manual
  */
-interface CreateManualTimeEntryRequestInput {
-  date: Date; // Fecha del día (sin hora)
-  clockInTime: Date; // Hora de entrada
-  clockOutTime: Date; // Hora de salida
-  reason: string; // Justificación
+type ManualTimeEntrySlotInput = {
+  startMinutes: number;
+  endMinutes: number;
+  slotType: TimeSlotType;
+  order?: number;
+};
+
+function parseDateKey(dateKey: string): { year: number; monthIndex: number; day: number } {
+  const [yearStr, monthStr, dayStr] = dateKey.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  if (!year || !month || !day) {
+    throw new Error("Fecha inválida");
+  }
+
+  return {
+    year,
+    monthIndex: month - 1,
+    day,
+  };
 }
 
-export async function createManualTimeEntryRequest(input: CreateManualTimeEntryRequestInput) {
+function buildUtcDate(year: number, monthIndex: number, day: number, minutes: number): Date {
+  const base = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+  return new Date(base.getTime() + minutes * 60 * 1000);
+}
+
+function applyTimezoneOffset(minutes: number, offsetMinutes: number): number {
+  const adjusted = minutes + offsetMinutes;
+  const normalized = ((adjusted % 1440) + 1440) % 1440;
+  return normalized;
+}
+
+function normalizeSlots(rawSlots: ManualTimeEntrySlotInput[]): ManualTimeEntrySlotInput[] {
+  const filtered = rawSlots.filter((slot) => slot && typeof slot === "object");
+  const normalized = filtered.map((slot) => ({
+    startMinutes: Number(slot.startMinutes),
+    endMinutes: Number(slot.endMinutes),
+    slotType: slot.slotType,
+    order: slot.order ?? 0,
+  }));
+
+  normalized.sort((a, b) => {
+    if (a.startMinutes === b.startMinutes) {
+      return (a.order ?? 0) - (b.order ?? 0);
+    }
+    return a.startMinutes - b.startMinutes;
+  });
+
+  return normalized.map((slot, index) => ({
+    ...slot,
+    order: index,
+  }));
+}
+
+function validateSlots(slots: ManualTimeEntrySlotInput[]) {
+  if (slots.length === 0) {
+    throw new Error("Añade al menos un tramo de trabajo");
+  }
+
+  if (slots[0]?.slotType !== "WORK") {
+    throw new Error("El primer tramo debe ser de trabajo");
+  }
+
+  const lastSlot = slots[slots.length - 1];
+  if (lastSlot?.slotType !== "WORK") {
+    throw new Error("El último tramo debe ser de trabajo");
+  }
+
+  for (let i = 0; i < slots.length; i += 1) {
+    const slot = slots[i];
+    if (slot.slotType !== "WORK" && slot.slotType !== "BREAK") {
+      throw new Error("Tipo de tramo inválido");
+    }
+
+    if (!Number.isFinite(slot.startMinutes) || !Number.isFinite(slot.endMinutes)) {
+      throw new Error("Las horas de los tramos son inválidas");
+    }
+
+    if (slot.startMinutes < 0 || slot.endMinutes > 1440) {
+      throw new Error("Los tramos deben estar entre 00:00 y 24:00");
+    }
+
+    if (slot.startMinutes >= slot.endMinutes) {
+      throw new Error("La hora de inicio debe ser anterior a la hora de fin");
+    }
+
+    const prevSlot = slots[i - 1];
+    if (prevSlot && slot.startMinutes < prevSlot.endMinutes) {
+      throw new Error("Hay solapamientos entre tramos");
+    }
+  }
+}
+
+function resolveClockBoundsFromSlots(slots: ManualTimeEntrySlotInput[]) {
+  const workSlots = slots.filter((slot) => slot.slotType === "WORK");
+  if (workSlots.length === 0) {
+    throw new Error("Añade al menos un tramo de trabajo");
+  }
+
+  const firstWork = workSlots[0];
+  const lastWork = workSlots[workSlots.length - 1];
+
+  return {
+    startMinutes: firstWork.startMinutes,
+    endMinutes: lastWork.endMinutes,
+  };
+}
+
+function parseTimeInput(value: string | null | undefined, label: string): number {
+  if (!value) {
+    throw new Error(`Completa la hora de ${label}`);
+  }
+
+  return timeToMinutes(value);
+}
+
+export async function createManualTimeEntryRequest(
+  dateKey: string,
+  reason: string,
+  slotsJson?: string | null,
+  clockInTime?: string | null,
+  clockOutTime?: string | null,
+  timezoneOffsetMinutes?: number | null,
+) {
   try {
     const { employee, orgId } = await getAuthenticatedEmployee();
 
-    // NORMALIZAR FECHAS A UTC para evitar problemas de timezone
-    // El cliente puede estar en UTC+1, el servidor en UTC
-    // Extraemos año/mes/día y reconstruimos en UTC
-    const inputDate = new Date(input.date);
-    const year = inputDate.getUTCFullYear();
-    const month = inputDate.getUTCMonth();
-    const day = inputDate.getUTCDate();
+    const { year, monthIndex, day } = parseDateKey(dateKey);
 
     // Crear fecha normalizada a medianoche UTC
-    const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const normalizedDate = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
     const dayStart = normalizedDate;
-    const dayEnd = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+    const dayEnd = new Date(Date.UTC(year, monthIndex, day, 23, 59, 59, 999));
+    const displayDate = new Date(Date.UTC(year, monthIndex, day, 12, 0, 0, 0));
 
-    // Normalizar clockInTime y clockOutTime para que usen la fecha correcta en UTC
-    const clockInDate = new Date(input.clockInTime);
-    const clockOutDate = new Date(input.clockOutTime);
+    const offsetMinutes =
+      typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes) ? timezoneOffsetMinutes : 0;
 
-    const clockInHours = clockInDate.getUTCHours();
-    const clockInMinutes = clockInDate.getUTCMinutes();
-    const clockOutHours = clockOutDate.getUTCHours();
-    const clockOutMinutes = clockOutDate.getUTCMinutes();
+    let slots: ManualTimeEntrySlotInput[] = [];
+    if (slotsJson) {
+      try {
+        const parsed = JSON.parse(slotsJson) as ManualTimeEntrySlotInput[];
+        slots = normalizeSlots(parsed);
+      } catch {
+        throw new Error("No se pudieron procesar los tramos solicitados");
+      }
+    }
 
-    const normalizedClockIn = new Date(Date.UTC(year, month, day, clockInHours, clockInMinutes, 0, 0));
-    const normalizedClockOut = new Date(Date.UTC(year, month, day, clockOutHours, clockOutMinutes, 0, 0));
+    let clockInMinutes = 0;
+    let clockOutMinutes = 0;
+    if (slots.length > 0) {
+      validateSlots(slots);
+      const bounds = resolveClockBoundsFromSlots(slots);
+      clockInMinutes = bounds.startMinutes;
+      clockOutMinutes = bounds.endMinutes;
+    } else {
+      clockInMinutes = parseTimeInput(clockInTime, "entrada");
+      clockOutMinutes = parseTimeInput(clockOutTime, "salida");
+      if (clockInMinutes >= clockOutMinutes) {
+        throw new Error("La hora de entrada debe ser anterior a la hora de salida");
+      }
+      slots = normalizeSlots([
+        {
+          startMinutes: clockInMinutes,
+          endMinutes: clockOutMinutes,
+          slotType: "WORK",
+          order: 0,
+        },
+      ]);
+    }
+
+    const adjustedClockInMinutes = applyTimezoneOffset(clockInMinutes, offsetMinutes);
+    const adjustedClockOutMinutes = applyTimezoneOffset(clockOutMinutes, offsetMinutes);
+    const normalizedClockIn = buildUtcDate(year, monthIndex, day, adjustedClockInMinutes);
+    const normalizedClockOut = buildUtcDate(year, monthIndex, day, adjustedClockOutMinutes);
 
     // Validaciones
-    if (!input.reason || input.reason.trim().length < 10) {
+    if (!reason || reason.trim().length < 10) {
       throw new Error("El motivo debe tener al menos 10 caracteres");
     }
 
     if (isFuture(dayStart)) {
       throw new Error("No puedes solicitar fichajes para fechas futuras");
-    }
-
-    if (normalizedClockIn >= normalizedClockOut) {
-      throw new Error("La hora de entrada debe ser anterior a la hora de salida");
     }
 
     const isPausedForRange = await isEmployeePausedDuringRange(employee.id, dayStart, dayEnd, orgId);
@@ -117,8 +259,6 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
     }
 
     // Determinar si esta solicitud reemplaza fichajes automáticos (completos o incompletos)
-    const hasClockIn = automaticEntries.some((e) => e.entryType === "CLOCK_IN");
-    const hasClockOut = automaticEntries.some((e) => e.entryType === "CLOCK_OUT");
     const replacesIncompleteEntry = automaticEntries.length > 0; // CAMBIADO: Ahora reemplaza cualquier fichaje automático
     const replacedEntryIds = automaticEntries.map((e) => e.id); // Guardar TODOS los IDs para cancelarlos después
 
@@ -130,6 +270,13 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
       }
     }
 
+    const slotsToCreate = slots.map((slot, index) => ({
+      slotType: slot.slotType,
+      startMinutes: applyTimezoneOffset(slot.startMinutes, offsetMinutes),
+      endMinutes: applyTimezoneOffset(slot.endMinutes, offsetMinutes),
+      sortOrder: slot.order ?? index,
+    }));
+
     // Crear la solicitud CON LAS FECHAS NORMALIZADAS
     const request = await prisma.manualTimeEntryRequest.create({
       data: {
@@ -138,12 +285,13 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
         date: dayStart, // Ya normalizado a medianoche UTC
         clockInTime: normalizedClockIn, // Hora de entrada normalizada
         clockOutTime: normalizedClockOut, // Hora de salida normalizada
-        reason: input.reason.trim(),
+        reason: reason.trim(),
         approverId,
         status: "PENDING",
         replacesIncompleteEntry,
         replacedEntryIds,
         warningMessage,
+        slots: slotsToCreate.length > 0 ? { create: slotsToCreate } : undefined,
       },
       include: {
         employee: {
@@ -162,7 +310,7 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
         orgId,
         "MANUAL_TIME_ENTRY_SUBMITTED",
         "Nueva solicitud de fichaje manual",
-        `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${input.date.toLocaleDateString("es-ES")}`,
+        `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${displayDate.toLocaleDateString("es-ES")}`,
         undefined, // ptoRequestId
         request.id, // manualTimeEntryRequestId
       );
@@ -189,6 +337,41 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
     throw new Error(
       "No se pudo crear la solicitud de fichaje manual. Por favor, inténtalo de nuevo o contacta con soporte si el problema persiste.",
     );
+  }
+}
+
+export async function getManualTimeEntryPrefill(dateKey: string) {
+  try {
+    const { employee, orgId } = await getAuthenticatedEmployee();
+    const { year, monthIndex, day } = parseDateKey(dateKey);
+
+    const scheduleDate = new Date(Date.UTC(year, monthIndex, day, 12, 0, 0, 0));
+    const schedule = await getEffectiveSchedule(employee.id, scheduleDate);
+
+    const slots = schedule.timeSlots
+      .filter((slot) => slot.slotType === "WORK" || slot.slotType === "BREAK")
+      .map((slot, index) => ({
+        startMinutes: slot.startMinutes,
+        endMinutes: slot.endMinutes,
+        slotType: slot.slotType,
+        order: index,
+      }))
+      .sort((a, b) => a.startMinutes - b.startMinutes);
+
+    return {
+      success: true,
+      slots,
+      isWorkingDay: schedule.isWorkingDay,
+      scheduleSource: schedule.source,
+      orgId,
+    };
+  } catch (error) {
+    console.error("Error al obtener prefill de fichaje manual:", error);
+    return {
+      success: false,
+      slots: [],
+      error: error instanceof Error ? error.message : "Error al obtener horario",
+    };
   }
 }
 

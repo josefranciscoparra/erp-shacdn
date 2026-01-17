@@ -36,7 +36,12 @@ interface ManualTimeEntryState {
 
   // Acciones
   loadRequests: (status?: "PENDING" | "APPROVED" | "REJECTED") => Promise<void>;
-  createRequest: (input: { date: Date; clockInTime: Date; clockOutTime: Date; reason: string }) => Promise<void>;
+  createRequest: (input: {
+    dateKey: string;
+    reason: string;
+    slots: Array<{ startMinutes: number; endMinutes: number; slotType: "WORK" | "BREAK"; order?: number }>;
+    timezoneOffsetMinutes: number;
+  }) => Promise<void>;
   cancelRequest: (requestId: string) => Promise<void>;
   reset: () => void;
 }
@@ -76,7 +81,15 @@ export const useManualTimeEntryStore = create<ManualTimeEntryState>((set, get) =
   createRequest: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      await createManualTimeEntryRequest(input);
+      const slotsJson = JSON.stringify(input.slots);
+      await createManualTimeEntryRequest(
+        input.dateKey,
+        input.reason,
+        slotsJson,
+        null,
+        null,
+        input.timezoneOffsetMinutes,
+      );
 
       // Recargar la lista
       await get().loadRequests();
