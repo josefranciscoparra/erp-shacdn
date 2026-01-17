@@ -110,6 +110,8 @@ const SPANISH_REGIONS = [
   { code: "ES-RI", name: "La Rioja" },
 ];
 
+const getHolidayKey = (holiday: HolidayPreview) => `${holiday.date}::${holiday.name}`;
+
 export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = React.useState(false);
@@ -163,11 +165,42 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     return preview; // "all" - mostrar todos
   }, [preview, filterType, selectedRegion, form]);
 
+  const filteredHolidayKeys = React.useMemo(() => filteredPreview.map(getHolidayKey), [filteredPreview]);
+
+  const selectedFilteredCount = React.useMemo(() => {
+    let count = 0;
+    for (const key of filteredHolidayKeys) {
+      if (selectedHolidays.has(key)) {
+        count += 1;
+      }
+    }
+    return count;
+  }, [filteredHolidayKeys, selectedHolidays]);
+
+  const allFilteredSelected = filteredHolidayKeys.length > 0 && selectedFilteredCount === filteredHolidayKeys.length;
+
   React.useEffect(() => {
     if (!requiresCostCenter && form.getValues("costCenterId") !== "__none__") {
       form.setValue("costCenterId", "__none__");
     }
   }, [requiresCostCenter, form]);
+
+  React.useEffect(() => {
+    if (filteredHolidayKeys.length === 0) {
+      setSelectedHolidays(new Set());
+      return;
+    }
+
+    setSelectedHolidays((prev) => {
+      const next = new Set<string>();
+      for (const key of filteredHolidayKeys) {
+        if (prev.has(key)) {
+          next.add(key);
+        }
+      }
+      return next;
+    });
+  }, [filteredHolidayKeys]);
 
   const handlePreview = async () => {
     const year = form.getValues("year");
@@ -190,7 +223,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
       setPreview(data.holidays ?? []);
 
       // Seleccionar todos por defecto
-      const allHolidayKeys = new Set(data.holidays.map((h: HolidayPreview) => h.date));
+      const allHolidayKeys = new Set(data.holidays.map((h: HolidayPreview) => getHolidayKey(h)));
       setSelectedHolidays(allHolidayKeys);
 
       toast.success(`${data.count} festivos encontrados`);
@@ -203,23 +236,23 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     }
   };
 
-  const toggleHoliday = (date: string) => {
+  const toggleHoliday = (holidayKey: string) => {
     setSelectedHolidays((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(date)) {
-        newSet.delete(date);
+      if (newSet.has(holidayKey)) {
+        newSet.delete(holidayKey);
       } else {
-        newSet.add(date);
+        newSet.add(holidayKey);
       }
       return newSet;
     });
   };
 
   const toggleAll = () => {
-    if (selectedHolidays.size === filteredPreview.length) {
+    if (allFilteredSelected) {
       setSelectedHolidays(new Set());
     } else {
-      setSelectedHolidays(new Set(filteredPreview.map((h) => h.date)));
+      setSelectedHolidays(new Set(filteredHolidayKeys));
     }
   };
 
@@ -261,6 +294,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
 
     setIsImporting(true);
     try {
+      const selectedHolidayKeys = Array.from(selectedHolidays);
       const response = await fetch("/api/calendars/import-holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,6 +303,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
           ...data,
           calendarId: data.calendarId === "__new__" ? undefined : data.calendarId,
           costCenterId: normalizedCostCenterId,
+          selectedHolidayKeys,
         }),
       });
 
@@ -444,7 +479,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                       <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0 flex-1">
                           <CardTitle className="text-base">
-                            Vista previa ({selectedHolidays.size} de {filteredPreview.length} seleccionados)
+                            Vista previa ({selectedFilteredCount} de {filteredPreview.length} seleccionados)
                           </CardTitle>
                           <CardDescription className="text-xs">
                             Selecciona los festivos que deseas importar
@@ -456,49 +491,50 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                           </CardDescription>
                         </div>
                         <Button type="button" variant="outline" size="sm" onClick={toggleAll} className="shrink-0">
-                          {selectedHolidays.size === filteredPreview.length
-                            ? "Deseleccionar todos"
-                            : "Seleccionar todos"}
+                          {allFilteredSelected ? "Deseleccionar todos" : "Seleccionar todos"}
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <ScrollArea className="h-48">
                         <div className="space-y-2">
-                          {filteredPreview.map((holiday, index) => (
-                            <div
-                              key={`${holiday.date}-${index}`}
-                              className="hover:bg-accent flex cursor-pointer items-center gap-3 rounded-lg border p-2"
-                              onClick={() => toggleHoliday(holiday.date)}
-                            >
-                              <Checkbox
-                                checked={selectedHolidays.has(holiday.date)}
-                                onCheckedChange={() => toggleHoliday(holiday.date)}
-                              />
-                              <div className="flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-sm font-medium">{holiday.name}</span>
-                                  {holiday.global ? (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Nacional
-                                    </Badge>
-                                  ) : (
-                                    holiday.counties &&
-                                    holiday.counties.length > 0 && (
-                                      <Badge variant="outline" className="text-xs">
-                                        {holiday.counties.length === 1
-                                          ? getRegionName(holiday.counties[0])
-                                          : `${holiday.counties.length} regiones`}
+                          {filteredPreview.map((holiday, index) => {
+                            const holidayKey = getHolidayKey(holiday);
+                            return (
+                              <div
+                                key={`${holidayKey}-${index}`}
+                                className="hover:bg-accent flex cursor-pointer items-center gap-3 rounded-lg border p-2"
+                                onClick={() => toggleHoliday(holidayKey)}
+                              >
+                                <Checkbox
+                                  checked={selectedHolidays.has(holidayKey)}
+                                  onCheckedChange={() => toggleHoliday(holidayKey)}
+                                />
+                                <div className="flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-medium">{holiday.name}</span>
+                                    {holiday.global ? (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Nacional
                                       </Badge>
-                                    )
-                                  )}
+                                    ) : (
+                                      holiday.counties &&
+                                      holiday.counties.length > 0 && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {holiday.counties.length === 1
+                                            ? getRegionName(holiday.counties[0])
+                                            : `${holiday.counties.length} regiones`}
+                                        </Badge>
+                                      )
+                                    )}
+                                  </div>
+                                  <span className="text-muted-foreground text-xs">
+                                    {format(new Date(holiday.date), "PPP", { locale: es })}
+                                  </span>
                                 </div>
-                                <span className="text-muted-foreground text-xs">
-                                  {format(new Date(holiday.date), "PPP", { locale: es })}
-                                </span>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </CardContent>

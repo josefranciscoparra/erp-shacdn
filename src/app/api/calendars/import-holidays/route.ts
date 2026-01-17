@@ -26,6 +26,7 @@ interface ImportHolidaysRequest {
   calendarType?: "NATIONAL_HOLIDAY" | "LOCAL_HOLIDAY" | "CORPORATE_EVENT" | "CUSTOM";
   color?: string; // Color hex para el calendario
   isRecurring?: boolean; // Marcar eventos como recurrentes
+  selectedHolidayKeys?: string[]; // Seleccionados en la UI (date::localName)
 }
 
 const COUNTRY_NAMES: Record<string, string> = {
@@ -46,6 +47,8 @@ const COUNTRY_NAMES: Record<string, string> = {
   CO: "Colombia",
   PE: "Perú",
 };
+
+const buildHolidayKey = (holiday: NagerHoliday) => `${holiday.date}::${holiday.localName}`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,6 +89,21 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Fetched ${holidays.length} holidays from nager.date`);
+
+    const selectedHolidayKeys = Array.isArray(body.selectedHolidayKeys)
+      ? body.selectedHolidayKeys
+          .map((key) => (typeof key === "string" ? key.trim() : ""))
+          .filter((key) => key.length > 0)
+      : [];
+    const selectedHolidayKeySet = new Set(selectedHolidayKeys);
+    const shouldFilterHolidays = selectedHolidayKeySet.size > 0;
+    const holidaysToImport = shouldFilterHolidays
+      ? holidays.filter((holiday) => selectedHolidayKeySet.has(buildHolidayKey(holiday)))
+      : holidays;
+
+    if (shouldFilterHolidays && holidaysToImport.length === 0) {
+      return NextResponse.json({ error: "No hay festivos seleccionados para importar" }, { status: 400 });
+    }
 
     // Determinar calendario destino
     let calendar;
@@ -163,7 +181,7 @@ export async function POST(request: NextRequest) {
     const existingEventKeys = new Set(existingEvents.map((e) => `${e.date.toISOString().split("T")[0]}-${e.name}`));
 
     // Crear eventos desde los festivos importados
-    const eventsToCreate = holidays
+    const eventsToCreate = holidaysToImport
       .filter((holiday) => {
         const eventKey = `${holiday.date}-${holiday.localName}`;
         return !existingEventKeys.has(eventKey); // Evitar duplicados
@@ -182,7 +200,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         imported: 0,
-        skipped: holidays.length,
+        skipped: holidaysToImport.length,
         message: "Todos los eventos ya existen en el calendario",
         calendar: {
           id: calendar.id,
@@ -216,7 +234,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         imported: eventsToCreate.length,
-        skipped: holidays.length - eventsToCreate.length,
+        skipped: holidaysToImport.length - eventsToCreate.length,
         calendar: {
           id: calendar.id,
           name: calendar.name,
