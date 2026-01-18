@@ -235,7 +235,7 @@ export function useSidebarItems(): NavGroup[] {
         },
         {
           title: "Mis áreas",
-          url: "/dashboard/me/responsibilities",
+          url: "/dashboard/responsibilities",
           icon: ClipboardList,
           permission: "view_employees",
         },

@@ -65,7 +65,7 @@ export function ResponsibilitiesList() {
       <EmptyState
         icon={<ClipboardList className="mx-auto h-12 w-12" />}
         title="Sin responsabilidades asignadas"
-        description="No tienes áreas de responsabilidad asignadas actualmente. Contacta con Recursos Humanos si crees que debería ser diferente."
+        description="No tienes áreas de responsabilidad asignadas en la empresa activa. Cambia de empresa o contacta con Recursos Humanos si crees que debería ser diferente."
       />
     );
   }

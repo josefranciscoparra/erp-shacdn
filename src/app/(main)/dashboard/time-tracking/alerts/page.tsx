@@ -612,7 +612,7 @@ export default function AlertsPage() {
                 </Button>
               )}
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
+                <Link href="/dashboard/responsibilities">Mis suscripciones</Link>
               </Button>
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
