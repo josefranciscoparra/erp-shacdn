@@ -266,10 +266,11 @@ export class PrivateExpenseService implements IExpenseService {
     const updatedExpense = await prisma.$transaction(async (tx) => {
       if (expense.approvals.length === 0) {
         await tx.expenseApproval.createMany({
-          data: approverChain.map((approverId, index) => ({
+          data: approverChain.map((approverId) => ({
             expenseId: expense.id,
             approverId,
-            level: index + 1,
+            // Aprobación paralela: todos al mismo nivel
+            level: 1,
             decision: "PENDING",
           })),
         });

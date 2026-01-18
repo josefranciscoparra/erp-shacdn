@@ -165,6 +165,14 @@ export default function ExpenseDetailPage({ policy, recipients }: ExpenseDetailC
   const canSubmit = !requiresReceipt || hasAttachments;
   const shouldShowRecipients = Array.isArray(recipients);
   const recipientsList = shouldShowRecipients ? recipients : [];
+  const hasRecipients = recipientsList.length > 0;
+  const levelValues = recipientsList
+    .map((recipient) => recipient.level)
+    .filter((level): level is number => typeof level === "number");
+  const distinctLevels = Array.from(new Set(levelValues));
+  const hasMultipleLevels = distinctLevels.length > 1;
+  const approvalModeLabel = hasMultipleLevels ? "Secuencial" : "Paralela";
+  const approvalModeHint = hasMultipleLevels ? "Se aprueba en orden de niveles." : "Cualquiera puede aprobar.";
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -339,9 +347,13 @@ export default function ExpenseDetailPage({ policy, recipients }: ExpenseDetailC
             <div className="bg-card rounded-lg border p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Destinatarios</h2>
-                <Badge variant="secondary">{isDraft ? "Se enviará a" : "Enviado a"}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{isDraft ? "Se enviará a" : "Enviado a"}</Badge>
+                  {hasRecipients ? <Badge variant="outline">{approvalModeLabel}</Badge> : null}
+                </div>
               </div>
-              {recipientsList.length === 0 ? (
+              {hasRecipients ? <p className="text-muted-foreground mt-2 text-xs">{approvalModeHint}</p> : null}
+              {!hasRecipients ? (
                 <p className="text-muted-foreground mt-3 text-sm">Sin destinatarios definidos para este flujo.</p>
               ) : (
                 <div className="mt-4 space-y-3">
@@ -353,7 +365,9 @@ export default function ExpenseDetailPage({ policy, recipients }: ExpenseDetailC
                           <p className="text-sm font-medium">{recipientName}</p>
                           {recipient.email ? <p className="text-muted-foreground text-xs">{recipient.email}</p> : null}
                         </div>
-                        {recipient.level ? <Badge variant="outline">Nivel {recipient.level}</Badge> : null}
+                        {hasMultipleLevels && recipient.level ? (
+                          <Badge variant="outline">Nivel {recipient.level}</Badge>
+                        ) : null}
                       </div>
                     );
                   })}

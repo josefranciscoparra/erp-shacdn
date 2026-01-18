@@ -179,6 +179,7 @@ export async function getExpenseRecipients(expenseId: string): Promise<{
       orgId: true,
       employeeId: true,
       createdBy: true,
+      status: true,
       approvals: {
         include: {
           approver: {
@@ -224,7 +225,7 @@ export async function getExpenseRecipients(expenseId: string): Promise<{
       id: approver.userId,
       name: approver.name,
       email: approver.email,
-      level: approver.level ?? null,
+      level: expense.status === "SUBMITTED" ? (approver.level ?? null) : null,
       decision: null,
       source: approver.source ?? null,
     }));

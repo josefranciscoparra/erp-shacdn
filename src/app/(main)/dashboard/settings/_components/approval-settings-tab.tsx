@@ -110,7 +110,9 @@ function ApprovalOrderEditor({
             <span className="text-sm font-medium">
               {index + 1}. {criterionLabels[criterion]}
             </span>
-            <span className="text-muted-foreground text-xs">Se usa si existe para el empleado.</span>
+            <span className="text-muted-foreground text-xs">
+              Se usa si existe para el empleado. No crea niveles, solo prioridad.
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -573,15 +575,15 @@ export function ApprovalSettingsTab() {
                 </div>
                 <div className="text-muted-foreground text-sm">
                   {workflow.mode === "LIST"
-                    ? "Si la lista esta vacia, se aplicara el orden jerarquico configurado."
-                    : "Se aplica el orden jerarquico configurado. Siempre hay fallback a RRHH."}
+                    ? "Todos los aprobadores de la lista reciben notificacion y cualquiera puede aprobar. Si esta vacia, se usa la prioridad de criterios."
+                    : "Se usa el primer criterio con aprobadores. Si hay varios, cualquiera puede aprobar. Siempre hay fallback a RRHH."}
                 </div>
               </div>
 
               <Separator />
 
               <div className="space-y-3">
-                <p className="text-sm font-medium">Orden jerarquico</p>
+                <p className="text-sm font-medium">Prioridad de criterios</p>
                 <ApprovalOrderEditor
                   order={workflow.criteriaOrder}
                   availableCriteria={allowedCriteria}
@@ -611,7 +613,8 @@ export function ApprovalSettingsTab() {
                     <div className="flex flex-col gap-1">
                       <p className="text-sm font-medium">Lista de aprobadores</p>
                       <p className="text-muted-foreground text-xs">
-                        Todos los aprobadores de la lista reciben notificacion. Si esta vacia se usa la jerarquia.
+                        Todos los aprobadores reciben notificacion y cualquiera puede aprobar. Si esta vacia, se usa la
+                        prioridad de criterios.
                       </p>
                     </div>
                     <ApproverListEditor
