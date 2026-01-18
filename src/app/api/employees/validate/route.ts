@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { nifNieSchema } from "@/lib/validations/employee";
 
@@ -35,12 +36,13 @@ export async function POST(request: NextRequest) {
 
     const { email, nifNie } = parsed.data;
     const issues: ValidationIssue[] = [];
+    const normalizedEmail = normalizeEmail(email);
 
     if (!email && !nifNie) {
       return NextResponse.json({ ok: true, issues });
     }
 
-    if (email) {
+    if (normalizedEmail) {
       const organization = await prisma.organization.findUnique({
         where: { id: session.user.orgId },
         select: { allowedEmailDomains: true },
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
       }
 
-      const emailValidation = validateEmailDomain(email, organization.allowedEmailDomains);
+      const emailValidation = validateEmailDomain(normalizedEmail, organization.allowedEmailDomains);
       if (!emailValidation.valid) {
         issues.push({
           field: "email",
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
       const existingUser = await prisma.user.findFirst({
         where: {
           email: {
-            equals: email,
+            equals: normalizedEmail,
             mode: "insensitive",
           },
         },

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { validateUserDeactivation } from "@/lib/user-validation";
+import { normalizeEmail } from "@/lib/validations/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,10 +156,18 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     if (body.email !== undefined) {
+      const normalizedEmail = normalizeEmail(body.email);
+      if (!normalizedEmail) {
+        return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+      }
+
       // Verificar que el email no esté en uso por otro usuario
       const existingEmail = await prisma.user.findFirst({
         where: {
-          email: body.email,
+          email: {
+            equals: normalizedEmail,
+            mode: "insensitive",
+          },
           orgId,
           NOT: {
             id: userId,
@@ -170,7 +179,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         return NextResponse.json({ error: "El email ya está en uso por otro usuario" }, { status: 409 });
       }
 
-      allowedUpdates.email = body.email;
+      allowedUpdates.email = normalizedEmail;
     }
 
     const updatedUser = await prisma.user.update({

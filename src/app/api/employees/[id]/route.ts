@@ -6,6 +6,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
+import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
 
 export const runtime = "nodejs";
@@ -225,6 +227,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const data = result.data;
     const normalizedTeamId = data.teamId && data.teamId.trim() !== "" ? data.teamId : null;
+    const normalizedEmail = normalizeEmail(data.email ?? undefined);
 
     // Verificar que el empleado existe y pertenece a la organización
     const existingEmployee = await prisma.employee.findFirst({
@@ -243,6 +246,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!existingEmployee) {
       return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
+    }
+
+    if (normalizedEmail) {
+      const organization = await prisma.organization.findUnique({
+        where: { id: session.user.orgId },
+        select: { allowedEmailDomains: true },
+      });
+
+      if (!organization) {
+        return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+      }
+
+      const emailValidation = validateEmailDomain(normalizedEmail, organization.allowedEmailDomains);
+      if (!emailValidation.valid) {
+        return NextResponse.json({ error: emailValidation.error ?? "Email inválido" }, { status: 400 });
+      }
     }
 
     // Verificar unicidad del employeeNumber si se proporciona
@@ -287,7 +306,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       employmentStatus: data.employmentStatus,
       employeeNumber: data.employeeNumber ?? null,
       teamId: normalizedTeamId,
-      email: data.email ?? null,
+      email: normalizedEmail ?? null,
       phone: data.phone ?? null,
       mobilePhone: data.mobilePhone ?? null,
       address: data.address ?? null,
@@ -349,9 +368,31 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       // Si el empleado tiene usuario asociado, actualizar User.name
       if (existingEmployee.user?.id) {
+        if (normalizedEmail) {
+          const existingUserWithEmail = await tx.user.findFirst({
+            where: {
+              email: {
+                equals: normalizedEmail,
+                mode: "insensitive",
+              },
+              id: { not: existingEmployee.user.id },
+            },
+          });
+
+          if (existingUserWithEmail) {
+            throw Object.assign(new Error("EMAIL_EXISTS"), {
+              code: "EMAIL_EXISTS",
+              message: "Ya existe un usuario con este email en TimeNow",
+            });
+          }
+        }
+
         await tx.user.update({
           where: { id: existingEmployee.user.id },
-          data: { name: fullName },
+          data: {
+            name: fullName,
+            ...(normalizedEmail ? { email: normalizedEmail } : {}),
+          },
         });
       }
 
@@ -368,6 +409,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (error) {
     console.error("Error updating employee:", error);
+    if (typeof error === "object" && error && "code" in error && error.code === "EMAIL_EXISTS") {
+      const message = "Ya existe un usuario con este email en TimeNow";
+      const errorMessage = error instanceof Error ? error.message : message;
+      return NextResponse.json({ error: errorMessage }, { status: 409 });
+    }
     const fallbackMessage = "Error interno del servidor";
     const errorMessage = error instanceof Error ? error.message : fallbackMessage;
     return NextResponse.json(

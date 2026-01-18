@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { encrypt } from "@/lib/crypto";
-import { sendAuthInviteEmail } from "@/lib/email/email-service";
+import { sendAuthInviteEmail, sendResetPasswordEmail, sendSecurityNotificationEmail } from "@/lib/email/email-service";
 import {
   canManageGroupUsers,
   getGroupManagedOrganizationIds,
@@ -16,17 +16,11 @@ import {
 } from "@/lib/organization-groups";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
-import {
-  validateUserCreation,
-  validateRoleChange,
-  validateTemporaryPasswordGeneration,
-  validateEmail,
-  validateName,
-} from "@/lib/user-validation";
+import { validateUserCreation, validateRoleChange, validateTemporaryPasswordGeneration } from "@/lib/user-validation";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
-import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
+import { createInviteToken, createResetPasswordTokenForUser, getAppUrl } from "@/server/actions/auth-tokens";
 import { formatEmployeeNumber } from "@/services/employees";
-import { createUserSchema, createUserAdminSchema } from "@/validators/user";
+import { createUserAdminSchema } from "@/validators/user";
 
 export const runtime = "nodejs";
 
@@ -392,14 +386,25 @@ export async function POST(request: NextRequest) {
           data,
         );
 
-      case "reset-password":
-        return await resetUserPassword(userId, orgId, session.user.id, data.reason, {
-          id: session.user.id,
-          role: session.user.role,
-          orgId: session.user.orgId,
-          email: session.user.email,
-          name: session.user.name,
-        });
+      case "reset-password": {
+        const rawSendResetLink = data.sendResetLink;
+        const sendResetLink = rawSendResetLink === true ? true : rawSendResetLink === "true";
+
+        return await resetUserPassword(
+          userId,
+          orgId,
+          session.user.id,
+          data.reason,
+          {
+            id: session.user.id,
+            role: session.user.role,
+            orgId: session.user.orgId,
+            email: session.user.email,
+            name: session.user.name,
+          },
+          { sendResetLink },
+        );
+      }
 
       case "change-role":
         return await changeUserRole(userId, orgId, data.role, {
@@ -736,7 +741,14 @@ async function createUser(session: any, data: any) {
   }
 }
 
-async function resetUserPassword(userId: string, orgId: string, createdById: string, reason?: string, session?: any) {
+async function resetUserPassword(
+  userId: string,
+  orgId: string,
+  createdById: string,
+  reason?: string,
+  session?: any,
+  options?: { sendResetLink?: boolean },
+) {
   // Validar permisos para generar contraseña temporal
   if (session) {
     const targetUser = await prisma.user.findFirst({
@@ -755,7 +767,12 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
   }
   const user = await prisma.user.findFirst({
     where: { id: userId, orgId },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      orgId: true,
+      active: true,
       employee: {
         select: {
           firstName: true,
@@ -795,6 +812,9 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
       data: {
         password: hashedPassword,
         mustChangePassword: true,
+        lastPasswordChangeAt: new Date(),
+        failedPasswordAttempts: 0,
+        passwordLockedUntil: null,
       },
     });
 
@@ -810,12 +830,74 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
         createdById,
       },
     });
+
+    await tx.session.deleteMany({
+      where: { userId },
+    });
   });
+
+  const notificationResult = await sendSecurityNotificationEmail({
+    to: {
+      email: user.email,
+      name: user.name ?? user.email,
+    },
+    orgId: user.orgId,
+    userId: user.id,
+    changedAt: new Date(),
+  }).catch((error) => {
+    console.error("Error enviando email de seguridad:", error);
+    return { success: false, error: "No fue posible enviar el email de seguridad." };
+  });
+
+  let resetLinkEmailSent = false;
+  let resetLinkEmailQueued = false;
+  let resetLinkEmailError: string | null = null;
+
+  if (options?.sendResetLink) {
+    if (!user.active) {
+      resetLinkEmailError = "Usuario inactivo. No se pudo enviar enlace de restablecimiento.";
+    } else {
+      const tokenResult = await createResetPasswordTokenForUser(user.id);
+
+      if (!tokenResult.success || !tokenResult.data) {
+        resetLinkEmailError = tokenResult.error ?? "No fue posible crear el enlace de restablecimiento.";
+      } else {
+        const resetLink = `${await getAppUrl()}/auth/reset-password?token=${encodeURIComponent(
+          tokenResult.data.token,
+        )}`;
+
+        const emailResult = await sendResetPasswordEmail({
+          to: {
+            email: user.email,
+            name: user.name ?? user.email,
+          },
+          resetLink,
+          orgId: user.orgId,
+          userId: user.id,
+          expiresAt: tokenResult.data.expiresAt,
+        }).catch((error) => {
+          console.error("Error enviando enlace de restablecimiento:", error);
+          return { success: false, error: "No fue posible enviar el enlace de restablecimiento." };
+        });
+
+        resetLinkEmailSent = emailResult.success;
+        resetLinkEmailQueued = emailResult.queued ?? false;
+        if (!emailResult.success) {
+          resetLinkEmailError = emailResult.error ?? "No fue posible enviar el enlace de restablecimiento.";
+        }
+      }
+    }
+  }
 
   return NextResponse.json({
     message: "Contraseña reseteada exitosamente",
     temporaryPassword,
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    notificationEmailSent: notificationResult.success,
+    notificationEmailQueued: notificationResult.success ? (notificationResult.queued ?? false) : false,
+    resetLinkEmailSent,
+    resetLinkEmailQueued,
+    resetLinkEmailError,
   });
 }
 

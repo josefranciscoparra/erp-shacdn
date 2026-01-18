@@ -8,6 +8,7 @@ import { CONTRACT_TYPES } from "@/lib/contracts/contract-types";
 import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
 import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
@@ -85,8 +86,13 @@ export async function POST(request: Request) {
 
     const data = wizardSchema.parse(body);
     console.log("✅ [WIZARD API] Datos validados:", JSON.stringify(data, null, 2));
+    const normalizedEmail = normalizeEmail(data.employee.email);
 
-    if (data.employee.email) {
+    if (!normalizedEmail) {
+      return NextResponse.json({ error: "El email es obligatorio" }, { status: 400 });
+    }
+
+    if (normalizedEmail) {
       const organization = await prisma.organization.findUnique({
         where: { id: currentUser.orgId },
         select: { allowedEmailDomains: true },
@@ -96,7 +102,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
       }
 
-      const emailValidation = validateEmailDomain(data.employee.email, organization.allowedEmailDomains);
+      const emailValidation = validateEmailDomain(normalizedEmail, organization.allowedEmailDomains);
       if (!emailValidation.valid) {
         return NextResponse.json({ error: emailValidation.error ?? "Email inválido" }, { status: 400 });
       }
@@ -114,7 +120,7 @@ export async function POST(request: Request) {
 
       const user = await tx.user.create({
         data: {
-          email: data.employee.email,
+          email: normalizedEmail,
           password: hashedPassword,
           name: `${data.employee.firstName} ${data.employee.lastName}`,
           role: "EMPLOYEE",
@@ -167,7 +173,7 @@ export async function POST(request: Request) {
           lastName: data.employee.lastName,
           secondLastName: data.employee.secondLastName,
           nifNie: data.employee.nifNie,
-          email: data.employee.email,
+          email: normalizedEmail,
           phone: data.employee.phone,
           mobilePhone: data.employee.mobilePhone,
           address: data.employee.address,
@@ -267,7 +273,7 @@ export async function POST(request: Request) {
     // Enviar email de invitación (FUERA de la transacción)
     let inviteEmailSent = false;
     let inviteEmailQueued = false;
-    if (result.userId && data.employee.email) {
+    if (result.userId && normalizedEmail) {
       try {
         const tokenResult = await createInviteToken(result.userId);
 
@@ -276,7 +282,7 @@ export async function POST(request: Request) {
 
           const emailResult = await sendAuthInviteEmail({
             to: {
-              email: data.employee.email,
+              email: normalizedEmail,
               name: `${data.employee.firstName} ${data.employee.lastName}`,
             },
             inviteLink,

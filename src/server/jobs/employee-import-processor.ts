@@ -6,6 +6,7 @@ import { DEFAULT_CONTRACT_TYPE, normalizeContractTypeInput } from "@/lib/contrac
 import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
 import { enqueueEmployeeImportInviteJob } from "@/server/jobs/employee-import-invite-queue";
@@ -37,7 +38,13 @@ async function createEmployeeRecords(params: {
     throw new Error("La fecha de inicio no es válida.");
   }
 
-  const emailValidation = validateEmailDomain(data.email, allowedEmailDomains);
+  const normalizedEmail = normalizeEmail(data.email);
+
+  if (!normalizedEmail) {
+    throw new Error("El email es obligatorio.");
+  }
+
+  const emailValidation = validateEmailDomain(normalizedEmail, allowedEmailDomains);
   if (!emailValidation.valid) {
     throw new Error(emailValidation.error ?? "El correo no pertenece a los dominios permitidos.");
   }
@@ -60,7 +67,7 @@ async function createEmployeeRecords(params: {
 
   const user = await db.user.create({
     data: {
-      email: data.email,
+      email: normalizedEmail,
       password: hashedPassword,
       name: `${data.firstName} ${data.lastName}`,
       role: userRole as any,
@@ -95,7 +102,7 @@ async function createEmployeeRecords(params: {
       lastName: data.lastName,
       secondLastName: data.secondLastName,
       nifNie: data.nifNie,
-      email: data.email,
+      email: normalizedEmail,
       phone: data.phone,
       mobilePhone: data.mobilePhone,
       employmentStatus: "ACTIVE",

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 import { generateSafeEmployeeNumber } from "@/services/employees";
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
 
     const data: CreateEmployeeInput = validation.data;
     const orgId = session.user.orgId;
+    const normalizedEmail = normalizeEmail(data.email);
 
     // Verificar si existe empleado con este NIF/NIE en la organización
     const existingEmployee = await prisma.employee.findFirst({
@@ -186,8 +188,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar dominio de email si está configurado
-    if (data.email) {
-      const emailValidation = validateEmailDomain(data.email, organization.allowedEmailDomains);
+    if (normalizedEmail) {
+      const emailValidation = validateEmailDomain(normalizedEmail, organization.allowedEmailDomains);
 
       if (!emailValidation.valid) {
         return NextResponse.json({ error: emailValidation.error }, { status: 400 });
@@ -200,7 +202,7 @@ export async function POST(request: NextRequest) {
     // Convertir fecha de nacimiento
     const birthDate = data.birthDate ? new Date(data.birthDate) : null;
 
-    if (!data.email) {
+    if (!normalizedEmail) {
       throw Object.assign(new Error("EMAIL_REQUIRED"), { code: "EMAIL_REQUIRED" });
     }
 
@@ -210,11 +212,17 @@ export async function POST(request: NextRequest) {
       const conflictingUser = await prisma.user.findFirst({
         where: existingEmployee.userId
           ? {
-              email: data.email,
+              email: {
+                equals: normalizedEmail,
+                mode: "insensitive",
+              },
               id: { not: existingEmployee.userId },
             }
           : {
-              email: data.email,
+              email: {
+                equals: normalizedEmail,
+                mode: "insensitive",
+              },
             },
       });
 
@@ -230,7 +238,7 @@ export async function POST(request: NextRequest) {
             firstName: data.firstName,
             lastName: data.lastName,
             secondLastName: data.secondLastName,
-            email: data.email,
+            email: normalizedEmail,
             phone: data.phone,
             mobilePhone: data.mobilePhone,
             address: data.address,
@@ -260,7 +268,7 @@ export async function POST(request: NextRequest) {
             where: { id: existingEmployee.userId },
             data: {
               active: true,
-              email: data.email,
+              email: normalizedEmail,
               name: `${data.firstName} ${data.lastName}`,
             },
           });
@@ -271,7 +279,7 @@ export async function POST(request: NextRequest) {
           const user = await tx.user.create({
             data: {
               orgId,
-              email: data.email,
+              email: normalizedEmail,
               password: hashedPassword,
               name: `${data.firstName} ${data.lastName}`,
               role: "EMPLOYEE",
@@ -338,7 +346,7 @@ export async function POST(request: NextRequest) {
           lastName: data.lastName,
           secondLastName: data.secondLastName,
           nifNie: data.nifNie,
-          email: data.email,
+          email: normalizedEmail,
           phone: data.phone,
           mobilePhone: data.mobilePhone,
           address: data.address,
@@ -359,7 +367,14 @@ export async function POST(request: NextRequest) {
       });
 
       // Validar que no exista ya un usuario con ese email
-      const existingUser = await tx.user.findUnique({ where: { email: data.email } });
+      const existingUser = await tx.user.findFirst({
+        where: {
+          email: {
+            equals: normalizedEmail,
+            mode: "insensitive",
+          },
+        },
+      });
       if (existingUser) {
         throw Object.assign(new Error("EMAIL_EXISTS"), {
           code: "EMAIL_EXISTS",
@@ -373,7 +388,7 @@ export async function POST(request: NextRequest) {
       const user = await tx.user.create({
         data: {
           orgId,
-          email: data.email,
+          email: normalizedEmail,
           password: hashedPassword,
           name: `${data.firstName} ${data.lastName}`,
           role: "EMPLOYEE",

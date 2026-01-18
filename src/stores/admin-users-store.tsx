@@ -55,6 +55,7 @@ export interface UsersResponse {
 
 export interface ResetPasswordData {
   reason?: string;
+  sendResetLink?: boolean;
 }
 
 interface AdminUsersState {

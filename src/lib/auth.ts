@@ -6,6 +6,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/validations/email";
 
 type OrgMembershipPayload = {
   orgId: string;
@@ -289,11 +290,19 @@ export const {
           }
 
           const rememberMe = validated.data.remember ?? false;
+          const normalizedEmail = normalizeEmail(validated.data.email);
+
+          if (!normalizedEmail) {
+            return null;
+          }
 
           // Buscar usuario con organización activa
           const user = await prisma.user.findFirst({
             where: {
-              email: validated.data.email,
+              email: {
+                equals: normalizedEmail,
+                mode: "insensitive",
+              },
               active: true,
             },
             include: {

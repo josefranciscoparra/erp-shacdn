@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ export function TemporaryPasswordManager({
   const [isResetting, setIsResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [sendResetLink, setSendResetLink] = useState(false);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
@@ -130,6 +132,8 @@ export function TemporaryPasswordManager({
 
   const handleResetPassword = async () => {
     setIsResetting(true);
+    const trimmedReason = reason.trim();
+    const finalReason = trimmedReason === "" ? "Reset desde perfil de empleado" : trimmedReason;
 
     try {
       const response = await fetch("/api/admin/users", {
@@ -141,7 +145,8 @@ export function TemporaryPasswordManager({
         body: JSON.stringify({
           action: "reset-password",
           userId,
-          reason: reason || "Reset desde perfil de empleado",
+          reason: finalReason,
+          sendResetLink,
         }),
       });
 
@@ -157,9 +162,20 @@ export function TemporaryPasswordManager({
       setShowNewPassword(true);
       setResetDialogOpen(false);
       setReason("");
+      setSendResetLink(false);
+
+      const securityMessage = result.notificationEmailSent
+        ? "Email de aviso de seguridad enviado."
+        : "No se pudo enviar el email de aviso de seguridad.";
+      const resetLinkMessage =
+        sendResetLink && result.resetLinkEmailSent
+          ? "Se envió el enlace de restablecimiento por email."
+          : sendResetLink && result.resetLinkEmailError
+            ? "No se pudo enviar el enlace de restablecimiento."
+            : securityMessage;
 
       toast.success("Contraseña reseteada exitosamente", {
-        description: "La nueva contraseña se muestra temporalmente. ¡Cópiala ahora!",
+        description: `La nueva contraseña se muestra temporalmente. ¡Cópiala ahora! ${resetLinkMessage}`,
       });
 
       // Llamar callback para refrescar datos
@@ -279,24 +295,34 @@ export function TemporaryPasswordManager({
         {/* Botón para resetear */}
         <div className="flex items-center justify-between border-t pt-4">
           <div>
-            <p className="font-medium">Resetear Contraseña</p>
+            <p className="font-medium">Restablecer acceso</p>
             <p className="text-muted-foreground text-sm">
-              Genera una nueva contraseña temporal invalidando la anterior
+              Genera una contraseña temporal nueva y opcionalmente envía un enlace por email
             </p>
           </div>
 
-          <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <Dialog
+            open={resetDialogOpen}
+            onOpenChange={(open) => {
+              setResetDialogOpen(open);
+              if (!open) {
+                setReason("");
+                setSendResetLink(false);
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <RotateCcw className="h-4 w-4" />
-                Resetear
+                Restablecer
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Resetear Contraseña Temporal</DialogTitle>
+                <DialogTitle>Restablecer acceso</DialogTitle>
                 <DialogDescription>
-                  Se generará una nueva contraseña temporal y se invalidarán todas las anteriores.
+                  Genera una contraseña temporal nueva y, si quieres, envía un enlace para que el usuario defina su
+                  propia contraseña.
                 </DialogDescription>
               </DialogHeader>
 
@@ -312,6 +338,22 @@ export function TemporaryPasswordManager({
                   />
                 </div>
 
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="send-reset-link"
+                    checked={sendResetLink}
+                    onCheckedChange={(checked) => setSendResetLink(checked === true)}
+                  />
+                  <Label htmlFor="send-reset-link" className="text-sm leading-relaxed font-medium">
+                    Enviar enlace de restablecimiento por email
+                    <span className="text-muted-foreground block text-xs">
+                      El usuario recibirá un enlace seguro para definir su contraseña. La temporal sigue disponible si
+                      prefieres compartirla por otra vía.
+                    </span>
+                  </Label>
+                </div>
+                <p className="text-muted-foreground text-xs">Siempre se envía un email de aviso de seguridad.</p>
+
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setResetDialogOpen(false)} disabled={isResetting}>
                     Cancelar
@@ -320,12 +362,12 @@ export function TemporaryPasswordManager({
                     {isResetting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Reseteando...
+                        Restableciendo...
                       </>
                     ) : (
                       <>
                         <RotateCcw className="mr-2 h-4 w-4" />
-                        Resetear
+                        Restablecer
                       </>
                     )}
                   </Button>

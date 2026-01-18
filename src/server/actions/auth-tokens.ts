@@ -110,6 +110,59 @@ export async function requestPasswordReset(email: string): Promise<ActionResult>
   }
 }
 
+// ==================== CREATE RESET TOKEN (para uso interno/admin) ====================
+
+/**
+ * Crea un token de reset de contraseña para un usuario específico.
+ * No envía email; solo crea el token.
+ */
+export async function createResetPasswordTokenForUser(
+  userId: string,
+): Promise<ActionResult<{ token: string; expiresAt: Date }>> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, active: true },
+    });
+
+    if (!user || !user.active) {
+      return {
+        success: false,
+        error: "Usuario no encontrado o inactivo.",
+      };
+    }
+
+    // Borrar tokens RESET_PASSWORD anteriores no usados del usuario
+    await prisma.authToken.deleteMany({
+      where: {
+        userId,
+        type: "RESET_PASSWORD",
+        usedAt: null,
+      },
+    });
+
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRATION_HOURS * 60 * 60 * 1000);
+
+    await prisma.authToken.create({
+      data: {
+        userId,
+        type: "RESET_PASSWORD",
+        token,
+        expiresAt,
+      },
+    });
+
+    return { success: true, data: { token, expiresAt } };
+  } catch (error) {
+    console.error("[createResetPasswordTokenForUser] Error:", error);
+    return {
+      success: false,
+      error: "Error al crear token de reset.",
+    };
+  }
+}
+
 // ==================== RESET PASSWORD WITH TOKEN ====================
 
 /**

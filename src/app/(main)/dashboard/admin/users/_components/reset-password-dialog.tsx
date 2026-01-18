@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ interface ResetPasswordDialogProps {
 
 const resetPasswordSchema = z.object({
   reason: z.string().optional(),
+  sendResetLink: z.boolean().optional(),
 });
 
 type FormValues = z.infer<typeof resetPasswordSchema>;
@@ -41,6 +43,9 @@ type FormValues = z.infer<typeof resetPasswordSchema>;
 interface PasswordResult {
   temporaryPassword: string;
   expiresAt: string;
+  notificationEmailSent?: boolean;
+  resetLinkEmailSent?: boolean;
+  resetLinkEmailError?: string | null;
 }
 
 export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: ResetPasswordDialogProps) {
@@ -53,6 +58,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       reason: "",
+      sendResetLink: false,
     },
   });
 
@@ -62,7 +68,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
       setPasswordResult(null);
       setError(null);
       setCopied(false);
-      form.reset({ reason: "" });
+      form.reset({ reason: "", sendResetLink: false });
     }
   }, [open, form]);
 
@@ -73,13 +79,16 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
     setError(null);
 
     try {
+      const trimmedReason = typeof values.reason === "string" ? values.reason.trim() : "";
+      const finalReason = trimmedReason === "" ? "Contraseña reseteada por administrador" : trimmedReason;
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reset-password",
           userId: user.id,
-          reason: values.reason ?? "Contraseña reseteada por administrador",
+          reason: finalReason,
+          sendResetLink: values.sendResetLink ?? false,
         }),
       });
 
@@ -93,6 +102,9 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
       setPasswordResult({
         temporaryPassword: data.temporaryPassword,
         expiresAt: data.expiresAt,
+        notificationEmailSent: data.notificationEmailSent,
+        resetLinkEmailSent: data.resetLinkEmailSent,
+        resetLinkEmailError: data.resetLinkEmailError,
       });
 
       // Refrescar lista después de 2 segundos
@@ -124,8 +136,11 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Generar Contraseña Temporal</DialogTitle>
-          <DialogDescription>Resetea la contraseña de {user.name}</DialogDescription>
+          <DialogTitle>Restablecer acceso</DialogTitle>
+          <DialogDescription>
+            Genera una contraseña temporal para {user.name} y, si quieres, envía un enlace para que establezca su propia
+            contraseña.
+          </DialogDescription>
         </DialogHeader>
 
         {!passwordResult ? (
@@ -167,11 +182,30 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="sendResetLink"
+                render={({ field }) => (
+                  <FormItem className="flex items-start gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                    </FormControl>
+                    <FormLabel className="text-sm leading-relaxed">
+                      Enviar enlace de restablecimiento por email
+                      <span className="text-muted-foreground block text-xs">
+                        El usuario recibirá un enlace seguro para definir su contraseña. La temporal sigue siendo válida
+                        si prefieres compartirla por otra vía.
+                      </span>
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+
               {/* Advertencia */}
               <Alert>
                 <AlertDescription className="text-xs">
-                  <strong>Importante:</strong> La contraseña temporal será válida por 7 días y el usuario deberá
-                  cambiarla en su próximo inicio de sesión.
+                  <strong>Importante:</strong> Se generará una contraseña temporal válida por 7 días. Además, siempre
+                  enviaremos un email de aviso de seguridad.
                 </AlertDescription>
               </Alert>
 
@@ -181,7 +215,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Generar Contraseña
+                  Restablecer acceso
                 </Button>
               </DialogFooter>
             </form>
@@ -192,7 +226,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
             <Alert className="border-green-500/50 bg-green-500/10">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-700 dark:text-green-300">
-                Contraseña temporal generada exitosamente
+                Contraseña temporal generada correctamente
               </AlertDescription>
             </Alert>
 
@@ -219,6 +253,15 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
                   Válida hasta:{" "}
                   {format(new Date(passwordResult.expiresAt), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}
                 </p>
+                <p className="text-muted-foreground text-xs">
+                  {passwordResult.resetLinkEmailSent
+                    ? "Enlace de restablecimiento enviado por email."
+                    : passwordResult.resetLinkEmailError
+                      ? "No se pudo enviar el enlace de restablecimiento."
+                      : passwordResult.notificationEmailSent === false
+                        ? "No se pudo enviar el email de aviso de seguridad."
+                        : "Email de aviso de seguridad enviado."}
+                </p>
               </div>
             </div>
 
@@ -230,6 +273,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange, onSuccess }: Res
                   <li>Comparte esta contraseña de forma segura con {user.name}</li>
                   <li>El usuario deberá cambiarla en su próximo inicio de sesión</li>
                   <li>Esta contraseña expirará en 7 días</li>
+                  <li>El email de aviso de seguridad ya fue enviado</li>
                   <li>Esta ventana se cerrará automáticamente en unos segundos</li>
                 </ul>
               </AlertDescription>
