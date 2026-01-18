@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
+import { getOrganizationPolicy } from "@/server/actions/expense-policies";
 import { getAuthenticatedEmployee } from "@/server/actions/shared/get-authenticated-employee";
 
+import { serializeExpensePolicy } from "./_lib/expense-policy";
 import ExpensesListClient from "./expenses-list-client";
 
 export default async function ExpensesPage() {
-  const { employee, orgId } = await getAuthenticatedEmployee();
+  const { orgId } = await getAuthenticatedEmployee();
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -17,5 +19,8 @@ export default async function ExpensesPage() {
     redirect("/dashboard/my-procedures");
   }
 
-  return <ExpensesListClient />;
+  const { policy, expenseMode } = await getOrganizationPolicy();
+  const serializedPolicy = serializeExpensePolicy(policy, expenseMode);
+
+  return <ExpensesListClient policy={serializedPolicy} />;
 }

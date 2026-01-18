@@ -4,25 +4,27 @@ import { useState, useEffect, useMemo } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PulseLoader } from "@/components/ui/pulse-loader";
 import { useReceiptOcr } from "@/hooks/use-receipt-ocr";
+import { formatDateInputValue } from "@/lib/date-input";
 import { ParsedReceiptData } from "@/lib/ocr/receipt-parser";
 import { useExpensesStore } from "@/stores/expenses-store";
 
 import { CameraCapture } from "../_components/camera-capture";
 import { ExpenseForm } from "../_components/expense-form";
 import { OcrSuggestions } from "../_components/ocr-suggestions";
+import { ExpensePolicyClient } from "../_lib/expense-policy";
 
 type WizardStep = "capture" | "ocr-processing" | "ocr-suggestions" | "form";
 
 interface NewExpenseClientProps {
   activeProcedures: { id: string; name: string; code: string | null }[];
-  policy?: {
-    mileageRate: number;
-  };
+  policy?: ExpensePolicyClient | null;
 }
 
 export default function NewExpenseClient({ activeProcedures, policy }: NewExpenseClientProps) {
@@ -37,6 +39,7 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [ocrData, setOcrData] = useState<ParsedReceiptData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const policyRequiresAttachment = policy?.attachmentRequired === true;
 
   // Crear URL del archivo capturado y limpiar al desmontar
   const capturedFileUrl = useMemo(() => {
@@ -93,21 +96,17 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
     setIsSubmitting(true);
     try {
       // 1. Crear el gasto
-      console.log("Enviando datos a createExpense:", data);
       const expense = await createExpense(data);
-      console.log("Respuesta createExpense:", expense);
 
       // Verificar error del store
       const storeError = useExpensesStore.getState().error;
 
       if (!expense) {
         const errorMessage = storeError ?? "No se pudo crear el gasto";
-        console.error("Error al crear gasto (expense es null/undefined):", errorMessage);
         throw new Error(errorMessage);
       }
 
       if (!expense.id) {
-        console.error("Error crítico: El objeto expense no tiene ID", expense);
         throw new Error("Error interno: El gasto se creó pero no tiene identificador.");
       }
 
@@ -118,7 +117,7 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
         } catch (uploadError) {
           console.error("Error al subir adjunto:", uploadError);
           // Continuar aunque falle la subida del archivo
-          alert("Gasto creado, pero hubo un error al subir el adjunto. Puedes añadirlo después.");
+          toast.error("Gasto creado, pero hubo un error al subir el adjunto. Puedes añadirlo después.");
         }
       }
 
@@ -126,20 +125,20 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
       if (submitType === "submit") {
         try {
           await useExpensesStore.getState().submitExpense(expense.id);
-          alert("Gasto enviado a aprobación correctamente");
+          toast.success("Gasto enviado a aprobación correctamente");
         } catch (submitError) {
           console.error("Error al enviar a aprobación:", submitError);
-          alert("Gasto creado como borrador. Hubo un error al enviarlo a aprobación.");
+          toast.error("Gasto creado como borrador. Hubo un error al enviarlo a aprobación.");
         }
       } else {
-        alert("Gasto guardado como borrador");
+        toast.success("Gasto guardado como borrador");
       }
 
       // 4. Redirigir al listado
       router.push("/dashboard/me/expenses");
     } catch (error) {
       console.error("Error completo al crear gasto:", error);
-      alert(error instanceof Error ? error.message : "Error al crear el gasto");
+      toast.error(error instanceof Error ? error.message : "Error al crear el gasto");
     } finally {
       setIsSubmitting(false);
     }
@@ -159,13 +158,16 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
   const getInitialFormData = () => {
     // Si hay OCR data, usarla
     if (ocrData) {
+      const vatPercentValue = ocrData.vatPercent ?? 21;
+      const totalAmountValue = ocrData.totalAmount ?? null;
+      const baseAmountValue =
+        totalAmountValue !== null ? Math.round((totalAmountValue / (1 + vatPercentValue / 100)) * 100) / 100 : null;
+
       return {
-        date: ocrData.date
-          ? new Date(ocrData.date).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
+        date: ocrData.date ? formatDateInputValue(new Date(ocrData.date)) : formatDateInputValue(new Date()),
         category: "OTHER" as const,
-        amount: ocrData.totalAmount?.toString() ?? "",
-        vatPercent: ocrData.vatPercent?.toString() ?? "21",
+        amount: baseAmountValue !== null ? baseAmountValue.toFixed(2) : "",
+        vatPercent: vatPercentValue.toString(),
         merchantName: ocrData.merchantName ?? "",
         merchantVat: ocrData.merchantVat ?? "",
         notes: "",
@@ -179,6 +181,9 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
       procedureId: procedureIdParam ?? undefined,
     };
   };
+
+  const ocrTotalAmount = ocrData && ocrData.totalAmount !== null ? ocrData.totalAmount : null;
+  const initialAmountMode = ocrTotalAmount !== null ? "total" : "base";
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -205,6 +210,22 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
           <div className="bg-card rounded-lg border p-6">
             <h2 className="mb-4 text-lg font-semibold">Captura el ticket</h2>
             <CameraCapture onCapture={handleCapture} capturedFile={capturedFile} onRemove={handleRemoveCapture} />
+
+            {policyRequiresAttachment && (
+              <Alert className="mt-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Ticket obligatorio</AlertTitle>
+                <AlertDescription>
+                  Podrás guardar el gasto como borrador, pero necesitarás adjuntar el ticket para enviarlo a aprobación.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="secondary" onClick={() => setCurrentStep("form")} className="w-full">
+                Continuar sin ticket
+              </Button>
+            </div>
           </div>
         )}
 
@@ -271,6 +292,8 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
               <h2 className="mb-4 text-lg font-semibold">Detalles del Gasto</h2>
               <ExpenseForm
                 initialData={getInitialFormData() as any}
+                initialAmountMode={initialAmountMode}
+                initialTotalAmount={ocrTotalAmount}
                 onSubmit={handleSubmit}
                 onCancel={handleCancel}
                 isSubmitting={isSubmitting}

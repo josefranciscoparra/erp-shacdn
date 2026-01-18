@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Upload, X, FileImage } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
@@ -27,13 +28,13 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
     const validFiles = newFiles.filter((file) => {
       // Validar tamaño
       if (file.size > maxSizeMB * 1024 * 1024) {
-        alert(`${file.name} es demasiado grande (máx ${maxSizeMB}MB)`);
+        toast.error(`${file.name} es demasiado grande (máx ${maxSizeMB}MB)`);
         return false;
       }
 
       // Validar tipo
       if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-        alert(`${file.name} no es un formato válido (solo imágenes y PDF)`);
+        toast.error(`${file.name} no es un formato válido (solo imágenes y PDF)`);
         return false;
       }
 
@@ -43,7 +44,7 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
     const allFiles = [...files, ...validFiles];
 
     if (allFiles.length > maxFiles) {
-      alert(`Máximo ${maxFiles} archivos permitidos`);
+      toast.error(`Máximo ${maxFiles} archivos permitidos`);
       return;
     }
 

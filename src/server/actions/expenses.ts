@@ -1,81 +1,14 @@
 "use server";
 
-import { Decimal } from "@prisma/client/runtime/library";
 import { z } from "zod";
 
+import { resolveApproverUsers, hasHrApprovalAccess } from "@/lib/approvals/approval-engine";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ExpenseServiceFactory } from "@/services/expenses/expense-factory";
 import { CreateExpenseDTO, UpdateExpenseDTO } from "@/services/expenses/expense.interface";
 
-import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
-
-/**
- * Obtiene el aprobador por defecto para un empleado
- * Prioridad: Manager del contrato > HR_ADMIN
- */
-async function getDefaultApprover(employeeId: string, orgId: string): Promise<string> {
-  // Buscar el manager del empleado en su contrato activo
-  const contract = await prisma.employmentContract.findFirst({
-    where: {
-      employeeId,
-      orgId,
-      active: true,
-      weeklyHours: {
-        gt: new Decimal(0),
-      },
-    },
-    include: {
-      manager: {
-        include: {
-          user: true,
-        },
-      },
-    },
-  });
-
-  if (contract?.manager?.user) {
-    return contract.manager.user.id;
-  }
-
-  // Si no tiene manager, buscar un usuario con rol HR_ADMIN
-  const hrAdmin = await prisma.user.findFirst({
-    where: {
-      orgId,
-      role: "HR_ADMIN",
-      active: true,
-    },
-  });
-
-  if (hrAdmin) {
-    return hrAdmin.id;
-  }
-
-  throw new Error("No se encontró un aprobador disponible");
-}
-
-/**
- * Calcula el monto total de un gasto
- */
-function calculateTotalAmount(
-  category: string,
-  amount: Decimal,
-  vatPercent: Decimal | null,
-  mileageKm: Decimal | null,
-  mileageRate: Decimal | null,
-): Decimal {
-  if (category === "MILEAGE" && mileageKm && mileageRate) {
-    return new Decimal(mileageKm).mul(mileageRate);
-  }
-
-  const baseAmount = new Decimal(amount);
-  if (vatPercent && vatPercent.gt(0)) {
-    const vatAmount = baseAmount.mul(vatPercent).div(100);
-    return baseAmount.add(vatAmount);
-  }
-
-  return baseAmount;
-}
 
 // Schemas de validación
 const ExpenseFiltersSchema = z.object({
@@ -211,6 +144,102 @@ export async function getExpenseById(id: string) {
   };
 }
 
+export type ExpenseRecipient = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  level: number | null;
+  decision: "PENDING" | "APPROVED" | "REJECTED" | null;
+  source:
+    | "DIRECT_MANAGER"
+    | "TEAM_RESPONSIBLE"
+    | "DEPARTMENT_RESPONSIBLE"
+    | "COST_CENTER_RESPONSIBLE"
+    | "APPROVER_LIST"
+    | "GROUP_HR"
+    | "HR_ADMIN"
+    | "ORG_ADMIN"
+    | null;
+};
+
+export async function getExpenseRecipients(expenseId: string): Promise<{
+  success: boolean;
+  recipients: ExpenseRecipient[];
+  error?: string;
+}> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, recipients: [], error: "No autenticado" };
+  }
+
+  const expense = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    select: {
+      id: true,
+      orgId: true,
+      employeeId: true,
+      createdBy: true,
+      approvals: {
+        include: {
+          approver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          level: "asc",
+        },
+      },
+    },
+  });
+
+  if (!expense) {
+    return { success: false, recipients: [], error: "Gasto no encontrado" };
+  }
+
+  const hasHrAccess = await hasHrApprovalAccess(session.user.id, expense.orgId);
+  if (!hasHrAccess) {
+    return { success: false, recipients: [], error: "Sin permisos" };
+  }
+
+  let recipients: ExpenseRecipient[] = [];
+
+  if (expense.approvals.length > 0) {
+    recipients = expense.approvals.map((approval) => ({
+      id: approval.approver?.id ?? approval.approverId,
+      name: approval.approver?.name ?? null,
+      email: approval.approver?.email ?? null,
+      level: approval.level,
+      decision: approval.decision,
+      source: null,
+    }));
+  } else {
+    const approvers = await resolveApproverUsers(expense.employeeId, expense.orgId, "EXPENSE");
+    const filtered = approvers.filter((approver) => approver.userId !== expense.createdBy);
+
+    recipients = filtered.map((approver) => ({
+      id: approver.userId,
+      name: approver.name,
+      email: approver.email,
+      level: approver.level ?? null,
+      decision: null,
+      source: approver.source ?? null,
+    }));
+  }
+
+  const uniqueRecipients = new Map<string, ExpenseRecipient>();
+  for (const recipient of recipients) {
+    if (!uniqueRecipients.has(recipient.id)) {
+      uniqueRecipients.set(recipient.id, recipient);
+    }
+  }
+
+  return { success: true, recipients: Array.from(uniqueRecipients.values()) };
+}
+
 /**
  * Crea un nuevo gasto utilizando el motor correspondiente
  */
@@ -241,7 +270,7 @@ export async function createExpense(data: CreateExpenseDTO) {
  */
 export async function updateExpense(id: string, data: UpdateExpenseDTO) {
   try {
-    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const { userId, orgId } = await getAuthenticatedEmployee();
     const service = await ExpenseServiceFactory.getService(orgId);
 
     return await service.update(id, data, userId);
@@ -255,7 +284,7 @@ export async function updateExpense(id: string, data: UpdateExpenseDTO) {
  */
 export async function deleteExpense(id: string) {
   try {
-    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const { userId, orgId } = await getAuthenticatedEmployee();
     const service = await ExpenseServiceFactory.getService(orgId);
     return await service.delete(id, userId);
   } catch (error) {
@@ -268,7 +297,7 @@ export async function deleteExpense(id: string) {
  */
 export async function submitExpense(id: string) {
   try {
-    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const { userId, orgId } = await getAuthenticatedEmployee();
     const service = await ExpenseServiceFactory.getService(orgId);
     return await service.submit(id, userId);
   } catch (error) {

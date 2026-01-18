@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { MoreHorizontal, Edit, Trash2, Eye, Send, Download } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, Send } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface ExpensesColumnsProps {
   onEdit?: (expense: Expense) => void;
   onDelete?: (expense: Expense) => void;
   onSubmit?: (expense: Expense) => void;
+  canSubmitExpense?: (expense: Expense) => boolean;
 }
 
 export const getExpensesColumns = ({
@@ -33,6 +34,7 @@ export const getExpensesColumns = ({
   onEdit,
   onDelete,
   onSubmit,
+  canSubmitExpense,
 }: ExpensesColumnsProps = {}): ColumnDef<Expense>[] => [
   // Columna de selección removida para esta tabla
   // {
@@ -98,7 +100,7 @@ export const getExpensesColumns = ({
   },
   {
     accessorKey: "amount",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Importe" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Base" />,
     cell: ({ row }) => {
       const amount = row.getValue("amount");
       return (
@@ -115,8 +117,20 @@ export const getExpensesColumns = ({
     accessorKey: "vatPercent",
     header: ({ column }) => <DataTableColumnHeader column={column} title="IVA" />,
     cell: ({ row }) => {
-      const vatPercent = row.getValue("vatPercent");
-      return <div className="text-sm">{vatPercent ? `${vatPercent}%` : "-"}</div>;
+      const vatPercent = row.original.vatPercent;
+      const baseAmount = row.original.amount;
+      const vatAmount = vatPercent ? (baseAmount * vatPercent) / 100 : 0;
+      return (
+        <div className="flex flex-col text-sm">
+          <span>
+            {new Intl.NumberFormat("es-ES", {
+              style: "currency",
+              currency: row.original.currency,
+            }).format(vatAmount)}
+          </span>
+          <span className="text-muted-foreground text-xs">{vatPercent !== null ? `${vatPercent}%` : "Exento"}</span>
+        </div>
+      );
     },
   },
   {
@@ -152,7 +166,9 @@ export const getExpensesColumns = ({
       const isDraft = expense.status === "DRAFT";
       const canEdit = isDraft;
       const canDelete = isDraft;
-      const canSubmit = isDraft && (expense.attachments?.length ?? 0) > 0;
+      const hasAttachments = Array.isArray(expense.attachments) && expense.attachments.length > 0;
+      const submitAllowed = canSubmitExpense ? canSubmitExpense(expense) : hasAttachments;
+      const canSubmit = isDraft && submitAllowed;
 
       return (
         <DropdownMenu>
@@ -175,7 +191,7 @@ export const getExpensesColumns = ({
                 Editar
               </DropdownMenuItem>
             )}
-            {canSubmit && (
+            {isDraft && (
               <DropdownMenuItem onClick={() => onSubmit?.(expense)}>
                 <Send className="mr-2 size-4" />
                 Enviar a aprobación

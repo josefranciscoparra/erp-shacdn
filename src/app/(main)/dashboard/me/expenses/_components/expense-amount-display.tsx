@@ -32,26 +32,24 @@ export function ExpenseAmountDisplay({
     );
   }
 
-  const vatAmount = vatPercent ? (amount * vatPercent) / 100 : 0;
+  const normalizedVatPercent = vatPercent ?? 0;
+  const vatAmount = (amount * normalizedVatPercent) / 100;
+  const vatLabel = vatPercent === null ? "IVA (exento)" : `IVA (${normalizedVatPercent}%)`;
 
   return (
     <div className={`flex flex-col gap-1 text-sm ${className ?? ""}`}>
       <div className="flex items-center justify-between">
-        <span className="text-muted-foreground">Importe:</span>
+        <span className="text-muted-foreground">Base:</span>
         <span>{formatAmount(amount)}</span>
       </div>
-      {vatPercent && vatPercent > 0 ? (
-        <>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">IVA ({vatPercent}%):</span>
-            <span>{formatAmount(vatAmount)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t pt-1">
-            <span className="font-semibold">Total:</span>
-            <span className="font-semibold">{formatAmount(totalAmount)}</span>
-          </div>
-        </>
-      ) : null}
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">{vatLabel}:</span>
+        <span>{formatAmount(vatAmount)}</span>
+      </div>
+      <div className="flex items-center justify-between border-t pt-1">
+        <span className="font-semibold">Total:</span>
+        <span className="font-semibold">{formatAmount(totalAmount)}</span>
+      </div>
     </div>
   );
 }

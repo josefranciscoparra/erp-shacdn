@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -14,24 +14,52 @@ import {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
+import { Search, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { DataTable } from "@/components/data-table/data-table";
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { SectionHeader } from "@/components/hr/section-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
 
+import { getCategoryLabel } from "./_components/expense-category-icon";
 import { getExpensesColumns } from "./_components/expenses-columns";
 import { ExpensesMetrics } from "./_components/expenses-metrics";
+import { ExpensePolicyClient, isReceiptRequired } from "./_lib/expense-policy";
 
-export default function ExpensesPage() {
+interface ExpensesListClientProps {
+  policy?: ExpensePolicyClient | null;
+}
+
+export default function ExpensesPage({ policy }: ExpensesListClientProps) {
   const router = useRouter();
   const [currentTab, setCurrentTab] = useState<string>("all");
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }]); // Ordenar por fecha descendente por defecto
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({ amount: false });
   const [rowSelection, setRowSelection] = useState({});
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [dialogAction, setDialogAction] = useState<{ type: "delete" | "submit"; expense: Expense } | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const { expenses, isLoading, fetchMyExpenses, deleteExpense, submitExpense } = useExpensesStore();
@@ -51,6 +79,17 @@ export default function ExpensesPage() {
   const completedExpenses = useMemo(
     () => expenses.filter((e) => e.status === "APPROVED" || e.status === "REJECTED"),
     [expenses],
+  );
+
+  const counts = useMemo(
+    () => ({
+      all: expenses.length,
+      draft: draftExpenses.length,
+      inReview: inReviewExpenses.length,
+      reimbursed: reimbursedExpenses.length,
+      completed: completedExpenses.length,
+    }),
+    [completedExpenses, draftExpenses, expenses, inReviewExpenses, reimbursedExpenses],
   );
 
   // Obtener gastos filtrados según el tab actual (memoizado)
@@ -87,6 +126,41 @@ export default function ExpensesPage() {
     }
   }, [currentTab]);
 
+  const categoryOptions = useMemo(
+    () => [
+      { value: "FUEL", label: getCategoryLabel("FUEL") },
+      { value: "MILEAGE", label: getCategoryLabel("MILEAGE") },
+      { value: "MEAL", label: getCategoryLabel("MEAL") },
+      { value: "TOLL", label: getCategoryLabel("TOLL") },
+      { value: "PARKING", label: getCategoryLabel("PARKING") },
+      { value: "LODGING", label: getCategoryLabel("LODGING") },
+      { value: "OTHER", label: getCategoryLabel("OTHER") },
+    ],
+    [],
+  );
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "DRAFT", label: "Borrador" },
+      { value: "SUBMITTED", label: "En revisión" },
+      { value: "APPROVED", label: "Aprobado" },
+      { value: "REJECTED", label: "Rechazado" },
+      { value: "REIMBURSED", label: "Reembolsado" },
+    ],
+    [],
+  );
+
+  const tabItems = useMemo(
+    () => [
+      { value: "all", label: "Todos", count: counts.all },
+      { value: "draft", label: "Borradores", count: counts.draft },
+      { value: "in-review", label: "En revisión", count: counts.inReview },
+      { value: "reimbursed", label: "Reembolsados", count: counts.reimbursed },
+      { value: "completed", label: "Finalizados", count: counts.completed },
+    ],
+    [counts],
+  );
+
   // Memoizar callbacks para evitar recrear en cada render
   const handleView = useMemo(
     () => (expense: Expense) => {
@@ -102,34 +176,27 @@ export default function ExpensesPage() {
     [router],
   );
 
-  const handleDelete = useMemo(
-    () => async (expense: Expense) => {
-      if (!confirm("¿Estás seguro de eliminar este gasto?")) return;
-
-      try {
-        await deleteExpense(expense.id);
-        await fetchMyExpenses();
-      } catch (error) {
-        console.error("Error al eliminar gasto:", error);
-        alert(error instanceof Error ? error.message : "No se pudo eliminar el gasto");
-      }
+  const canSubmitExpense = useMemo(
+    () => (expense: Expense) => {
+      const requiresReceipt = isReceiptRequired(policy, expense.category);
+      const hasAttachments = Array.isArray(expense.attachments) && expense.attachments.length > 0;
+      return !requiresReceipt || hasAttachments;
     },
-    [deleteExpense, fetchMyExpenses],
+    [policy],
+  );
+
+  const handleDelete = useMemo(
+    () => (expense: Expense) => {
+      setDialogAction({ type: "delete", expense });
+    },
+    [setDialogAction],
   );
 
   const handleSubmit = useMemo(
-    () => async (expense: Expense) => {
-      if (!confirm("¿Enviar este gasto a aprobación?")) return;
-
-      try {
-        await submitExpense(expense.id);
-        await fetchMyExpenses();
-      } catch (error) {
-        console.error("Error al enviar gasto:", error);
-        alert(error instanceof Error ? error.message : "No se pudo enviar el gasto");
-      }
+    () => (expense: Expense) => {
+      setDialogAction({ type: "submit", expense });
     },
-    [submitExpense, fetchMyExpenses],
+    [setDialogAction],
   );
 
   const handleNewExpense = useMemo(
@@ -139,6 +206,29 @@ export default function ExpensesPage() {
     [router],
   );
 
+  const handleConfirmAction = async () => {
+    if (!dialogAction) return;
+    setIsActionLoading(true);
+    try {
+      if (dialogAction.type === "delete") {
+        await deleteExpense(dialogAction.expense.id);
+        await fetchMyExpenses();
+        toast.success("Gasto eliminado correctamente");
+      }
+      if (dialogAction.type === "submit") {
+        await submitExpense(dialogAction.expense.id);
+        await fetchMyExpenses();
+        toast.success("Gasto enviado a aprobación");
+      }
+    } catch (error) {
+      console.error("Error al ejecutar acción:", error);
+      toast.error(error instanceof Error ? error.message : "No se pudo completar la acción");
+    } finally {
+      setIsActionLoading(false);
+      setDialogAction(null);
+    }
+  };
+
   // Memoizar columnas para evitar recrear en cada render
   const columns = useMemo(
     () =>
@@ -147,8 +237,9 @@ export default function ExpensesPage() {
         onEdit: handleEdit,
         onDelete: handleDelete,
         onSubmit: handleSubmit,
+        canSubmitExpense,
       }),
-    [handleView, handleEdit, handleDelete, handleSubmit],
+    [canSubmitExpense, handleView, handleEdit, handleDelete, handleSubmit],
   );
 
   const table = useReactTable({
@@ -159,11 +250,14 @@ export default function ExpensesPage() {
       columnFilters,
       columnVisibility,
       rowSelection,
+      globalFilter,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -174,6 +268,13 @@ export default function ExpensesPage() {
       },
     },
   });
+
+  useEffect(() => {
+    table.setPageIndex(0);
+  }, [currentTab, table]);
+
+  const showSkeleton = isLoading && expenses.length === 0;
+  const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
 
   // Calcular métricas
   const currentMonth = new Date().getMonth();
@@ -242,6 +343,13 @@ export default function ExpensesPage() {
 
   const submittedCount = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED").length, [expenses]);
 
+  const selectedRequiresReceipt = dialogAction ? isReceiptRequired(policy, dialogAction.expense.category) : false;
+  const selectedHasAttachments = dialogAction
+    ? Array.isArray(dialogAction.expense.attachments) && dialogAction.expense.attachments.length > 0
+    : false;
+  const canSubmitSelected =
+    dialogAction && dialogAction.type === "submit" ? canSubmitExpense(dialogAction.expense) : true;
+
   const metrics = useMemo(
     () => [
       {
@@ -279,112 +387,148 @@ export default function ExpensesPage() {
       />
 
       {/* Métricas */}
-      <ExpensesMetrics metrics={metrics} />
+      {showSkeleton ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-lg border p-4">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="mt-4 h-8 w-24" />
+              <Skeleton className="mt-2 h-4 w-40" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <ExpensesMetrics metrics={metrics} />
+      )}
 
       {/* Tabs de gastos */}
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-        <div className="flex items-center justify-between gap-2">
-          {/* Mobile Select */}
-          <div className="flex-1 @4xl/main:hidden">
-            <Select value={currentTab} onValueChange={setCurrentTab}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="draft">Borradores</SelectItem>
-                <SelectItem value="in-review">En revisión</SelectItem>
-                <SelectItem value="reimbursed">Reembolsados</SelectItem>
-                <SelectItem value="completed">Finalizados</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Desktop Tabs */}
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="expenses-tab-selector" className="sr-only">
+            Vista de gastos
+          </Label>
+          <Select value={currentTab} onValueChange={setCurrentTab}>
+            <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="expenses-tab-selector">
+              <SelectValue placeholder="Seleccionar vista" />
+            </SelectTrigger>
+            <SelectContent>
+              {tabItems.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label} ({tab.count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="draft">Borradores</TabsTrigger>
-            <TabsTrigger value="in-review">En revisión</TabsTrigger>
-            <TabsTrigger value="reimbursed">Reembolsados</TabsTrigger>
-            <TabsTrigger value="completed">Finalizados</TabsTrigger>
+            {tabItems.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                {tab.label} <Badge variant="secondary">{tab.count}</Badge>
+              </TabsTrigger>
+            ))}
           </TabsList>
+          <div className="flex items-center gap-2">
+            <DataTableViewOptions table={table} />
+          </div>
         </div>
 
-        {/* Tab Content - Todos */}
-        <TabsContent value="all" className="mt-4">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
-              <DataTable
-                table={table}
-                columns={columns}
-                emptyStateTitle={emptyStateMessage.title}
-                emptyStateDescription={emptyStateMessage.description}
-              />
+        {tabItems.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value} className="relative flex flex-col gap-4">
+            <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+              <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+                <div className="relative flex-1 @4xl/main:max-w-sm">
+                  <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                  <Input
+                    placeholder="Buscar gastos..."
+                    value={globalFilter}
+                    onChange={(event) => setGlobalFilter(event.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {table.getColumn("category") && (
+                    <DataTableFacetedFilter
+                      column={table.getColumn("category")}
+                      title="Categoría"
+                      options={categoryOptions}
+                    />
+                  )}
+                  {table.getColumn("status") && (
+                    <DataTableFacetedFilter column={table.getColumn("status")} title="Estado" options={statusOptions} />
+                  )}
+                  {isFiltered && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        table.resetColumnFilters();
+                        setGlobalFilter("");
+                      }}
+                      className="h-8 px-2 lg:px-3"
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-            <DataTablePagination table={table} />
-          </div>
-        </TabsContent>
 
-        {/* Tab Content - Borradores */}
-        <TabsContent value="draft" className="mt-4">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
-              <DataTable
-                table={table}
-                columns={columns}
-                emptyStateTitle={emptyStateMessage.title}
-                emptyStateDescription={emptyStateMessage.description}
-              />
-            </div>
-            <DataTablePagination table={table} />
-          </div>
-        </TabsContent>
-
-        {/* Tab Content - En revisión */}
-        <TabsContent value="in-review" className="mt-4">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
-              <DataTable
-                table={table}
-                columns={columns}
-                emptyStateTitle={emptyStateMessage.title}
-                emptyStateDescription={emptyStateMessage.description}
-              />
-            </div>
-            <DataTablePagination table={table} />
-          </div>
-        </TabsContent>
-
-        {/* Tab Content - Reembolsados */}
-        <TabsContent value="reimbursed" className="mt-4">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
-              <DataTable
-                table={table}
-                columns={columns}
-                emptyStateTitle={emptyStateMessage.title}
-                emptyStateDescription={emptyStateMessage.description}
-              />
-            </div>
-            <DataTablePagination table={table} />
-          </div>
-        </TabsContent>
-
-        {/* Tab Content - Finalizados */}
-        <TabsContent value="completed" className="mt-4">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
-              <DataTable
-                table={table}
-                columns={columns}
-                emptyStateTitle={emptyStateMessage.title}
-                emptyStateDescription={emptyStateMessage.description}
-              />
-            </div>
-            <DataTablePagination table={table} />
-          </div>
-        </TabsContent>
+            {showSkeleton ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border">
+                  <div className="space-y-3 p-4">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Skeleton key={index} className="h-6 w-full" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-lg border">
+                  <DataTable
+                    table={table}
+                    columns={columns}
+                    emptyStateTitle={emptyStateMessage.title}
+                    emptyStateDescription={emptyStateMessage.description}
+                  />
+                </div>
+                <DataTablePagination table={table} />
+              </div>
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
+
+      <AlertDialog open={dialogAction !== null} onOpenChange={(open) => !open && setDialogAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {dialogAction?.type === "delete" ? "¿Eliminar este gasto?" : "¿Enviar este gasto a aprobación?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dialogAction?.type === "delete"
+                ? "Esta acción no se puede deshacer."
+                : selectedRequiresReceipt && !selectedHasAttachments
+                  ? "Necesitas adjuntar un ticket antes de enviarlo."
+                  : "Se notificará a los aprobadores correspondientes."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmAction}
+              disabled={isActionLoading || !canSubmitSelected}
+              className={dialogAction?.type === "delete" ? "bg-destructive hover:bg-destructive/90" : undefined}
+            >
+              {isActionLoading
+                ? "Procesando..."
+                : dialogAction?.type === "delete"
+                  ? "Eliminar gasto"
+                  : "Enviar a aprobación"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

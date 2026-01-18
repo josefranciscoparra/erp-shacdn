@@ -4,38 +4,38 @@
 
 ### RGPD/LOPDGDD
 
-| Requisito | Estado | Notas |
-|-----------|--------|-------|
-| Consentimiento GPS | ✅ Implementado | Dialog RGPD en fichajes |
-| Política de privacidad pública | ❌ Pendiente | Necesaria para web pública |
-| Contrato DPA (Encargado Tratamiento) | ❌ Pendiente | Obligatorio para cada cliente |
-| Registro actividades tratamiento | ❌ Pendiente | Documento interno obligatorio |
-| Derecho al olvido | ❌ Pendiente | Exportación + borrado de datos usuario |
-| Portabilidad de datos | ❌ Pendiente | Exportación en formato estándar |
+| Requisito                            | Estado          | Notas                                  |
+| ------------------------------------ | --------------- | -------------------------------------- |
+| Consentimiento GPS                   | ✅ Implementado | Dialog RGPD en fichajes                |
+| Política de privacidad pública       | ❌ Pendiente    | Necesaria para web pública             |
+| Contrato DPA (Encargado Tratamiento) | ❌ Pendiente    | Obligatorio para cada cliente          |
+| Registro actividades tratamiento     | ❌ Pendiente    | Documento interno obligatorio          |
+| Derecho al olvido                    | ❌ Pendiente    | Exportación + borrado de datos usuario |
+| Portabilidad de datos                | ❌ Pendiente    | Exportación en formato estándar        |
 
 ### Cumplimiento Laboral Español
 
-| Requisito | Estado | Base Legal |
-|-----------|--------|------------|
-| Registro horario obligatorio | ✅ Implementado | RD 8/2019 |
-| Conservación registros 4 años | ⚠️ Verificar | Art. 34.9 ET |
-| Formato exportable Inspección | ❌ Pendiente | RD 8/2019 |
-| Firma del trabajador | ⚠️ Parcial | Recomendado |
+| Requisito                     | Estado          | Base Legal   |
+| ----------------------------- | --------------- | ------------ |
+| Registro horario obligatorio  | ✅ Implementado | RD 8/2019    |
+| Conservación registros 4 años | ⚠️ Verificar    | Art. 34.9 ET |
+| Formato exportable Inspección | ❌ Pendiente    | RD 8/2019    |
+| Firma del trabajador          | ⚠️ Parcial      | Recomendado  |
 
 ## 2. Seguridad
 
 ### Checklist de Seguridad para Producción
 
-| Aspecto | Estado | Prioridad | Acción |
-|---------|--------|-----------|--------|
-| HTTPS obligatorio | ✅ | Crítica | Cloudflare lo gestiona |
-| Backups automáticos | ❌ | **Crítica** | Configurar backup diario BD |
-| Encriptación datos sensibles | ⚠️ | Alta | Revisar campos sensibles |
-| Auditoría de accesos | ❌ | Media | Implementar logging |
-| 2FA para admins | ❌ | Alta | Implementar TOTP |
-| Rate limiting | ⚠️ | Media | Verificar en API |
-| Sanitización inputs | ✅ | Alta | Zod + Prisma |
-| CORS configurado | ⚠️ | Media | Revisar config |
+| Aspecto                      | Estado | Prioridad   | Acción                      |
+| ---------------------------- | ------ | ----------- | --------------------------- |
+| HTTPS obligatorio            | ✅     | Crítica     | Cloudflare lo gestiona      |
+| Backups automáticos          | ❌     | **Crítica** | Configurar backup diario BD |
+| Encriptación datos sensibles | ⚠️     | Alta        | Revisar campos sensibles    |
+| Auditoría de accesos         | ❌     | Media       | Implementar logging         |
+| 2FA para admins              | ❌     | Alta        | Implementar TOTP            |
+| Rate limiting                | ⚠️     | Media       | Verificar en API            |
+| Sanitización inputs          | ✅     | Alta        | Zod + Prisma                |
+| CORS configurado             | ⚠️     | Media       | Revisar config              |
 
 ### Plan de Backups Recomendado
 
@@ -78,11 +78,11 @@ Entornos:
 
 ### SLA Recomendado
 
-| Tier | Uptime | Soporte | Precio orientativo |
-|------|--------|---------|-------------------|
-| Básico | 99.5% | Email (48h) | 3-5€/empleado/mes |
-| Pro | 99.9% | Email (24h) + Chat | 5-8€/empleado/mes |
-| Enterprise | 99.95% | Prioritario + Teléfono | Personalizado |
+| Tier       | Uptime | Soporte                | Precio orientativo |
+| ---------- | ------ | ---------------------- | ------------------ |
+| Básico     | 99.5%  | Email (48h)            | 3-5€/empleado/mes  |
+| Pro        | 99.9%  | Email (24h) + Chat     | 5-8€/empleado/mes  |
+| Enterprise | 99.95% | Prioritario + Teléfono | Personalizado      |
 
 ## 4. Documentación Legal Necesaria
 
@@ -122,27 +122,27 @@ Entornos:
 
 ### Para Mercado Español
 
-| Funcionalidad | Prioridad | Estado | Notas |
-|---------------|-----------|--------|-------|
-| Registro horario | Crítica | ✅ | Cumple RD 8/2019 |
-| Exportación Inspección Trabajo | Crítica | ❌ | PDF/Excel firmado |
-| Calendario laboral por CCAA | Alta | ❌ | 17 calendarios + locales |
-| Gestión vacaciones | Alta | ✅ | PTO implementado |
-| Gestión ausencias/IT | Alta | ✅ | Tipos de ausencia |
-| Integración nóminas (A3, Sage) | Media | ❌ | Exportación CSV/XML |
-| Partes SEPE | Media | ❌ | Para bajas IT |
-| Multi-idioma (cat, eus, gal) | Media | ❌ | Para AAPP |
-| Firma digital fichajes | Media | ⚠️ | Parcial |
-| Geolocalización | Media | ✅ | Con consentimiento RGPD |
-| Informes automáticos | Media | ⚠️ | Básicos implementados |
+| Funcionalidad                  | Prioridad | Estado | Notas                    |
+| ------------------------------ | --------- | ------ | ------------------------ |
+| Registro horario               | Crítica   | ✅     | Cumple RD 8/2019         |
+| Exportación Inspección Trabajo | Crítica   | ❌     | PDF/Excel firmado        |
+| Calendario laboral por CCAA    | Alta      | ❌     | 17 calendarios + locales |
+| Gestión vacaciones             | Alta      | ✅     | PTO implementado         |
+| Gestión ausencias/IT           | Alta      | ✅     | Tipos de ausencia        |
+| Integración nóminas (A3, Sage) | Media     | ❌     | Exportación CSV/XML      |
+| Partes SEPE                    | Media     | ❌     | Para bajas IT            |
+| Multi-idioma (cat, eus, gal)   | Media     | ❌     | Para AAPP                |
+| Firma digital fichajes         | Media     | ⚠️     | Parcial                  |
+| Geolocalización                | Media     | ✅     | Con consentimiento RGPD  |
+| Informes automáticos           | Media     | ⚠️     | Básicos implementados    |
 
 ### Para Escalar a Otros Mercados
 
-| Mercado | Requisitos específicos |
-|---------|----------------------|
-| Portugal | Código do Trabalho, idioma PT |
-| Latam | Legislación local variable, timezone |
-| EU | RGPD ya cumplido, idiomas locales |
+| Mercado  | Requisitos específicos               |
+| -------- | ------------------------------------ |
+| Portugal | Código do Trabalho, idioma PT        |
+| Latam    | Legislación local variable, timezone |
+| EU       | RGPD ya cumplido, idiomas locales    |
 
 ## 6. Modelo de Negocio
 
@@ -175,13 +175,13 @@ ENTERPRISE - Personalizado
 
 ### Métricas Clave a Seguir
 
-| Métrica | Objetivo inicial |
-|---------|-----------------|
+| Métrica                         | Objetivo inicial       |
+| ------------------------------- | ---------------------- |
 | MRR (Monthly Recurring Revenue) | Crecimiento 10-15%/mes |
-| Churn rate | < 5% mensual |
-| CAC (Coste adquisición cliente) | < 3x precio mensual |
-| LTV (Lifetime value) | > 12x precio mensual |
-| NPS (Net Promoter Score) | > 30 |
+| Churn rate                      | < 5% mensual           |
+| CAC (Coste adquisición cliente) | < 3x precio mensual    |
+| LTV (Lifetime value)            | > 12x precio mensual   |
+| NPS (Net Promoter Score)        | > 30                   |
 
 ## 7. Roadmap de Prioridades
 
@@ -224,13 +224,13 @@ Para clientes enterprise:
 
 ### Principales Competidores
 
-| Producto | Pricing | Fortaleza | Debilidad |
-|----------|---------|-----------|-----------|
-| Factorial | 4-8€/emp | UX, marca | Caro para pymes |
-| Sesame | 4-6€/emp | Integraciones | Complejidad |
-| Bizneo | 3-7€/emp | Completo | Anticuado |
-| a3innuva | Variable | Integración A3 | Solo A3 |
-| Personio | 8-12€/emp | Enterprise | Muy caro |
+| Producto  | Pricing   | Fortaleza      | Debilidad       |
+| --------- | --------- | -------------- | --------------- |
+| Factorial | 4-8€/emp  | UX, marca      | Caro para pymes |
+| Sesame    | 4-6€/emp  | Integraciones  | Complejidad     |
+| Bizneo    | 3-7€/emp  | Completo       | Anticuado       |
+| a3innuva  | Variable  | Integración A3 | Solo A3         |
+| Personio  | 8-12€/emp | Enterprise     | Muy caro        |
 
 ### Diferenciación Posible
 
@@ -242,4 +242,4 @@ Para clientes enterprise:
 
 ---
 
-*Última actualización: Enero 2025*
+_Última actualización: Enero 2025_

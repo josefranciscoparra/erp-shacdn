@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
 
 import { AttachmentUploader } from "../../_components/attachment-uploader";
 import { ExpenseForm } from "../../_components/expense-form";
+import { ExpensePolicyClient } from "../../_lib/expense-policy";
 
-export default function EditExpenseClient({ policy }: { policy?: { mileageRate: number } }) {
+export default function EditExpenseClient({ policy }: { policy?: ExpensePolicyClient | null }) {
   const params = useParams();
   const router = useRouter();
   const { expenses, fetchMyExpenses, updateExpense, uploadAttachment } = useExpensesStore();
@@ -27,7 +28,7 @@ export default function EditExpenseClient({ policy }: { policy?: { mileageRate: 
 
   useEffect(() => {
     fetchMyExpenses();
-  }, []);
+  }, [fetchMyExpenses]);
 
   useEffect(() => {
     const found = expenses.find((e) => e.id === id);
@@ -84,11 +85,11 @@ export default function EditExpenseClient({ policy }: { policy?: { mileageRate: 
       }
 
       // 3. Redirigir al detalle
-      alert("Gasto actualizado correctamente");
+      toast.success("Gasto actualizado correctamente");
       router.push(`/dashboard/me/expenses/${id}`);
     } catch (error) {
       console.error("Error al actualizar gasto:", error);
-      alert(error instanceof Error ? error.message : "Error al actualizar el gasto");
+      toast.error(error instanceof Error ? error.message : "Error al actualizar el gasto");
       setIsSubmitting(false);
     }
   };

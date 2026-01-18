@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Camera, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
@@ -21,13 +22,13 @@ export function CameraCapture({ onCapture, capturedFile, onRemove }: CameraCaptu
 
     // Validar que sea imagen
     if (!file.type.startsWith("image/")) {
-      alert("Por favor selecciona una imagen");
+      toast.error("Por favor selecciona una imagen válida");
       return;
     }
 
     // Validar tamaño (máx 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert("La imagen es demasiado grande (máx 10MB)");
+      toast.error("La imagen es demasiado grande (máx 10MB)");
       return;
     }
 
