@@ -173,7 +173,6 @@ async function getLocalHrApprovers(orgId: string): Promise<AuthorizedApprover[]>
       user: {
         active: true,
         role: { not: "SUPER_ADMIN" },
-        orgId,
       },
     },
     include: {
