@@ -33,7 +33,7 @@ export default function LiveMonitorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showOnlyWorkingDay, setShowOnlyWorkingDay] = useState(true);
+  const [showOnlyWorkingDay, setShowOnlyWorkingDay] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -137,7 +137,7 @@ export default function LiveMonitorPage() {
             <div className="flex items-center gap-2 rounded-md border px-3 py-2">
               <Switch id="working-day-filter" checked={showOnlyWorkingDay} onCheckedChange={setShowOnlyWorkingDay} />
               <Label htmlFor="working-day-filter" className="cursor-pointer text-sm">
-                Solo con jornada hoy
+                Mostrar solo empleados con jornada programada hoy
               </Label>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function LiveMonitorPage() {
 
             <div className="flex items-center gap-2">
               <div className="size-2 rounded-full bg-blue-500" />
-              <span className="text-sm">Día no laborable:</span>
+              <span className="text-sm">Sin jornada hoy:</span>
               <span className="font-semibold">{nonWorkingCount}</span>
             </div>
           </div>

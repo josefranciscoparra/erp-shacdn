@@ -372,12 +372,31 @@ function getExpectedEntryTimeFromContract(contract: any, targetDate: Date): stri
   return startTime ?? null;
 }
 
+function getWorkSlotsFromSchedule(schedule: EffectiveSchedule | null) {
+  if (!schedule) {
+    return [];
+  }
+
+  const timeSlots = schedule.timeSlots ?? [];
+  if (timeSlots.length === 0) {
+    return [];
+  }
+
+  return timeSlots.filter((slot) => {
+    const slotType = String(slot.slotType).trim().toUpperCase();
+    if (slotType === "BREAK") {
+      return false;
+    }
+    return slot.countsAsWork !== false;
+  });
+}
+
 function getExpectedEntryTimeFromSchedule(schedule: EffectiveSchedule | null): string | null {
   if (!schedule || !schedule.isWorkingDay) {
     return null;
   }
 
-  const workSlots = schedule.timeSlots.filter((slot) => slot.slotType === "WORK");
+  const workSlots = getWorkSlotsFromSchedule(schedule);
   if (workSlots.length === 0) {
     return null;
   }
@@ -387,6 +406,20 @@ function getExpectedEntryTimeFromSchedule(schedule: EffectiveSchedule | null): s
   );
 
   return minutesToTime(firstWorkSlot.startMinutes);
+}
+
+function isWithinWorkSlot(schedule: EffectiveSchedule | null, now: Date): boolean {
+  if (!schedule || !schedule.isWorkingDay) {
+    return false;
+  }
+
+  const workSlots = getWorkSlotsFromSchedule(schedule);
+  if (workSlots.length === 0) {
+    return false;
+  }
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return workSlots.some((slot) => currentMinutes >= slot.startMinutes && currentMinutes < slot.endMinutes);
 }
 
 async function getScheduleMapForRange(employeeId: string, rangeStart: Date, rangeEnd: Date) {
@@ -1717,18 +1750,25 @@ export async function getCurrentlyWorkingEmployees() {
         }
       }
 
-      // Calcular si está ausente (solo si es día laborable y tiene hora de entrada definida)
+      // Calcular si está ausente (si es día laborable y debería estar trabajando ahora)
       let isAbsent = false;
       const hasClockedIn = Boolean(todaySummary?.clockIn) || Boolean(lastEntry);
-      if (isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT" && !hasClockedIn) {
-        const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
-        const expectedEntry = new Date(today);
-        expectedEntry.setHours(entryHour, entryMinute, 0, 0);
+      const isScheduledWorkNow = isWithinWorkSlot(schedule, today);
 
-        const absenceThreshold = new Date(expectedEntry);
-        absenceThreshold.setMinutes(absenceThreshold.getMinutes() + ABSENCE_MARGIN_MINUTES);
+      if (isWorkingDay && status === "CLOCKED_OUT") {
+        if (!hasClockedIn && expectedEntryTime) {
+          const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
+          const expectedEntry = new Date(today);
+          expectedEntry.setHours(entryHour, entryMinute, 0, 0);
 
-        if (today >= absenceThreshold) {
+          const absenceThreshold = new Date(expectedEntry);
+          absenceThreshold.setMinutes(absenceThreshold.getMinutes() + ABSENCE_MARGIN_MINUTES);
+
+          if (today >= absenceThreshold) {
+            isAbsent = true;
+          }
+        } else if (isScheduledWorkNow) {
+          // Si ya había fichado y está fuera durante un tramo de trabajo, marcar como ausente
           isAbsent = true;
         }
       }

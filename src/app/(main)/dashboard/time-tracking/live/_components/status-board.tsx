@@ -20,6 +20,7 @@ interface StatusBoardProps {
 interface StatusColumn {
   id: string;
   title: string;
+  description: string;
   filter: (emp: EmployeeTimeTracking) => boolean;
   emptyMessage: string;
   headerClass: string;
@@ -31,29 +32,33 @@ const columns: StatusColumn[] = [
   {
     id: "working",
     title: "Trabajando",
+    description: "Empleados que han fichado entrada y están activos",
     filter: (emp) => emp.status === "CLOCKED_IN",
-    emptyMessage: "No hay empleados trabajando",
+    emptyMessage: "Nadie ha fichado entrada todavía",
     headerClass: "text-green-700 dark:text-green-400 border-green-200 dark:border-green-800",
   },
   {
     id: "break",
     title: "En pausa",
+    description: "Empleados con una pausa en curso",
     filter: (emp) => emp.status === "ON_BREAK",
-    emptyMessage: "No hay empleados en pausa",
+    emptyMessage: "No hay pausas activas en este momento",
     headerClass: "text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
   },
   {
     id: "absent",
     title: "Ausentes",
+    description: "Deberían estar trabajando y no han fichado",
     filter: (emp) => emp.isAbsent,
-    emptyMessage: "No hay ausencias detectadas",
+    emptyMessage: "No hay ausencias detectadas ahora",
     headerClass: "text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
   },
   {
     id: "non-working",
-    title: "Día no laborable",
+    title: "Sin jornada hoy",
+    description: "No tienen jornada programada hoy",
     filter: (emp) => !emp.isWorkingDay,
-    emptyMessage: "Todos con día laborable",
+    emptyMessage: "Todos los empleados tienen jornada hoy",
     headerClass: "text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   },
 ];
@@ -101,6 +106,7 @@ export function StatusBoard({ employees, isLoading }: StatusBoardProps) {
                 <h3 className="font-semibold">{column.title}</h3>
                 <span className="bg-background rounded-full px-2 py-0.5 text-xs font-medium">{total}</span>
               </div>
+              <p className="text-muted-foreground mt-1 text-xs">{column.description}</p>
             </div>
 
             {/* Contenido de la columna */}
