@@ -70,6 +70,7 @@ model Organization {
   // Configuración de Turnos
   shiftsEnabled       Boolean @default(false) // Activar/desactivar módulo de gestión de turnos
   shiftMinRestMinutes Int     @default(720) // Descanso mínimo entre turnos (por defecto 12h)
+  shiftChangeRequestsEnabled Boolean @default(true) // Permitir solicitudes de cambio de turno desde empleados
 
   // Feature flags (DEPRECATED: migrar a campos booleanos específicos)
   features Json @default("{}") // Feature flags JSON: { chat: true, ... }

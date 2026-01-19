@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
@@ -70,6 +70,16 @@ const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
   { key: "MEDICAL", label: "Médicos" },
   { key: "OTHER", label: "Otros" },
 ];
+
+const DEFAULT_INVITE_RESEND_COOLDOWN_SECONDS = 60;
+const INVITE_RESEND_COOLDOWN_SECONDS = (() => {
+  const raw = process.env.NEXT_PUBLIC_INVITE_RESEND_COOLDOWN_SECONDS;
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_INVITE_RESEND_COOLDOWN_SECONDS;
+  }
+  return parsed;
+})();
 
 const MAIN_TABS = [
   { value: "information", label: "Información" },
@@ -225,7 +235,10 @@ export default function EmployeeProfilePage() {
 
   // Estado para reenvío de invitación
   const [isResendingInvite, setIsResendingInvite] = useState(false);
+  const isResendingInviteRef = useRef(false);
   const [inviteResendResult, setInviteResendResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [inviteCooldownRemaining, setInviteCooldownRemaining] = useState(0);
+  const isInviteCooldownActive = inviteCooldownRemaining > 0;
 
   // Estado para documentos
   const {
@@ -243,6 +256,43 @@ export default function EmployeeProfilePage() {
   const [activeDocTab, setActiveDocTab] = useState<string>("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (inviteCooldownRemaining <= 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setInviteCooldownRemaining((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [inviteCooldownRemaining]);
+
+  const startInviteCooldown = (seconds: number) => {
+    const safeSeconds = Number.isFinite(seconds) ? Math.max(1, Math.floor(seconds)) : 0;
+    if (safeSeconds <= 0) {
+      return;
+    }
+    setInviteCooldownRemaining(safeSeconds);
+  };
+
+  const extractCooldownSeconds = (message: string | null | undefined): number | null => {
+    if (!message) {
+      return null;
+    }
+    const match = message.match(/(\d+)\s*segundos?/i);
+    if (!match || !match[1]) {
+      return null;
+    }
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    return parsed;
+  };
 
   const availableMainTabs = useMemo(() => {
     if (documentsEnabled) return MAIN_TABS;
@@ -340,7 +390,10 @@ export default function EmployeeProfilePage() {
 
   const handleResendInvite = async () => {
     if (!employee?.user?.id) return;
+    if (isResendingInviteRef.current) return;
+    if (isInviteCooldownActive) return;
 
+    isResendingInviteRef.current = true;
     setIsResendingInvite(true);
     setInviteResendResult(null);
 
@@ -354,7 +407,12 @@ export default function EmployeeProfilePage() {
             ? "Invitación en cola. El correo se enviará en unos minutos."
             : "Email de invitación enviado correctamente",
         });
+        startInviteCooldown(INVITE_RESEND_COOLDOWN_SECONDS);
       } else {
+        const cooldownSeconds = extractCooldownSeconds(result.error);
+        if (cooldownSeconds) {
+          startInviteCooldown(cooldownSeconds);
+        }
         setInviteResendResult({
           success: false,
           message: result.error ?? "Error al enviar el email",
@@ -366,6 +424,7 @@ export default function EmployeeProfilePage() {
         message: "Error al enviar el email de invitación",
       });
     } finally {
+      isResendingInviteRef.current = false;
       setIsResendingInvite(false);
     }
   };
@@ -1066,13 +1125,20 @@ export default function EmployeeProfilePage() {
                         Usuario del Sistema
                       </CardTitle>
                       {employee.user.mustChangePassword && (
-                        <Button variant="outline" size="sm" onClick={handleResendInvite} disabled={isResendingInvite}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResendInvite}
+                          disabled={isResendingInvite || isInviteCooldownActive}
+                        >
                           {isResendingInvite ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : isInviteCooldownActive ? (
+                            <Clock className="mr-2 h-4 w-4" />
                           ) : (
                             <Send className="mr-2 h-4 w-4" />
                           )}
-                          Reenviar invitación
+                          {isInviteCooldownActive ? `Reenviar en ${inviteCooldownRemaining}s` : "Reenviar invitación"}
                         </Button>
                       )}
                     </div>

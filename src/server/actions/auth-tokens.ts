@@ -12,9 +12,29 @@ import { passwordSchema } from "@/lib/validations/password";
 // Constantes de configuración
 const RESET_TOKEN_EXPIRATION_HOURS = 2;
 const INVITE_TOKEN_EXPIRATION_HOURS = 72;
+const INVITE_RESEND_DEFAULT_COOLDOWN_SECONDS = 60;
+
+function resolveInviteResendCooldownMs(): number {
+  const raw = process.env.INVITE_RESEND_COOLDOWN_SECONDS;
+  if (!raw) {
+    return INVITE_RESEND_DEFAULT_COOLDOWN_SECONDS * 1000;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return INVITE_RESEND_DEFAULT_COOLDOWN_SECONDS * 1000;
+  }
+
+  return parsed * 1000;
+}
+
+const INVITE_RESEND_COOLDOWN_MS = resolveInviteResendCooldownMs();
 
 // Tipos de respuesta
 type ActionResult<T = void> = { success: true; data?: T } | { success: false; error: string };
+type ResendInviteTokenResult =
+  | { ok: true; token: string; expiresAt: Date }
+  | { ok: false; error: "IN_PROGRESS" | "COOLDOWN"; retryAt?: Date };
 
 /**
  * Genera un token aleatorio seguro
@@ -440,21 +460,83 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult<{ 
       };
     }
 
-    // Importar dinámicamente para evitar dependencia circular
-    const { sendAuthInviteEmail } = await import("@/lib/email/email-service");
+    const tokenResult: ResendInviteTokenResult = await prisma.$transaction(async (tx) => {
+      const lockKey = `invite:${userId}`;
+      const lockRows = await tx.$queryRaw<Array<{ locked: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(hashtext(${lockKey})) AS locked
+      `;
+      const locked = lockRows.length > 0 ? lockRows[0].locked : false;
+      if (!locked) {
+        return { ok: false, error: "IN_PROGRESS" };
+      }
 
-    // Crear nuevo token (esto borra los anteriores automáticamente)
-    const tokenResult = await createInviteToken(userId);
+      const cutoff = new Date(Date.now() - INVITE_RESEND_COOLDOWN_MS);
+      const recentToken = await tx.authToken.findFirst({
+        where: {
+          userId,
+          type: "INVITE",
+          usedAt: null,
+          createdAt: { gt: cutoff },
+        },
+        select: { createdAt: true },
+      });
 
-    if (!tokenResult.success || !tokenResult.data) {
+      if (recentToken) {
+        return {
+          ok: false,
+          error: "COOLDOWN",
+          retryAt: new Date(recentToken.createdAt.getTime() + INVITE_RESEND_COOLDOWN_MS),
+        };
+      }
+
+      await tx.authToken.deleteMany({
+        where: {
+          userId,
+          type: "INVITE",
+          usedAt: null,
+        },
+      });
+
+      const token = generateToken();
+      const expiresAt = new Date(Date.now() + INVITE_TOKEN_EXPIRATION_HOURS * 60 * 60 * 1000);
+
+      await tx.authToken.create({
+        data: {
+          userId,
+          type: "INVITE",
+          token,
+          expiresAt,
+        },
+      });
+
+      return { ok: true, token, expiresAt };
+    });
+
+    if (!tokenResult.ok) {
+      if (tokenResult.error === "COOLDOWN" && tokenResult.retryAt) {
+        const secondsLeft = Math.max(1, Math.ceil((tokenResult.retryAt.getTime() - Date.now()) / 1000));
+        return {
+          success: false,
+          error: `Espera ${secondsLeft} segundos para reenviar la invitación.`,
+        };
+      }
+      if (tokenResult.error === "IN_PROGRESS") {
+        return {
+          success: false,
+          error: "Invitación ya en proceso. Reintenta en unos segundos.",
+        };
+      }
       return {
         success: false,
-        error: tokenResult.error ?? "Error al crear token de invitación.",
+        error: "No fue posible preparar la invitación.",
       };
     }
 
+    // Importar dinámicamente para evitar dependencia circular
+    const { sendAuthInviteEmail } = await import("@/lib/email/email-service");
+
     // Enviar email
-    const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
+    const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.token}`;
 
     const emailResult = await sendAuthInviteEmail({
       to: {
@@ -466,7 +548,7 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult<{ 
       userId: user.id,
       companyName: user.organization?.name ?? undefined,
       inviterName,
-      expiresAt: tokenResult.data.expiresAt,
+      expiresAt: tokenResult.expiresAt,
     });
 
     if (!emailResult.success) {

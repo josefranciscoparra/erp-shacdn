@@ -13,14 +13,15 @@ export async function GET() {
 
     const org = await prisma.organization.findUnique({
       where: { id: session.user.orgId },
-      select: { shiftsEnabled: true },
+      select: { shiftsEnabled: true, shiftChangeRequestsEnabled: true },
     });
 
     return NextResponse.json({
       shiftsEnabled: org?.shiftsEnabled ?? false,
+      shiftChangeRequestsEnabled: org?.shiftChangeRequestsEnabled ?? true,
     });
   } catch (error) {
     console.error("Error fetching shifts config:", error);
-    return NextResponse.json({ shiftsEnabled: false });
+    return NextResponse.json({ shiftsEnabled: false, shiftChangeRequestsEnabled: true });
   }
 }

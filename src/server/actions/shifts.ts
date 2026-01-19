@@ -26,32 +26,40 @@ export async function checkShiftsEnabled(orgId: string): Promise<boolean> {
 /**
  * Obtiene la configuración de turnos de la organización
  */
-export async function getOrganizationShiftsConfig(): Promise<{ shiftsEnabled: boolean; shiftMinRestHours: number }> {
+export async function getOrganizationShiftsConfig(): Promise<{
+  shiftsEnabled: boolean;
+  shiftMinRestHours: number;
+  shiftChangeRequestsEnabled: boolean;
+}> {
   try {
     const session = await auth();
 
     if (!session?.user?.orgId) {
       console.error("No hay sesión activa");
-      return { shiftsEnabled: false, shiftMinRestHours: 12 };
+      return { shiftsEnabled: false, shiftMinRestHours: 12, shiftChangeRequestsEnabled: true };
     }
 
     const org = await prisma.organization.findUnique({
       where: { id: session.user.orgId },
-      select: { shiftsEnabled: true, shiftMinRestMinutes: true },
+      select: { shiftsEnabled: true, shiftMinRestMinutes: true, shiftChangeRequestsEnabled: true },
     });
 
     if (!org) {
       console.error("Organización no encontrada");
-      return { shiftsEnabled: false, shiftMinRestHours: 12 };
+      return { shiftsEnabled: false, shiftMinRestHours: 12, shiftChangeRequestsEnabled: true };
     }
 
     const minRestMinutes = org.shiftMinRestMinutes ?? 12 * 60;
 
-    return { shiftsEnabled: org.shiftsEnabled, shiftMinRestHours: minRestMinutes / 60 };
+    return {
+      shiftsEnabled: org.shiftsEnabled,
+      shiftMinRestHours: minRestMinutes / 60,
+      shiftChangeRequestsEnabled: org.shiftChangeRequestsEnabled ?? true,
+    };
   } catch (error) {
     console.error("Error al obtener configuración de turnos:", error);
     // Devolver valor por defecto en lugar de lanzar error
-    return { shiftsEnabled: false, shiftMinRestHours: 12 };
+    return { shiftsEnabled: false, shiftMinRestHours: 12, shiftChangeRequestsEnabled: true };
   }
 }
 
@@ -104,7 +112,10 @@ export async function updateOrganizationShiftsStatus(enabled: boolean): Promise<
 /**
  * Actualiza parámetros avanzados del módulo de turnos (p. ej. descanso mínimo)
  */
-export async function updateOrganizationShiftsConfig(input: { shiftMinRestHours: number }): Promise<void> {
+export async function updateOrganizationShiftsConfig(input: {
+  shiftMinRestHours?: number;
+  shiftChangeRequestsEnabled?: boolean;
+}): Promise<void> {
   try {
     const session = await auth();
 
@@ -136,13 +147,23 @@ export async function updateOrganizationShiftsConfig(input: { shiftMinRestHours:
       throw new Error("MODULE_DISABLED");
     }
 
-    const hours = Number.isFinite(input.shiftMinRestHours) ? input.shiftMinRestHours : 0;
-    const sanitizedHours = Math.max(0, hours);
-    const minutes = Math.round(sanitizedHours * 60);
+    const data: { shiftMinRestMinutes?: number; shiftChangeRequestsEnabled?: boolean } = {};
+    if (typeof input.shiftMinRestHours === "number" && Number.isFinite(input.shiftMinRestHours)) {
+      const sanitizedHours = Math.max(0, input.shiftMinRestHours);
+      data.shiftMinRestMinutes = Math.round(sanitizedHours * 60);
+    }
+
+    if (typeof input.shiftChangeRequestsEnabled === "boolean") {
+      data.shiftChangeRequestsEnabled = input.shiftChangeRequestsEnabled;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return;
+    }
 
     await prisma.organization.update({
       where: { id: session.user.orgId },
-      data: { shiftMinRestMinutes: minutes },
+      data,
     });
   } catch (error) {
     console.error("[updateOrganizationShiftsConfig] Error:", error);

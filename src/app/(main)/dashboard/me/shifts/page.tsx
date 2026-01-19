@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getMyMonthlyShifts, getMyEmployeeProfile, getMyShiftsDashboardMetrics } from "@/server/actions/my-shifts";
+import { getOrganizationShiftsConfig } from "@/server/actions/shifts";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
@@ -91,15 +92,21 @@ export default function MyShiftsPage() {
   const [currentEmployee, setCurrentEmployee] = useState<EmployeeShift | null>(null);
   const [serverMetrics, setServerMetrics] = useState<MyShiftsMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [shiftChangeRequestsEnabled, setShiftChangeRequestsEnabled] = useState(true);
 
   // Cargar datos iniciales
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [emp, metrics] = await Promise.all([getMyEmployeeProfile(), getMyShiftsDashboardMetrics()]);
+        const [emp, metrics, config] = await Promise.all([
+          getMyEmployeeProfile(),
+          getMyShiftsDashboardMetrics(),
+          getOrganizationShiftsConfig(),
+        ]);
 
         if (emp) setCurrentEmployee(emp as unknown as EmployeeShift);
         if (metrics) setServerMetrics(metrics);
+        setShiftChangeRequestsEnabled(config.shiftChangeRequestsEnabled ?? true);
       } catch (error) {
         console.error("Error loading initial data:", error);
       }
@@ -137,8 +144,11 @@ export default function MyShiftsPage() {
   const goToNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1));
   const goToToday = () => setCurrentMonth(startOfToday());
 
+  const canRequestShiftChange = shiftChangeRequestsEnabled && currentEmployee?.usesShiftSystem === true;
+
   // Función para abrir dialog con turno seleccionado
   const handleShiftClick = (shift: Shift) => {
+    if (!canRequestShiftChange) return;
     setSelectedShift(shift);
     setIsDialogOpen(true);
   };
@@ -361,18 +371,22 @@ export default function MyShiftsPage() {
                               ? formatMultipleSlots(sortedWorkShifts)
                               : formatShiftTime(primaryShift.startTime, primaryShift.endTime);
 
-                          return (
+                          const cardClasses = cn(
+                            "relative h-full w-full overflow-hidden rounded-lg border border-transparent text-left transition-all",
+                            canRequestShiftChange ? "hover:scale-[1.02] hover:opacity-90" : "cursor-default",
+                            // Si hay indicador de ausencia (mixto), usamos un fondo base neutro o del trabajo,
+                            // pero el contenido lo dividimos. Si no, usamos el color normal.
+                            showAbsenceIndicator
+                              ? "dark:bg-card border-input bg-white p-0 shadow-sm"
+                              : cn("p-2", colors),
+                          );
+
+                          return canRequestShiftChange ? (
                             <button
                               key={primaryShift.id}
                               onClick={() => handleShiftClick(primaryShift)}
-                              className={cn(
-                                "relative h-full w-full overflow-hidden rounded-lg border border-transparent text-left transition-all hover:scale-[1.02] hover:opacity-90",
-                                // Si hay indicador de ausencia (mixto), usamos un fondo base neutro o del trabajo,
-                                // pero el contenido lo dividimos. Si no, usamos el color normal.
-                                showAbsenceIndicator
-                                  ? "dark:bg-card border-input bg-white p-0 shadow-sm"
-                                  : cn("p-2", colors),
-                              )}
+                              className={cardClasses}
+                              type="button"
                             >
                               {/* CASO MIXTO: TRABAJO + VACACIONES (Tarjeta Dividida) */}
                               {showAbsenceIndicator ? (
@@ -439,6 +453,73 @@ export default function MyShiftsPage() {
                                 </>
                               )}
                             </button>
+                          ) : (
+                            <div key={primaryShift.id} className={cardClasses}>
+                              {/* CASO MIXTO: TRABAJO + VACACIONES (Tarjeta Dividida) */}
+                              {showAbsenceIndicator ? (
+                                <div className="flex h-full flex-col">
+                                  {/* Parte Superior: TRABAJO */}
+                                  <div className={cn("flex flex-1 flex-col justify-between p-1.5", colors)}>
+                                    <div className="flex items-start justify-between">
+                                      <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                        {label}
+                                      </span>
+                                      <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
+                                        {format(day, "d")}
+                                      </span>
+                                      {/* Móvil: Letra turno */}
+                                      <span className="mx-auto text-xs font-bold uppercase md:hidden">
+                                        {label.charAt(0)}
+                                      </span>
+                                    </div>
+                                    {/* Hora solo desktop */}
+                                    <div className="hidden justify-end md:flex">
+                                      <span className="text-[9px] font-medium opacity-80">{formattedTime}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Parte Inferior: VACACIONES / AUSENCIA */}
+                                  <div className="flex h-[22px] items-center justify-center border-t border-orange-200/50 bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-100">
+                                    <span className="truncate px-1 text-[9px] font-bold tracking-wider uppercase">
+                                      {/* En móvil ponemos icono o texto corto, desktop texto completo */}
+                                      <span className="md:hidden">VAC</span>
+                                      <span className="hidden md:inline">VACACIONES</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* CASO NORMAL (Solo Trabajo O Solo Vacaciones Día Completo) */
+                                <>
+                                  {isFullDayVacation ? (
+                                    <div className="flex h-full items-center justify-center">
+                                      <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                        {label}
+                                      </span>
+                                      <span className="text-xs font-bold uppercase md:hidden">V</span>
+                                    </div>
+                                  ) : (
+                                    /* Turnos normales */
+                                    <div className="relative z-10 flex h-full flex-col justify-between">
+                                      <div className="flex items-start justify-between md:justify-start">
+                                        <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                          {label}
+                                        </span>
+                                        <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
+                                          {format(day, "d")}
+                                        </span>
+                                        <span className="mx-auto text-xs font-bold uppercase md:hidden">
+                                          {label.charAt(0)}
+                                        </span>
+                                      </div>
+
+                                      <div className="hidden justify-end md:flex">
+                                        <span className="text-[9px] font-medium opacity-80">{formattedTime}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           );
                         })()
                       ) : (
@@ -473,7 +554,7 @@ export default function MyShiftsPage() {
       </Card>
 
       {/* Dialog de Solicitud de Cambio */}
-      {currentEmployee && (
+      {currentEmployee && canRequestShiftChange && (
         <ShiftChangeRequestDialog
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}

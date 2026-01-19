@@ -327,14 +327,17 @@ export async function getMyEmployeeProfile() {
 
     if (!employee) return null;
 
+    const activeContract = employee.employmentContracts[0];
+    const usesShiftSystem = activeContract?.workScheduleType === "SHIFT";
+
     // Adaptar al formato que espera la UI (EmployeeShift)
     return {
       id: employee.id,
       firstName: employee.firstName,
       lastName: employee.lastName,
-      contractHours: Number(employee.employmentContracts[0]?.weeklyHours || 40),
-      usesShiftSystem: true, // Asumimos true si está aquí
-      costCenterId: employee.employmentContracts[0]?.costCenterId ?? undefined,
+      contractHours: Number(activeContract?.weeklyHours || 40),
+      usesShiftSystem,
+      costCenterId: activeContract?.costCenterId ?? undefined,
       absences: [], // Se cargan vía turnos de tipo vacación
     };
   } catch (error) {

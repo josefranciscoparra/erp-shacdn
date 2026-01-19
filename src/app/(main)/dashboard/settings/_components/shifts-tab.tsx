@@ -37,6 +37,8 @@ export function ShiftsTab() {
   const [stats, setStats] = useState<ShiftsStats | null>(null);
   const [minRestHours, setMinRestHours] = useState(12);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [shiftChangeRequestsEnabled, setShiftChangeRequestsEnabled] = useState(true);
+  const [isSavingChangeRequests, setIsSavingChangeRequests] = useState(false);
   const setOrgFeatures = useOrganizationFeaturesStore((state) => state.setFeatures);
   const updateShiftsFeature = (value: boolean) => {
     const current = useOrganizationFeaturesStore.getState().features;
@@ -52,6 +54,7 @@ export function ShiftsTab() {
 
         setShiftsEnabled(config.shiftsEnabled);
         setMinRestHours(config.shiftMinRestHours ?? 12);
+        setShiftChangeRequestsEnabled(config.shiftChangeRequestsEnabled ?? true);
         setStats(statsData);
 
         updateShiftsFeature(config.shiftsEnabled);
@@ -126,6 +129,36 @@ export function ShiftsTab() {
       }
     } finally {
       setIsSavingConfig(false);
+    }
+  };
+
+  const handleToggleShiftChangeRequests = async (newValue: boolean) => {
+    const previous = shiftChangeRequestsEnabled;
+    try {
+      setIsSavingChangeRequests(true);
+      setShiftChangeRequestsEnabled(newValue);
+      await updateOrganizationShiftsConfig({ shiftChangeRequestsEnabled: newValue });
+      toast.success(
+        newValue ? "Solicitudes de cambio de turno activadas" : "Solicitudes de cambio de turno desactivadas",
+      );
+    } catch (error) {
+      console.error("[ShiftsTab] Error updating change request config:", error);
+      setShiftChangeRequestsEnabled(previous);
+      if (error instanceof Error) {
+        if (error.message === "NO_PERMISSION") {
+          toast.error("No tienes permisos para modificar esta configuración.");
+        } else if (error.message === "NO_AUTH") {
+          toast.error("No estás autenticado. Por favor, inicia sesión de nuevo.");
+        } else if (error.message === "MODULE_DISABLED") {
+          toast.error("El módulo de turnos no está disponible para esta organización.");
+        } else {
+          toast.error("No se pudo guardar la configuración de solicitudes de cambio.");
+        }
+      } else {
+        toast.error("No se pudo guardar la configuración de solicitudes de cambio.");
+      }
+    } finally {
+      setIsSavingChangeRequests(false);
     }
   };
 
@@ -216,6 +249,25 @@ export function ShiftsTab() {
                     <p className="text-muted-foreground text-xs">
                       Este valor se usa para mostrar advertencias cuando se asignan turnos sin respetar el descanso
                       mínimo requerido.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shift-change-requests">Solicitudes de cambio de turno</Label>
+                    <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                      <p className="text-sm">
+                        {shiftChangeRequestsEnabled
+                          ? "Los empleados con turnos pueden solicitar cambios desde su calendario."
+                          : "Las solicitudes de cambio están desactivadas para empleados con turnos."}
+                      </p>
+                      <Switch
+                        id="shift-change-requests"
+                        checked={shiftChangeRequestsEnabled}
+                        onCheckedChange={handleToggleShiftChangeRequests}
+                        disabled={isSavingChangeRequests || isLoading}
+                      />
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Solo afecta a empleados con tipo de horario <strong>SHIFT</strong>.
                     </p>
                   </div>
                 </div>
