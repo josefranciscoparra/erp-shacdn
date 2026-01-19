@@ -56,6 +56,17 @@ export const APPROVAL_PERMISSIONS: Record<ApprovalRequestType, ScopePermission> 
 
 const HR_APPROVER_ROLES = ["HR_ADMIN", "HR_ASSISTANT"] as const;
 
+const mergeApprovers = (primary: AuthorizedApprover[], secondary: AuthorizedApprover[]) => {
+  const unique = new Map<string, AuthorizedApprover>();
+  primary.forEach((approver) => unique.set(approver.userId, approver));
+  secondary.forEach((approver) => {
+    if (!unique.has(approver.userId)) {
+      unique.set(approver.userId, approver);
+    }
+  });
+  return Array.from(unique.values());
+};
+
 async function getGroupHrApprovalsEnabled(orgId: string): Promise<boolean> {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -124,6 +135,8 @@ async function getEmployeeApprovalContext(employeeId: string): Promise<EmployeeA
 }
 
 async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "HR_ASSISTANT" | "ORG_ADMIN">) {
+  const source = roles.some((role) => role === "HR_ADMIN" || role === "HR_ASSISTANT") ? "HR_ADMIN" : "ORG_ADMIN";
+
   const memberships = await prisma.userOrganization.findMany({
     where: {
       orgId,
@@ -143,60 +156,45 @@ async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "HR_ASS
     },
   });
 
-  const uniqueApprovers = new Map<string, AuthorizedApprover>();
-  const source = roles.some((role) => role === "HR_ADMIN" || role === "HR_ASSISTANT") ? "HR_ADMIN" : "ORG_ADMIN";
-
-  for (const membership of memberships) {
-    if (!membership.user) {
-      continue;
-    }
-
-    uniqueApprovers.set(membership.user.id, {
+  const approversFromMembership = memberships
+    .filter((membership) => membership.user)
+    .map((membership) => ({
       userId: membership.user.id,
       name: membership.user.name,
       email: membership.user.email,
       role: membership.role,
       source,
       level: 5,
-    });
-  }
+    }));
 
-  return Array.from(uniqueApprovers.values());
-}
-
-async function getLocalHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
-  const memberships = await prisma.userOrganization.findMany({
+  const legacyUsers = await prisma.user.findMany({
     where: {
       orgId,
-      isActive: true,
-      role: { in: HR_APPROVER_ROLES },
-      user: {
-        active: true,
-        role: { not: "SUPER_ADMIN" },
-      },
+      active: true,
+      role: { in: roles },
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
     },
   });
 
-  return memberships
-    .filter((membership) => membership.user)
-    .map((membership) => ({
-      userId: membership.user!.id,
-      name: membership.user!.name,
-      email: membership.user!.email,
-      role: membership.role,
-      source: "HR_ADMIN",
-      level: 5,
-    }));
+  const approversFromLegacy = legacyUsers.map((user) => ({
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    source,
+    level: 5,
+  }));
+
+  return mergeApprovers(approversFromMembership, approversFromLegacy);
+}
+
+async function getLocalHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  return await getRoleApprovers(orgId, Array.from(HR_APPROVER_ROLES));
 }
 
 async function getGroupHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
@@ -356,7 +354,21 @@ async function hasActiveOrgMembership(userId: string, orgId: string): Promise<bo
     select: { id: true },
   });
 
-  return !!membership;
+  if (membership) {
+    return true;
+  }
+
+  const legacyUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      orgId,
+      active: true,
+      role: { not: "SUPER_ADMIN" },
+    },
+    select: { id: true },
+  });
+
+  return !!legacyUser;
 }
 
 async function hasLocalHrMembership(userId: string, orgId: string): Promise<boolean> {
@@ -371,7 +383,21 @@ async function hasLocalHrMembership(userId: string, orgId: string): Promise<bool
     select: { id: true },
   });
 
-  return !!membership;
+  if (membership) {
+    return true;
+  }
+
+  const legacyUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      orgId,
+      active: true,
+      role: { in: HR_APPROVER_ROLES },
+    },
+    select: { id: true },
+  });
+
+  return !!legacyUser;
 }
 
 async function hasGroupHrMembership(userId: string, orgId: string): Promise<boolean> {
