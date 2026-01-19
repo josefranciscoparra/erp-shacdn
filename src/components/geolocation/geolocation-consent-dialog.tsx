@@ -65,8 +65,8 @@ export function GeolocationConsentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] max-h-[90vh] max-w-2xl flex-col overflow-hidden p-4 sm:max-w-2xl sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="text-primary size-5" />
             {CONSENT_DIALOG_TITLE}
@@ -76,7 +76,7 @@ export function GeolocationConsentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {/* Texto de consentimiento */}
           <div className="bg-muted/30 rounded-lg border p-4">
             <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -121,7 +121,7 @@ export function GeolocationConsentDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="shrink-0 gap-2">
           <Button variant="outline" onClick={handleDeny} disabled={loading}>
             No aceptar
           </Button>

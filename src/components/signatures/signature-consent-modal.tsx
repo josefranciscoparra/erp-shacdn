@@ -38,15 +38,15 @@ export function SignatureConsentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] max-h-[90vh] flex-col overflow-hidden p-4 sm:max-w-[500px] sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Declaración de Consentimiento</DialogTitle>
           <DialogDescription>
             Para firmar el documento &quot;{documentTitle}&quot;, debes aceptar los siguientes términos
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <div className="bg-muted/50 rounded-lg border p-4 text-sm">
             <p className="mb-2 font-medium">Declaro que:</p>
             <ul className="text-muted-foreground list-disc space-y-2 pl-5">
@@ -74,7 +74,7 @@ export function SignatureConsentModal({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancelar
           </Button>
