@@ -76,10 +76,29 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   // Aprobador
   const [approver, setApprover] = useState<{ name: string; role: string } | null>(null);
   const [loadingApprover, setLoadingApprover] = useState(false);
+  const [approverError, setApproverError] = useState<string | null>(null);
 
   const [isPrefillLoading, setIsPrefillLoading] = useState(false);
   const [hasManualChanges, setHasManualChanges] = useState(false);
   const [prefillSource, setPrefillSource] = useState<"SCHEDULE" | "DEFAULT" | null>(null);
+
+  const getFriendlyErrorMessage = (err: unknown): string => {
+    if (err instanceof Error) {
+      const raw = err.message;
+      if (raw.includes("No se encontró un aprobador disponible")) {
+        return "No hay aprobadores disponibles. Revisa Ajustes → Aprobaciones.";
+      }
+      if (raw.includes("Empleado no pertenece a la organización activa")) {
+        return "Cambia a tu organización de empleado para poder fichar.";
+      }
+      if (raw.includes("Usuario no tiene un empleado asociado")) {
+        return "Tu usuario no tiene ficha de empleado asociada. Contacta con RRHH.";
+      }
+      return raw;
+    }
+
+    return "Error al crear la solicitud. Intenta de nuevo o contacta con RRHH.";
+  };
 
   const resetForm = useCallback(() => {
     setSelectedDate(initialDate);
@@ -90,6 +109,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     setConfirmReplacement(false);
     setHasManualChanges(false);
     setPrefillSource(null);
+    setApproverError(null);
   }, [initialDate]);
 
   const applyPrefill = useCallback(async (date: Date) => {
@@ -171,14 +191,23 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   useEffect(() => {
     if (open) {
       setLoadingApprover(true);
+      setApprover(null);
+      setApproverError(null);
       getMyApprover()
         .then((data) => {
           if (data) {
             setApprover({ name: data.name, role: data.role });
+            return;
           }
+          const message = "No se encontró un aprobador disponible. Contacta con RRHH.";
+          setApproverError(message);
+          toast.error(message);
         })
         .catch((err) => {
           console.error("Error al cargar aprobador:", err);
+          const message = err instanceof Error ? err.message : "No se pudo cargar el aprobador. Contacta con RRHH.";
+          setApproverError(message);
+          toast.error(message);
         })
         .finally(() => {
           setLoadingApprover(false);
@@ -286,6 +315,11 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   const validateForm = (): boolean => {
     setError(null);
 
+    if (approverError) {
+      setError(approverError);
+      return false;
+    }
+
     if (!selectedDate) {
       setError("Selecciona una fecha");
       return false;
@@ -368,7 +402,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error al crear la solicitud";
+      const errorMessage = getFriendlyErrorMessage(err);
       setError(errorMessage);
       toast.error("Error al enviar solicitud", {
         description: errorMessage,
@@ -407,6 +441,11 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
               <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
               <span className="text-muted-foreground text-sm">Cargando información del aprobador...</span>
             </div>
+          ) : approverError ? (
+            <Alert variant="destructive">
+              <AlertTitle>No hay aprobador disponible</AlertTitle>
+              <AlertDescription>{approverError}</AlertDescription>
+            </Alert>
           ) : approver ? (
             <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
               <User className="mt-0.5 h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -650,7 +689,12 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isLoading || (selectedDate && isPast(startOfDay(selectedDate)) && !confirmReplacement)}
+              disabled={
+                isLoading ||
+                loadingApprover ||
+                Boolean(approverError) ||
+                (selectedDate && isPast(startOfDay(selectedDate)) && !confirmReplacement)
+              }
               className="w-full shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-all duration-150 hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)] active:scale-[0.97] sm:w-auto"
             >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}

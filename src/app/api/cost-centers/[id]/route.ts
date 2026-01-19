@@ -66,6 +66,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { name, code, address, timezone, active } = body;
+    const normalizedTimezone = typeof timezone === "string" && timezone.trim() !== "" ? timezone : undefined;
 
     if (!name) {
       return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
@@ -91,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name,
         code: code ?? null,
         address: address ?? null,
-        timezone: timezone ?? null,
+        ...(normalizedTimezone ? { timezone: normalizedTimezone } : {}),
         active: active !== undefined ? active : existingCostCenter.active,
       },
     });

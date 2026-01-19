@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { name, code, address, timezone, active = true } = body;
+    const normalizedTimezone = typeof timezone === "string" && timezone.trim() !== "" ? timezone : undefined;
 
     if (!name) {
       return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
@@ -75,9 +76,9 @@ export async function POST(request: NextRequest) {
         name,
         code: code ?? null,
         address: address ?? null,
-        timezone: timezone ?? null,
+        ...(normalizedTimezone ? { timezone: normalizedTimezone } : {}),
         active,
-        orgId,
+        organization: { connect: { id: orgId } },
       },
     });
 
