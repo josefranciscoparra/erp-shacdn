@@ -99,6 +99,7 @@ export function DateRangePicker({
   markers = [],
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const [monthsToShow, setMonthsToShow] = React.useState(1);
   const calendarClassNames = React.useMemo(
     () =>
       useCalendarClassNames({
@@ -108,6 +109,21 @@ export function DateRangePicker({
       }),
     [],
   );
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(min-width: 640px)");
+    const updateMonths = () => {
+      setMonthsToShow(mediaQuery.matches ? 2 : 1);
+    };
+    updateMonths();
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", updateMonths);
+      return () => mediaQuery.removeEventListener("change", updateMonths);
+    }
+    mediaQuery.addListener(updateMonths);
+    return () => mediaQuery.removeListener(updateMonths);
+  }, []);
 
   // Crear el mapa de markers por día
   const markersByDay = React.useMemo(() => {
@@ -161,32 +177,36 @@ export function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto max-w-[calc(100vw-1.5rem)] p-0" align="start">
         <MarkerContext.Provider value={markersByDay}>
-          <DayPicker
-            mode="range"
-            selected={dateRange}
-            onSelect={onDateRangeChange}
-            numberOfMonths={2}
-            defaultMonth={dateRange?.from ?? new Date()}
-            locale={es}
-            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-            showOutsideDays={false}
-            className="p-3"
-            classNames={calendarClassNames}
-            components={{
-              DayButton: CustomDayButton,
-            }}
-          />
+          <div className="flex max-h-[70vh] max-h-[70dvh] flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-3">
+              <DayPicker
+                mode="range"
+                selected={dateRange}
+                onSelect={onDateRangeChange}
+                numberOfMonths={monthsToShow}
+                defaultMonth={dateRange?.from ?? new Date()}
+                locale={es}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                showOutsideDays={false}
+                className="w-full"
+                classNames={calendarClassNames}
+                components={{
+                  DayButton: CustomDayButton,
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between border-t p-3">
+              <Button variant="ghost" size="sm" onClick={handleClear} disabled={!dateRange}>
+                Limpiar
+              </Button>
+              <Button size="sm" onClick={() => setOpen(false)} disabled={!dateRange?.from}>
+                Aplicar
+              </Button>
+            </div>
+          </div>
         </MarkerContext.Provider>
-        <div className="flex items-center justify-between border-t p-3">
-          <Button variant="ghost" size="sm" onClick={handleClear} disabled={!dateRange}>
-            Limpiar
-          </Button>
-          <Button size="sm" onClick={() => setOpen(false)} disabled={!dateRange?.from}>
-            Aplicar
-          </Button>
-        </div>
       </PopoverContent>
     </Popover>
   );
