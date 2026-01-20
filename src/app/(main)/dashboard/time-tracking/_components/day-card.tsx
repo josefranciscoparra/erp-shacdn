@@ -4,24 +4,7 @@ import { useState, useEffect } from "react";
 
 import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Clock,
-  Coffee,
-  LogIn,
-  LogOut,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
-  ChevronDown,
-  ChevronUp,
-  MapPin,
-  CheckCircle2,
-  AlertTriangle,
-  TrendingUp,
-  CalendarX,
-  PartyPopper,
-  FolderKanban,
-} from "lucide-react";
+import { Clock, Coffee, LogIn, LogOut, ChevronDown, ChevronUp, MapPin, AlertTriangle, PartyPopper } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -402,7 +385,6 @@ export function DayCard({ day }: DayCardProps) {
                         const isLast = idx === arr.length - 1;
                         // ... render logic similar to before but simplified for active entries
                         const config = entryTypeConfig[entry.entryType];
-                        const Icon = config.icon;
                         return (
                           <div key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
                             {!isLast && (
@@ -540,9 +522,7 @@ export function DayCard({ day }: DayCardProps) {
                     <span className="text-sm font-semibold">Alertas detectadas ({day.alerts.total})</span>
                   </div>
                   <ul className="list-inside list-disc text-xs text-red-600 dark:text-red-300">
-                    {day.alerts.bySeverity.CRITICAL > 0 && (
-                      <li>{day.alerts.bySeverity.CRITICAL} Críticas (Retrasos graves, Ausencias)</li>
-                    )}
+                    {day.alerts.bySeverity.CRITICAL > 0 && <li>{day.alerts.bySeverity.CRITICAL} Críticas</li>}
                     {day.alerts.bySeverity.WARNING > 0 && (
                       <li>{day.alerts.bySeverity.WARNING} Advertencias (Olvido de fichaje)</li>
                     )}

@@ -1624,16 +1624,43 @@ export async function validateTimeEntry(
   const minutes = timestamp.getMinutes();
   const timestampMinutes = hours * 60 + minutes;
 
+  const getFirstExpectedWorkSlot = (timeSlots: EffectiveTimeSlot[]) => {
+    const mandatoryWorkSlots = timeSlots.filter(
+      (slot) => slot.slotType === "WORK" && slot.presenceType === "MANDATORY" && (slot.countsAsWork ?? true),
+    );
+    const workSlots = timeSlots.filter((slot) => slot.slotType === "WORK" && (slot.countsAsWork ?? true));
+    const candidates = mandatoryWorkSlots.length > 0 ? mandatoryWorkSlots : workSlots;
+
+    if (candidates.length === 0) {
+      return undefined;
+    }
+
+    return candidates.reduce((earliest, slot) => (slot.startMinutes < earliest.startMinutes ? slot : earliest));
+  };
+
+  const getLastExpectedWorkSlot = (timeSlots: EffectiveTimeSlot[]) => {
+    const mandatoryWorkSlots = timeSlots.filter(
+      (slot) => slot.slotType === "WORK" && slot.presenceType === "MANDATORY" && (slot.countsAsWork ?? true),
+    );
+    const workSlots = timeSlots.filter((slot) => slot.slotType === "WORK" && (slot.countsAsWork ?? true));
+    const candidates = mandatoryWorkSlots.length > 0 ? mandatoryWorkSlots : workSlots;
+
+    if (candidates.length === 0) {
+      return undefined;
+    }
+
+    return candidates.reduce((latest, slot) => (slot.endMinutes > latest.endMinutes ? slot : latest));
+  };
+
   // Buscar el slot esperado según el tipo de entrada
   let expectedSlot: EffectiveTimeSlot | undefined;
 
   if (entryType === "CLOCK_IN") {
     // Buscar primer slot de WORK
-    expectedSlot = schedule.timeSlots.find((slot) => slot.slotType === "WORK");
+    expectedSlot = getFirstExpectedWorkSlot(schedule.timeSlots);
   } else if (entryType === "CLOCK_OUT") {
     // Buscar último slot de WORK
-    const workSlots = schedule.timeSlots.filter((slot) => slot.slotType === "WORK");
-    expectedSlot = workSlots[workSlots.length - 1];
+    expectedSlot = getLastExpectedWorkSlot(schedule.timeSlots);
   }
 
   if (!expectedSlot) {

@@ -1,6 +1,17 @@
 "use server";
 
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from "date-fns";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subDays,
+  addDays,
+  format,
+  isSameDay,
+} from "date-fns";
 
 import { AuthError } from "@/lib/auth-guard";
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
@@ -80,6 +91,56 @@ async function assertEmployeeNotPaused(employeeId: string, orgId: string) {
 
 function isActiveWorkEntryType(entryType?: string | null) {
   return entryType === "CLOCK_IN" || entryType === "BREAK_END" || entryType === "PROJECT_SWITCH";
+}
+
+function getLastExpectedWorkSlot(timeSlots: EffectiveSchedule["timeSlots"]) {
+  const workSlots = timeSlots.filter((slot) => slot.slotType === "WORK" && (slot.countsAsWork ?? true));
+  const mandatoryWorkSlots = workSlots.filter((slot) => slot.presenceType === "MANDATORY");
+  const candidates = mandatoryWorkSlots.length > 0 ? mandatoryWorkSlots : workSlots;
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  return candidates.reduce((latest, slot) => (slot.endMinutes > latest.endMinutes ? slot : latest));
+}
+
+async function resolveAutoCloseTimeForPreviousDay(
+  employeeId: string,
+  openEntryTimestamp: Date,
+  now: Date,
+): Promise<{ closeTime: Date; closeLabel: string; closeReason: string }> {
+  const dayStart = startOfDay(openEntryTimestamp);
+  let closeTime = endOfDay(dayStart);
+  let closeReason = "sin horario (fallback)";
+
+  try {
+    const schedule = await getEffectiveSchedule(employeeId, dayStart);
+    const lastSlot = getLastExpectedWorkSlot(schedule.timeSlots);
+    if (lastSlot) {
+      const crossesMidnight = lastSlot.endMinutes <= lastSlot.startMinutes;
+      const endBase = crossesMidnight ? addDays(dayStart, 1) : dayStart;
+      closeTime = new Date(endBase.getTime() + lastSlot.endMinutes * 60 * 1000);
+      closeReason = crossesMidnight ? "fin de jornada (cruce medianoche)" : "fin de jornada";
+      if (closeTime.getTime() < openEntryTimestamp.getTime()) {
+        closeTime = endOfDay(dayStart);
+        closeReason = "sin horario (fallback)";
+      }
+    }
+  } catch (error) {
+    console.error("Error al calcular fin de jornada para autocorrección:", error);
+    closeReason = "sin horario (fallback)";
+  }
+
+  if (closeTime.getTime() > now.getTime()) {
+    closeTime = now;
+  }
+
+  return {
+    closeTime,
+    closeLabel: format(closeTime, "yyyy-MM-dd HH:mm"),
+    closeReason,
+  };
 }
 
 // Helper para procesar datos de geolocalización
@@ -964,13 +1025,27 @@ export async function clockIn(
         let clockInTimestamp = new Date(now);
         let autoCorrected = false;
         let autoCorrectionMessage: string | null = null;
+        let autoCorrectionCloseTime: Date | null = null;
 
         if (!validateTransition(currentState, action)) {
           if (currentState === "CLOCKED_IN" || currentState === "ON_BREAK") {
             autoCorrected = true;
-            const breakEndTimestamp = new Date(now.getTime());
-            const clockOutTimestamp = new Date(now.getTime() + 1);
-            clockInTimestamp = new Date(now.getTime() + 2);
+            const lastEntryLabel = lastEntry
+              ? `${lastEntry.entryType} ${format(lastEntry.timestamp, "yyyy-MM-dd HH:mm")}`
+              : "desconocido";
+            const isPreviousDay = lastEntry ? !isSameDay(lastEntry.timestamp, now) : false;
+            const autoCloseInfo =
+              lastEntry && isPreviousDay
+                ? await resolveAutoCloseTimeForPreviousDay(employeeId, lastEntry.timestamp, now)
+                : null;
+            const closeTime = autoCloseInfo?.closeTime ?? new Date(now.getTime());
+            const closeLabel = autoCloseInfo?.closeLabel ?? format(closeTime, "yyyy-MM-dd HH:mm");
+            const closeReason = autoCloseInfo?.closeReason ?? "sin horario (fallback)";
+            const closeMeta = `${closeLabel} (${closeReason})`;
+            const breakEndTimestamp = new Date(closeTime.getTime());
+            const clockOutTimestamp = new Date(closeTime.getTime() + 1);
+            clockInTimestamp = isPreviousDay ? new Date(now.getTime()) : new Date(now.getTime() + 2);
+            autoCorrectionCloseTime = closeTime;
 
             if (currentState === "ON_BREAK") {
               await tx.timeEntry.create({
@@ -979,7 +1054,7 @@ export async function clockIn(
                   employeeId,
                   entryType: "BREAK_END",
                   timestamp: breakEndTimestamp,
-                  notes: "Autocorrección: cierre automático de pausa previa.",
+                  notes: `Autocorrección: cierre automático de pausa previa (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`,
                 },
               });
             }
@@ -990,14 +1065,14 @@ export async function clockIn(
                 employeeId,
                 entryType: "CLOCK_OUT",
                 timestamp: clockOutTimestamp,
-                notes: "Autocorrección: cierre automático de sesión previa.",
+                notes: `Autocorrección: cierre automático de sesión previa (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`,
               },
             });
 
             autoCorrectionMessage =
               currentState === "ON_BREAK"
-                ? "Se cerró automáticamente una pausa y la sesión anterior antes de fichar entrada."
-                : "Se cerró automáticamente la sesión anterior antes de fichar entrada.";
+                ? `Se cerró automáticamente una pausa y la sesión anterior antes de fichar entrada (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`
+                : `Se cerró automáticamente la sesión anterior antes de fichar entrada (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`;
           } else {
             throw new Error(getTransitionError(currentState, action));
           }
@@ -1023,6 +1098,7 @@ export async function clockIn(
           entry: createdEntry,
           autoCorrected,
           autoCorrectionMessage,
+          autoCorrectionCloseTime,
         };
       },
       {
@@ -1033,6 +1109,9 @@ export async function clockIn(
 
     // Actualizar el resumen del día (FUERA de la transacción, no es crítico)
     await updateWorkdaySummary(employeeId, orgId, now);
+    if (entry.autoCorrectionCloseTime && !isSameDay(entry.autoCorrectionCloseTime, now)) {
+      await updateWorkdaySummary(employeeId, orgId, entry.autoCorrectionCloseTime);
+    }
 
     // Detectar alertas en tiempo real (FUERA de la transacción, no es crítico)
     console.log("🚨 [CLOCK_IN] Iniciando detección de alertas para entry:", entry.entry.id);

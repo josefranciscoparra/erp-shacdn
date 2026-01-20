@@ -10,6 +10,7 @@ import {
   getUserAccessibleTeams,
 } from "@/services/permissions/scope-helpers";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
+import type { EffectiveTimeSlot } from "@/types/schedule";
 
 import { getOrganizationValidationConfig } from "./time-clock-validations";
 
@@ -71,6 +72,42 @@ function formatMinutes(minutes: number): string {
   } else {
     return `${hours}h ${mins}min`;
   }
+}
+
+function getLocalDateKey(date: Date): string {
+  const localDate = new Date(date);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, "0");
+  const day = String(localDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getFirstExpectedWorkSlot(timeSlots: EffectiveTimeSlot[]): EffectiveTimeSlot | undefined {
+  const mandatoryWorkSlots = timeSlots.filter(
+    (slot) => slot.slotType === "WORK" && slot.presenceType === "MANDATORY" && (slot.countsAsWork ?? true),
+  );
+  const workSlots = timeSlots.filter((slot) => slot.slotType === "WORK" && (slot.countsAsWork ?? true));
+  const candidates = mandatoryWorkSlots.length > 0 ? mandatoryWorkSlots : workSlots;
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  return candidates.reduce((earliest, slot) => (slot.startMinutes < earliest.startMinutes ? slot : earliest));
+}
+
+function getLastExpectedWorkSlot(timeSlots: EffectiveTimeSlot[]): EffectiveTimeSlot | undefined {
+  const mandatoryWorkSlots = timeSlots.filter(
+    (slot) => slot.slotType === "WORK" && slot.presenceType === "MANDATORY" && (slot.countsAsWork ?? true),
+  );
+  const workSlots = timeSlots.filter((slot) => slot.slotType === "WORK" && (slot.countsAsWork ?? true));
+  const candidates = mandatoryWorkSlots.length > 0 ? mandatoryWorkSlots : workSlots;
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  return candidates.reduce((latest, slot) => (slot.endMinutes > latest.endMinutes ? slot : latest));
 }
 
 /**
@@ -196,7 +233,7 @@ export async function detectAlertsForTimeEntry(timeEntryId: string): Promise<Det
 
     // VALIDACIÓN 1: Entrada tardía (solo para CLOCK_IN)
     if (timeEntry.entryType === "CLOCK_IN") {
-      const firstWorkSlot = effectiveSchedule.timeSlots?.find((slot) => slot.slotType === "WORK");
+      const firstWorkSlot = getFirstExpectedWorkSlot(effectiveSchedule.timeSlots);
 
       console.log("🔍 [ANALYZE] Validando CLOCK_IN - Primera franja de trabajo:", {
         hasTimeSlots: !!effectiveSchedule.timeSlots,
@@ -252,7 +289,7 @@ export async function detectAlertsForTimeEntry(timeEntryId: string): Promise<Det
 
     // VALIDACIÓN 2: Salida temprana (solo para CLOCK_OUT)
     if (timeEntry.entryType === "CLOCK_OUT") {
-      const lastWorkSlot = effectiveSchedule.timeSlots?.filter((slot) => slot.slotType === "WORK").pop();
+      const lastWorkSlot = getLastExpectedWorkSlot(effectiveSchedule.timeSlots);
 
       console.log("🔍 [ANALYZE] Validando CLOCK_OUT - Última franja de trabajo:", {
         lastWorkSlot: lastWorkSlot,
@@ -1062,7 +1099,7 @@ export async function getEmployeeAlertsByDateRange(
     const result: Record<string, { total: number; bySeverity: Record<string, number> }> = {};
 
     for (const item of groupedAlerts) {
-      const dateKey = item.date.toISOString().split("T")[0];
+      const dateKey = getLocalDateKey(item.date);
       const { _count: countData } = item;
       const { _all: count } = countData;
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import { startOfDay, endOfDay, format } from "date-fns";
+import { startOfDay, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, ArrowLeft, ShieldAlert, List, Map } from "lucide-react";
 import { DateRange } from "react-day-picker";
@@ -41,6 +41,14 @@ import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns
 
 type TabValue = "detail" | "week" | "month" | "year";
 type PeriodOption = "today" | "7days" | "30days" | "thisMonth" | "lastMonth" | "custom";
+
+function getLocalDateKey(date: Date): string {
+  const localDate = new Date(date);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, "0");
+  const day = String(localDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 interface DayDetailData {
   id: string;
@@ -169,7 +177,7 @@ export default function EmployeeTimeTrackingPage() {
 
         // Enriquecer los días con información de alertas y aplicar corrección visual
         const daysWithAlerts = data.days.map((day) => {
-          const dateKey = new Date(day.date).toISOString().split("T")[0];
+          const dateKey = getLocalDateKey(new Date(day.date));
 
           // Corrección visual para días no laborables (ej: fines de semana)
           // Si no se esperaba trabajar y no se trabajó, forzar estado NON_WORKDAY
