@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, FileText, AlertCircle, FileCheck } from "lucide-react";
+import { Clock, FileText, FileCheck } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +32,9 @@ export function ApprovalsKpiCards({ items, loading }: ApprovalsKpiCardsProps) {
   const pendingCount = items.length;
   const ptoCount = items.filter((i) => i.type === "PTO").length;
   const expenseCount = items.filter((i) => i.type === "EXPENSE").length;
+  const manualCount = items.filter((i) => i.type === "MANUAL_TIME_ENTRY").length;
+  const timeBankCount = items.filter((i) => i.type === "TIME_BANK").length;
+  const otherCount = expenseCount + manualCount + timeBankCount;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -85,7 +88,7 @@ export function ApprovalsKpiCards({ items, loading }: ApprovalsKpiCardsProps) {
       {/* Card 3: Gastos y Otros */}
       <Card className="gap-2">
         <CardHeader>
-          <CardTitle className="font-display text-xl">Gastos y Fichajes</CardTitle>
+          <CardTitle className="font-display text-xl">Gastos, Fichajes y Bolsa</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
@@ -94,9 +97,9 @@ export function ApprovalsKpiCards({ items, loading }: ApprovalsKpiCardsProps) {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium">
-                {expenseCount > 0 ? `${expenseCount} Solicitudes varias` : "Sin otros pendientes"}
+                {otherCount > 0 ? `${otherCount} Solicitudes varias` : "Sin otros pendientes"}
               </p>
-              <p className="text-muted-foreground text-sm">Correcciones de fichaje y gastos</p>
+              <p className="text-muted-foreground text-sm">Correcciones de fichaje, bolsa de horas y gastos</p>
             </div>
           </div>
         </CardContent>

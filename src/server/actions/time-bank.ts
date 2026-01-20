@@ -716,8 +716,8 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
       undefined,
     );
   }
-
-  const { employee: _employeeInfo, ...plainRequest } = requestWithEmployee as typeof requestWithEmployee & {
+  const { employee, ...plainRequest } = requestWithEmployee as typeof requestWithEmployee & {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     employee: any;
   };
 
@@ -759,20 +759,36 @@ export interface TimeBankRequestWithEmployee extends TimeBankRequest {
     lastName: string;
     employeeNumber: string | null;
   };
+  organization?: {
+    id: string;
+    name: string | null;
+  } | null;
 }
 
 export async function getTimeBankRequestsForReview(
   status: TimeBankRequestStatus = "PENDING",
+  orgIdOverride?: string | null,
 ): Promise<TimeBankRequestWithEmployee[]> {
   const { orgId, userId } = await getAuthenticatedUser();
   await ensureReviewerPermission();
+  const targetOrgId = orgIdOverride ?? orgId;
+
+  if (!targetOrgId) {
+    return [];
+  }
 
   const requests = await prisma.timeBankRequest.findMany({
     where: {
-      orgId,
+      orgId: targetOrgId,
       ...(status ? { status } : {}),
     },
     include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       employee: {
         select: {
           id: true,
@@ -798,6 +814,56 @@ export async function getTimeBankRequestsForReview(
   return filtered;
 }
 
+export type TimeBankOrganizationOption = {
+  id: string;
+  name: string;
+};
+
+export async function getTimeBankOrganizationOptions(): Promise<TimeBankOrganizationOption[]> {
+  const { userId, role } = await getAuthenticatedUser();
+  await ensureReviewerPermission();
+
+  if (role === "SUPER_ADMIN") {
+    const orgs = await prisma.organization.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+
+    return orgs.map((org) => ({
+      id: org.id,
+      name: org.name ?? "Organización",
+    }));
+  }
+
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      userId,
+      isActive: true,
+      organization: { active: true },
+    },
+    select: {
+      orgId: true,
+      organization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: [{ organization: { name: "asc" } }],
+  });
+
+  const orgMap = new Map<string, string>();
+  for (const membership of memberships) {
+    if (membership.organization) {
+      orgMap.set(membership.organization.id, membership.organization.name ?? "Organización");
+    }
+  }
+
+  return Array.from(orgMap.entries()).map(([id, name]) => ({ id, name }));
+}
+
 interface ReviewTimeBankRequestInput {
   requestId: string;
   action: "APPROVE" | "REJECT";
@@ -815,6 +881,11 @@ export interface TimeBankEmployeeSummary {
   lastName: string;
   totalMinutes: number;
   pendingRequests: number;
+  orgId: string;
+  organization?: {
+    id: string;
+    name: string | null;
+  } | null;
 }
 
 export interface TimeBankAdminStats {
@@ -825,14 +896,33 @@ export interface TimeBankAdminStats {
   employeeSummaries: TimeBankEmployeeSummary[];
 }
 
-export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
+export async function getTimeBankAdminStats(orgIdOverride?: string | null): Promise<TimeBankAdminStats> {
   const { orgId } = await getAuthenticatedUser();
   await ensureReviewerPermission();
+  const targetOrgId = orgIdOverride ?? orgId;
+
+  if (!targetOrgId) {
+    return {
+      totalEmployeesWithBalance: 0,
+      totalPositiveMinutes: 0,
+      totalNegativeMinutes: 0,
+      pendingRequestsCount: 0,
+      employeeSummaries: [],
+    };
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: targetOrgId },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
 
   // Obtener todos los empleados con saldo en la bolsa de horas
   const employeesWithBalance = await prisma.timeBankMovement.groupBy({
     by: ["employeeId"],
-    where: { orgId },
+    where: { orgId: targetOrgId },
     _sum: { minutes: true },
   });
 
@@ -842,7 +932,7 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
   const employees = await prisma.employee.findMany({
     where: {
       id: { in: employeeIds },
-      orgId,
+      orgId: targetOrgId,
     },
     select: {
       id: true,
@@ -856,7 +946,7 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
   const pendingByEmployee = await prisma.timeBankRequest.groupBy({
     by: ["employeeId"],
     where: {
-      orgId,
+      orgId: targetOrgId,
       employeeId: { in: employeeIds },
       status: "PENDING",
     },
@@ -889,6 +979,8 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
         lastName: emp?.lastName ?? "",
         totalMinutes,
         pendingRequests: pendingMap.get(eb.employeeId) ?? 0,
+        orgId: targetOrgId,
+        organization,
       };
     })
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
@@ -896,7 +988,7 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
   // Contar total de solicitudes pendientes
   const pendingRequestsCount = await prisma.timeBankRequest.count({
     where: {
-      orgId,
+      orgId: targetOrgId,
       status: "PENDING",
     },
   });
@@ -911,7 +1003,7 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
 }
 
 export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
-  const { orgId, userId } = await getAuthenticatedUser();
+  const { userId } = await getAuthenticatedUser();
 
   const request = await prisma.timeBankRequest.findUnique({
     where: { id: input.requestId },
@@ -930,7 +1022,7 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
     },
   });
 
-  if (!request || request.orgId !== orgId) {
+  if (!request) {
     throw new Error("Solicitud no encontrada");
   }
 
@@ -962,7 +1054,7 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
       const reasonSuffix = input.reviewerComments ? ` Motivo: ${input.reviewerComments}` : "";
       await createNotification(
         employeeUserId,
-        orgId,
+        request.orgId,
         "TIME_BANK_REQUEST_REJECTED",
         "Solicitud de Bolsa rechazada",
         `Tu solicitud de ${hours}h fue rechazada.${reasonSuffix}`,
@@ -974,8 +1066,8 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
     return;
   }
 
-  const settings = await getTimeBankSettingsForOrg(orgId);
-  const balanceMinutes = await getEmployeeBalanceMinutes(prisma, orgId, request.employeeId, {
+  const settings = await getTimeBankSettingsForOrg(request.orgId);
+  const balanceMinutes = await getEmployeeBalanceMinutes(prisma, request.orgId, request.employeeId, {
     requestId: request.id,
   });
   const maxAllowed = getMaxAllowedMinutesForRequest(request.type, balanceMinutes, settings);
@@ -1014,7 +1106,7 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
     const hours = request.requestedMinutes / 60;
     await createNotification(
       employeeUserId,
-      orgId,
+      request.orgId,
       "TIME_BANK_REQUEST_APPROVED",
       "Solicitud de Bolsa aprobada",
       `Tu solicitud de ${hours}h fue aprobada.`,

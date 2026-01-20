@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 
 export type PendingApprovalItem = {
   id: string;
-  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE";
+  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE" | "TIME_BANK";
   employeeName: string;
   employeeImage?: string | null;
   employeeId: string; // Necesario para algunas lógicas UI
@@ -38,6 +38,20 @@ type UserOrgSummary = {
   id: string;
   name: string;
 };
+
+const TIME_BANK_TYPE_LABELS: Record<string, string> = {
+  RECOVERY: "Recuperación",
+  FESTIVE_COMPENSATION: "Compensación festivo",
+  CORRECTION: "Corrección",
+};
+
+function formatTimeBankHours(minutes: number) {
+  const hours = minutes / 60;
+  if (Number.isInteger(hours)) {
+    return hours.toString();
+  }
+  return hours.toFixed(1);
+}
 
 async function getAccessibleOrganizations(userId: string, role: string): Promise<UserOrgSummary[]> {
   if (role === "SUPER_ADMIN") {
@@ -125,6 +139,7 @@ export async function getMyApprovals(
 
     // Si es historial, mostramos todo para RRHH; para el resto, solo sus acciones.
     const historyWhereClause = isHistory && !hasHrAccess ? { approverId: userId } : {};
+    const timeBankHistoryWhereClause = isHistory && !hasHrAccess ? { processedById: userId } : {};
     // --- PREPARAR CONSULTAS ---
 
     // 1. PTO Promise
@@ -203,6 +218,36 @@ export async function getMyApprovals(
       take: isHistory ? 50 : undefined,
     });
 
+    // 3. Time Bank Promise
+    const timeBankPromise = prisma.timeBankRequest.findMany({
+      where: {
+        orgId: { in: orgFilterIds },
+        status: statusFilter,
+        ...timeBankHistoryWhereClause,
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        employee: {
+          include: {
+            employmentContracts: {
+              where: { active: true },
+              take: 1,
+              include: { position: true, department: true },
+            },
+          },
+        },
+        reviewer: { select: { name: true, image: true } },
+        processedBy: { select: { name: true, image: true } },
+      },
+      orderBy: isHistory ? { processedAt: "desc" } : { submittedAt: "desc" },
+      take: isHistory ? 50 : undefined,
+    });
+
     // 3. Expenses Promise
     const expenseStatus = isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED";
     const expenseApprovalsFilter = isHistory
@@ -267,7 +312,12 @@ export async function getMyApprovals(
     });
 
     // --- EJECUTAR EN PARALELO ---
-    const [ptoRequests, manualRequests, expenses] = await Promise.all([ptoPromise, manualPromise, expensesPromise]);
+    const [ptoRequests, manualRequests, timeBankRequests, expenses] = await Promise.all([
+      ptoPromise,
+      manualPromise,
+      timeBankPromise,
+      expensesPromise,
+    ]);
 
     // --- PROCESAR PTO ---
     for (const req of ptoRequests) {
@@ -376,6 +426,63 @@ export async function getMyApprovals(
       });
     }
 
+    // --- PROCESAR TIME BANK ---
+    for (const req of timeBankRequests) {
+      if (!isHistory && !hasHrAccess) {
+        const approvers = await getAuthorizedApprovers(req.employeeId, "TIME_BANK");
+        if (!approvers.some((a) => a.userId === userId)) continue;
+      }
+
+      const activeContract = req.employee.employmentContracts?.[0];
+      const hours = req.requestedMinutes / 60;
+      const hoursLabel = formatTimeBankHours(req.requestedMinutes);
+      const typeLabel = TIME_BANK_TYPE_LABELS[req.type] ?? "Bolsa de horas";
+      const sign = req.type === "RECOVERY" ? "-" : "+";
+      const reviewerComments =
+        req.metadata && typeof req.metadata === "object" && "reviewerComments" in req.metadata
+          ? (req.metadata as Record<string, string>).reviewerComments
+          : undefined;
+      const approverName = req.processedBy?.name ?? req.reviewer?.name;
+      const approverImage = req.processedBy?.image ?? req.reviewer?.image;
+
+      items.push({
+        id: req.id,
+        type: "TIME_BANK",
+        employeeId: req.employeeId,
+        employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
+        employeeImage: req.employee.photoUrl,
+        orgId: req.orgId,
+        organization: req.organization
+          ? {
+              id: req.organization.id,
+              name: req.organization.name,
+            }
+          : undefined,
+        date: req.date.toISOString(),
+        summary: `Bolsa: ${sign}${hoursLabel}h (${typeLabel})`,
+        status: req.status,
+        createdAt: req.submittedAt ?? req.createdAt,
+        details: {
+          date: req.date.toISOString(),
+          requestedMinutes: req.requestedMinutes,
+          requestedHours: hours,
+          requestType: req.type,
+          requestTypeLabel: typeLabel,
+          reason: req.reason,
+          position: activeContract?.position?.title,
+          department: activeContract?.department?.name,
+          approverComments: reviewerComments,
+          rejectionReason: req.status === "REJECTED" ? reviewerComments : undefined,
+          audit: {
+            approvedAt: req.approvedAt?.toISOString(),
+            rejectedAt: req.rejectedAt?.toISOString(),
+            approverName,
+            approverImage,
+          },
+        },
+      });
+    }
+
     // --- PROCESAR EXPENSES ---
     for (const expense of expenses) {
       const approvals = expense.approvals ?? [];
@@ -466,6 +573,20 @@ export async function approveRequest(id: string, type: string, comments?: string
   } else if (type === "EXPENSE") {
     const { approveExpense } = await import("./expense-approvals");
     result = await approveExpense(id, comments);
+  } else if (type === "TIME_BANK") {
+    const { reviewTimeBankRequest } = await import("./time-bank");
+    const reviewerComments = comments?.trim();
+    try {
+      await reviewTimeBankRequest({
+        requestId: id,
+        action: "APPROVE",
+        reviewerComments: reviewerComments ?? undefined,
+      });
+      result = { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo aprobar la solicitud";
+      return { success: false, error: message };
+    }
   } else {
     return { success: false, error: "Tipo de solicitud no soportado" };
   }
@@ -492,6 +613,19 @@ export async function rejectRequest(id: string, type: string, reason: string) {
   } else if (type === "EXPENSE") {
     const { rejectExpense } = await import("./expense-approvals");
     result = await rejectExpense(id, reason);
+  } else if (type === "TIME_BANK") {
+    const { reviewTimeBankRequest } = await import("./time-bank");
+    try {
+      await reviewTimeBankRequest({
+        requestId: id,
+        action: "REJECT",
+        reviewerComments: reason.trim(),
+      });
+      result = { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo rechazar la solicitud";
+      return { success: false, error: message };
+    }
   } else {
     return { success: false, error: "Tipo de solicitud no soportado" };
   }

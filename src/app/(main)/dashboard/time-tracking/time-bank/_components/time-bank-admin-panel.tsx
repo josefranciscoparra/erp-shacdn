@@ -47,11 +47,13 @@ function RequestCard({
   isPending,
   onApprove,
   onReject,
+  showOrgBadge,
 }: {
   request: TimeBankRequestWithEmployee;
   isPending: boolean;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  showOrgBadge: boolean;
 }) {
   return (
     <div className="rounded-lg border p-4">
@@ -60,6 +62,11 @@ function RequestCard({
           <div className="flex items-center gap-2 text-sm font-semibold">
             <PiggyBank className="text-primary h-4 w-4" />
             {request.employee.firstName} {request.employee.lastName}
+            {showOrgBadge && request.organization && (
+              <Badge variant="outline" className="text-[10px] font-medium">
+                {request.organization.name ?? "Organización"}
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground text-xs">
             {request.employee.employeeNumber ? `Empleado ${request.employee.employeeNumber}` : "Sin número"}
@@ -111,7 +118,7 @@ function RequestCard({
   );
 }
 
-export function TimeBankAdminPanel() {
+export function TimeBankAdminPanel({ orgIds, showOrgBadges }: { orgIds: string[]; showOrgBadges: boolean }) {
   const [requests, setRequests] = useState<TimeBankRequestWithEmployee[]>([]);
   const [statusFilter, setStatusFilter] = useState<TimeBankRequestStatus>("PENDING");
   const [isLoading, setIsLoading] = useState(true);
@@ -129,9 +136,44 @@ export function TimeBankAdminPanel() {
   const loadRequests = async (status: TimeBankRequestStatus) => {
     setIsLoading(true);
     try {
-      const data = await getTimeBankRequestsForReview(status);
-      setRequests(data);
-      setCurrentPage(0); // Reset página al cambiar filtro
+      if (orgIds.length === 0) {
+        setRequests([]);
+        setCurrentPage(0);
+        return;
+      }
+
+      if (orgIds.length === 1) {
+        const data = await getTimeBankRequestsForReview(status, orgIds[0]);
+        setRequests(data);
+        setCurrentPage(0);
+        return;
+      }
+
+      const results = await Promise.allSettled(orgIds.map((orgId) => getTimeBankRequestsForReview(status, orgId)));
+      const aggregated: TimeBankRequestWithEmployee[] = [];
+      let partialFailure = false;
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          aggregated.push(...result.value);
+        } else {
+          partialFailure = true;
+          console.error("Error al cargar solicitudes de bolsa:", result.reason);
+        }
+      });
+
+      aggregated.sort((a, b) => {
+        const dateA = new Date(a.submittedAt ?? a.createdAt).getTime();
+        const dateB = new Date(b.submittedAt ?? b.createdAt).getTime();
+        return dateB - dateA;
+      });
+
+      setRequests(aggregated);
+      setCurrentPage(0);
+
+      if (partialFailure) {
+        toast.warning("Algunas organizaciones no se pudieron cargar.");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error al cargar solicitudes";
       toast.error(message);
@@ -140,9 +182,11 @@ export function TimeBankAdminPanel() {
     }
   };
 
+  const orgKey = useMemo(() => orgIds.join("|"), [orgIds]);
+
   useEffect(() => {
     loadRequests(statusFilter);
-  }, [statusFilter]);
+  }, [statusFilter, orgKey]);
 
   // Reset página cuando cambia la búsqueda
   useEffect(() => {
@@ -181,6 +225,12 @@ export function TimeBankAdminPanel() {
     });
     return summary;
   }, [requests]);
+
+  const computedShowOrgBadges = useMemo(() => {
+    const orgSet = new Set(requests.map((request) => request.orgId));
+    return orgSet.size > 1;
+  }, [requests]);
+  const shouldShowOrgBadges = showOrgBadges || computedShowOrgBadges;
 
   const handleApprove = (requestId: string) => {
     startTransition(async () => {
@@ -297,6 +347,7 @@ export function TimeBankAdminPanel() {
                     isPending={isPending}
                     onApprove={handleApprove}
                     onReject={openRejectDialog}
+                    showOrgBadge={shouldShowOrgBadges}
                   />
                 ))
               )}

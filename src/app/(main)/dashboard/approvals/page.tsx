@@ -270,6 +270,7 @@ export default function ApprovalsPage() {
                     <SelectItem value="all">Todos los tipos</SelectItem>
                     <SelectItem value="PTO">Ausencias</SelectItem>
                     <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
+                    <SelectItem value="TIME_BANK">Bolsa de horas</SelectItem>
                     <SelectItem value="EXPENSE">Gastos</SelectItem>
                   </SelectContent>
                 </Select>

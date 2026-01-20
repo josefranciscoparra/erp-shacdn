@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import Link from "next/link";
 
@@ -87,87 +87,105 @@ function StatCard({
   );
 }
 
-const columns: ColumnDef<TimeBankEmployeeSummary>[] = [
-  {
-    accessorKey: "fullName",
-    header: ({ column }) => (
-      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
-        Empleado
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
-    cell: ({ row }) => {
-      const employee = row.original;
-      return (
-        <Link href={`/dashboard/employees/${employee.employeeId}`} className="hover:underline">
-          <span className="font-medium">
-            {employee.firstName} {employee.lastName}
-          </span>
-          {employee.employeeNumber && (
-            <span className="text-muted-foreground ml-2 text-xs">({employee.employeeNumber})</span>
-          )}
-        </Link>
-      );
-    },
-    filterFn: (row, _, filterValue) => {
-      const employee = row.original;
-      const searchValue = filterValue.toLowerCase();
-      const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
-      const empNumber = employee.employeeNumber?.toLowerCase() ?? "";
-      return fullName.includes(searchValue) || empNumber.includes(searchValue);
-    },
-  },
-  {
-    accessorKey: "totalMinutes",
-    header: ({ column }) => (
-      <div className="text-right">
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-mr-4">
-          Saldo
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const minutes = row.getValue("totalMinutes");
-      const isPositive = minutes >= 0;
-      return (
-        <div className="text-right">
-          <span
-            className={cn(
-              "font-semibold",
-              isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
-            )}
-          >
-            {formatMinutes(minutes)}
-          </span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "pendingRequests",
-    header: () => <div className="text-center">Pendientes</div>,
-    cell: ({ row }) => {
-      const pending = row.getValue("pendingRequests");
-      return (
-        <div className="text-center">
-          {pending > 0 ? (
-            <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-              {pending}
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground text-xs">-</span>
-          )}
-        </div>
-      );
-    },
-  },
-];
-
-function EmployeeBalanceTable({ data }: { data: TimeBankEmployeeSummary[] }) {
+function EmployeeBalanceTable({ data, showOrgBadges }: { data: TimeBankEmployeeSummary[]; showOrgBadges: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const columns = useMemo<ColumnDef<TimeBankEmployeeSummary>[]>(
+    () => [
+      {
+        accessorKey: "fullName",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="-ml-4"
+          >
+            Empleado
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+        cell: ({ row }) => {
+          const employee = row.original;
+          return (
+            <Link href={`/dashboard/employees/${employee.employeeId}`} className="hover:underline">
+              <span className="font-medium">
+                {employee.firstName} {employee.lastName}
+              </span>
+              {employee.employeeNumber && (
+                <span className="text-muted-foreground ml-2 text-xs">({employee.employeeNumber})</span>
+              )}
+              {showOrgBadges && employee.organization && (
+                <Badge variant="outline" className="ml-2 text-[10px] font-medium">
+                  {employee.organization.name ?? "Organización"}
+                </Badge>
+              )}
+            </Link>
+          );
+        },
+        filterFn: (row, _, filterValue) => {
+          const employee = row.original;
+          const searchValue = filterValue.toLowerCase();
+          const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+          const empNumber = employee.employeeNumber?.toLowerCase() ?? "";
+          return fullName.includes(searchValue) || empNumber.includes(searchValue);
+        },
+      },
+      {
+        accessorKey: "totalMinutes",
+        header: ({ column }) => (
+          <div className="text-right">
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-mr-4"
+            >
+              Saldo
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const minutes = row.getValue("totalMinutes");
+          const isPositive = minutes >= 0;
+          return (
+            <div className="text-right">
+              <span
+                className={cn(
+                  "font-semibold",
+                  isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                )}
+              >
+                {formatMinutes(minutes)}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "pendingRequests",
+        header: () => <div className="text-center">Pendientes</div>,
+        cell: ({ row }) => {
+          const pending = row.getValue("pendingRequests");
+          return (
+            <div className="text-center">
+              {pending > 0 ? (
+                <Badge
+                  variant="secondary"
+                  className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                >
+                  {pending}
+                </Badge>
+              ) : (
+                <span className="text-muted-foreground text-xs">-</span>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [showOrgBadges],
+  );
 
   const table = useReactTable({
     data,
@@ -271,7 +289,7 @@ function EmployeeBalanceTable({ data }: { data: TimeBankEmployeeSummary[] }) {
   );
 }
 
-export function TimeBankStats() {
+export function TimeBankStats({ orgIds, showOrgBadges }: { orgIds: string[]; showOrgBadges: boolean }) {
   const [stats, setStats] = useState<TimeBankAdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -280,8 +298,49 @@ export function TimeBankStats() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTimeBankAdminStats();
-        setStats(data);
+        if (orgIds.length === 0) {
+          setStats(null);
+          return;
+        }
+
+        if (orgIds.length === 1) {
+          const data = await getTimeBankAdminStats(orgIds[0]);
+          setStats(data);
+          return;
+        }
+
+        const results = await Promise.allSettled(orgIds.map((orgId) => getTimeBankAdminStats(orgId)));
+        let partialFailure = false;
+        let totalPositiveMinutes = 0;
+        let totalNegativeMinutes = 0;
+        let pendingRequestsCount = 0;
+        const employeeSummaries: TimeBankEmployeeSummary[] = [];
+
+        results.forEach((result) => {
+          if (result.status === "fulfilled") {
+            totalPositiveMinutes += result.value.totalPositiveMinutes;
+            totalNegativeMinutes += result.value.totalNegativeMinutes;
+            pendingRequestsCount += result.value.pendingRequestsCount;
+            employeeSummaries.push(...result.value.employeeSummaries);
+          } else {
+            partialFailure = true;
+            console.error("Error al cargar estadísticas de bolsa:", result.reason);
+          }
+        });
+
+        employeeSummaries.sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+        setStats({
+          totalEmployeesWithBalance: employeeSummaries.length,
+          totalPositiveMinutes,
+          totalNegativeMinutes,
+          pendingRequestsCount,
+          employeeSummaries,
+        });
+
+        if (partialFailure) {
+          toast.warning("Algunas organizaciones no se pudieron cargar.");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Error al cargar estadísticas";
         toast.error(message);
@@ -291,9 +350,11 @@ export function TimeBankStats() {
     });
   };
 
+  const orgKey = useMemo(() => orgIds.join("|"), [orgIds]);
+
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [orgKey]);
 
   if (isLoading && !stats) {
     return (
@@ -318,8 +379,15 @@ export function TimeBankStats() {
   }
 
   if (!stats) {
-    return null;
+    return (
+      <div className="text-muted-foreground rounded-md border border-dashed px-4 py-8 text-center text-sm">
+        No hay datos para mostrar.
+      </div>
+    );
   }
+
+  const orgSet = new Set(stats.employeeSummaries.map((summary) => summary.orgId));
+  const shouldShowOrgBadges = showOrgBadges || orgSet.size > 1;
 
   return (
     <div className="space-y-6">
@@ -367,7 +435,7 @@ export function TimeBankStats() {
               No hay empleados con movimientos en la bolsa de horas.
             </div>
           ) : (
-            <EmployeeBalanceTable data={stats.employeeSummaries} />
+            <EmployeeBalanceTable data={stats.employeeSummaries} showOrgBadges={shouldShowOrgBadges} />
           )}
         </CardContent>
       </Card>

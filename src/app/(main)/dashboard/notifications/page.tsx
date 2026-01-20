@@ -162,7 +162,10 @@ function getNotificationActionLabel(notification: Notification): string {
     return "Ver mis gastos";
   }
   if (notification.type.startsWith("TIME_BANK_REQUEST_")) {
-    return "Ir a Bolsa de Horas";
+    if (notification.type === "TIME_BANK_REQUEST_SUBMITTED") {
+      return "Ir a Aprobaciones";
+    }
+    return "Ir a Mi Bolsa de Horas";
   }
   if (notification.type === "DOCUMENT_UPLOADED") {
     return "Ir a Mis Documentos";
@@ -229,7 +232,17 @@ export default function NotificationsPage() {
   }, [notifications]);
 
   const needsOrgSwitch = useCallback(
-    (notification: Notification) => Boolean(activeOrgId && notification.orgId && notification.orgId !== activeOrgId),
+    (notification: Notification) => {
+      if (
+        notification.type === "PTO_SUBMITTED" ||
+        notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ||
+        notification.type === "TIME_BANK_REQUEST_SUBMITTED"
+      ) {
+        return false;
+      }
+
+      return Boolean(activeOrgId && notification.orgId && notification.orgId !== activeOrgId);
+    },
     [activeOrgId],
   );
 
@@ -515,12 +528,15 @@ export default function NotificationsPage() {
       }
 
       // Manejar Bolsa de Horas
-      if (
-        notification.type === "TIME_BANK_REQUEST_SUBMITTED" ||
-        notification.type === "TIME_BANK_REQUEST_APPROVED" ||
-        notification.type === "TIME_BANK_REQUEST_REJECTED"
-      ) {
-        router.push(`/dashboard/time-tracking/time-bank`);
+      if (notification.type === "TIME_BANK_REQUEST_SUBMITTED") {
+        const orgQuery = notification.orgId ? `?orgId=${notification.orgId}` : "";
+        router.push(`/dashboard/approvals${orgQuery}`);
+        setIsDetailOpen(false);
+        return;
+      }
+
+      if (notification.type === "TIME_BANK_REQUEST_APPROVED" || notification.type === "TIME_BANK_REQUEST_REJECTED") {
+        router.push(`/dashboard/me/time-bank`);
         setIsDetailOpen(false);
         return;
       }

@@ -19,6 +19,7 @@ import {
   Building2,
   User,
   ArrowRight,
+  PiggyBank,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,7 +68,10 @@ function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
     actorName: item.employeeName,
     actorImage: item.employeeImage,
     date: item.createdAt,
-    comment: item.type === "PTO" ? getDetailString(item, "reason") : getDetailString(item, "notes"),
+    comment:
+      item.type === "PTO" || item.type === "TIME_BANK"
+        ? getDetailString(item, "reason")
+        : getDetailString(item, "notes"),
   });
 
   // 2. Decisión (si existe en audit)
@@ -366,6 +370,53 @@ function ManualEntryDetails({ item }: { item: PendingApprovalItem }) {
   );
 }
 
+function TimeBankDetails({ item }: { item: PendingApprovalItem }) {
+  const date = item.details?.date ? new Date(item.details.date as string) : null;
+  const reason = item.details?.reason as string | undefined;
+  const requestType = item.details?.requestType as string | undefined;
+  const requestTypeLabel = item.details?.requestTypeLabel as string | undefined;
+  const requestedHours = item.details?.requestedHours as number | undefined;
+  const hasHours = typeof requestedHours === "number" && Number.isFinite(requestedHours);
+  const formattedHours = hasHours
+    ? Number.isInteger(requestedHours)
+      ? requestedHours.toString()
+      : requestedHours.toFixed(1)
+    : null;
+  const sign = requestType === "RECOVERY" ? "-" : "+";
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="space-y-1">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Calendar className="h-3.5 w-3.5" /> Fecha
+          </span>
+          <p className="font-medium">{date ? format(date, "dd MMM yyyy", { locale: es }) : "-"}</p>
+        </div>
+        <div className="space-y-1">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <PiggyBank className="h-3.5 w-3.5" /> Tipo
+          </span>
+          <p className="font-medium">{requestTypeLabel ?? "-"}</p>
+        </div>
+        <div className="space-y-1">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Clock className="h-3.5 w-3.5" /> Horas
+          </span>
+          <p className="text-lg font-medium">{formattedHours ? `${sign}${formattedHours}h` : "-"}</p>
+        </div>
+      </div>
+
+      {reason && (
+        <div className="bg-muted/30 rounded-md p-3 text-sm">
+          <span className="text-muted-foreground mb-1 block text-xs font-medium">Motivo de la solicitud</span>
+          <p className="text-foreground/90 italic">&quot;{reason}&quot;</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
   const downloadUrl = item.details?.attachmentId
     ? `/api/expenses/${item.id}/attachments/${item.details.attachmentId}/download`
@@ -640,9 +691,10 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
             </h4>
             {item.type === "PTO" && <PtoDetails item={item} />}
             {item.type === "MANUAL_TIME_ENTRY" && <ManualEntryDetails item={item} />}
+            {item.type === "TIME_BANK" && <TimeBankDetails item={item} />}
             {item.type === "EXPENSE" && <ExpenseDetails item={item} />}
             {/* Fallback for unknown types or Alerts */}
-            {!["PTO", "MANUAL_TIME_ENTRY", "EXPENSE"].includes(item.type) && (
+            {!["PTO", "MANUAL_TIME_ENTRY", "EXPENSE", "TIME_BANK"].includes(item.type) && (
               <p className="text-muted-foreground text-sm">Detalles no disponibles para este tipo de solicitud.</p>
             )}
           </section>

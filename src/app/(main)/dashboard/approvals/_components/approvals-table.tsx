@@ -18,7 +18,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, ArrowRight, FileText, Check, Loader2, Eye } from "lucide-react";
+import { CheckCircle2, Clock, ArrowRight, FileText, Check, Loader2, Eye, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -39,6 +39,8 @@ function getTypeLabel(type: PendingApprovalItem["type"]) {
       return "Fichaje";
     case "EXPENSE":
       return "Gasto";
+    case "TIME_BANK":
+      return "Bolsa de horas";
     default:
       return "Solicitud";
   }
@@ -174,6 +176,10 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
             case "EXPENSE":
               icon = FileText;
               colorClass = "text-green-500";
+              break;
+            case "TIME_BANK":
+              icon = PiggyBank;
+              colorClass = "text-emerald-500";
               break;
             default:
               break;
