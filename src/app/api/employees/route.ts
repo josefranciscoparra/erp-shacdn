@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ensureUserOrganization } from "@/lib/user-organizations/ensure-user-organization";
 import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
@@ -264,13 +265,21 @@ export async function POST(request: NextRequest) {
         let temporaryPassword: string | null = null;
 
         if (existingEmployee.userId) {
-          await tx.user.update({
+          const updatedUser = await tx.user.update({
             where: { id: existingEmployee.userId },
             data: {
               active: true,
               email: normalizedEmail,
               name: `${data.firstName} ${data.lastName}`,
             },
+            select: { role: true },
+          });
+
+          await ensureUserOrganization({
+            db: tx,
+            userId: existingEmployee.userId,
+            orgId,
+            role: updatedUser.role,
           });
         } else {
           temporaryPassword = generateTemporaryPassword();
@@ -286,6 +295,13 @@ export async function POST(request: NextRequest) {
               active: true,
               mustChangePassword: true,
             },
+          });
+
+          await ensureUserOrganization({
+            db: tx,
+            userId: user.id,
+            orgId,
+            role: user.role,
           });
 
           await tx.temporaryPassword.create({
@@ -394,6 +410,13 @@ export async function POST(request: NextRequest) {
           role: "EMPLOYEE",
           mustChangePassword: true, // Forzar cambio de contraseña en primer login
         },
+      });
+
+      await ensureUserOrganization({
+        db: tx,
+        userId: user.id,
+        orgId,
+        role: user.role,
       });
 
       // Crear registro de contraseña temporal

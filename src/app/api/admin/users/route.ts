@@ -16,6 +16,7 @@ import {
 } from "@/lib/organization-groups";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ensureUserOrganization } from "@/lib/user-organizations/ensure-user-organization";
 import { validateUserCreation, validateRoleChange, validateTemporaryPasswordGeneration } from "@/lib/user-validation";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createInviteToken, createResetPasswordTokenForUser, getAppUrl } from "@/server/actions/auth-tokens";
@@ -532,6 +533,13 @@ async function createUser(session: any, data: any) {
           },
         });
 
+        await ensureUserOrganization({
+          db: tx,
+          userId: newUser.id,
+          orgId: session.orgId,
+          role: newUser.role,
+        });
+
         // Crear registro de contraseña temporal
         await tx.temporaryPassword.create({
           data: {
@@ -658,6 +666,13 @@ async function createUser(session: any, data: any) {
           role: validatedData.role,
           mustChangePassword: true,
         },
+      });
+
+      await ensureUserOrganization({
+        db: tx,
+        userId: user.id,
+        orgId: session.orgId,
+        role: user.role,
       });
 
       // 3. Crear registro de contraseña temporal
@@ -931,6 +946,12 @@ async function changeUserRole(userId: string, orgId: string, newRole: string, se
         },
       },
     },
+  });
+
+  await ensureUserOrganization({
+    userId: updatedUser.id,
+    orgId,
+    role: updatedUser.role,
   });
 
   // Si el nuevo rol es HR_ASSISTANT, crear AreaResponsible con scope ORGANIZATION

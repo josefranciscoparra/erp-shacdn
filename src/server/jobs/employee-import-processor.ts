@@ -1,4 +1,4 @@
-import type { EmployeeImportRow, Prisma } from "@prisma/client";
+import type { EmployeeImportRow, Prisma, Role } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
@@ -6,6 +6,7 @@ import { DEFAULT_CONTRACT_TYPE, normalizeContractTypeInput } from "@/lib/contrac
 import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ensureUserOrganization } from "@/lib/user-organizations/ensure-user-organization";
 import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
@@ -79,6 +80,13 @@ async function createEmployeeRecords(params: {
       email: true,
       name: true,
     },
+  });
+
+  await ensureUserOrganization({
+    db,
+    userId: user.id,
+    orgId,
+    role: userRole as Role,
   });
 
   await db.temporaryPassword.create({

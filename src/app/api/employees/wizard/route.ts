@@ -8,6 +8,7 @@ import { CONTRACT_TYPES } from "@/lib/contracts/contract-types";
 import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ensureUserOrganization } from "@/lib/user-organizations/ensure-user-organization";
 import { normalizeEmail } from "@/lib/validations/email";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
@@ -127,6 +128,13 @@ export async function POST(request: Request) {
           orgId: currentUser.orgId,
           mustChangePassword: true,
         },
+      });
+
+      await ensureUserOrganization({
+        db: tx,
+        userId: user.id,
+        orgId: currentUser.orgId,
+        role: user.role,
       });
 
       userId = user.id;
