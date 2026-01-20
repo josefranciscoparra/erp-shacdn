@@ -1,3 +1,6 @@
+import { Role } from "@prisma/client";
+
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { type Permission as ScopePermission } from "@/services/permissions/scope-helpers";
 
@@ -500,6 +503,16 @@ async function resolveCandidatesByCriterion(
   switch (criterion) {
     case "DIRECT_MANAGER":
       if (contract?.managerUser && contract.managerUser.active) {
+        const effectivePermissions = await computeEffectivePermissions({
+          role: contract.managerUser.role as Role,
+          orgId: context.orgId,
+          userId: contract.managerUser.id,
+        });
+
+        if (!effectivePermissions.has("approve_requests")) {
+          return [];
+        }
+
         return [
           {
             userId: contract.managerUser.id,
