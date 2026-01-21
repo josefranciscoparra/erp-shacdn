@@ -18,6 +18,7 @@ export function SignatureDocumentActions({ requestId, documentTitle }: Signature
   const [isDownloading, setIsDownloading] = useState(false);
 
   const endpoint = `/api/signatures/documents/${requestId}/download`;
+  const downloadEndpoint = `${endpoint}?disposition=attachment`;
 
   const handlePreview = async () => {
     setIsPreviewing(true);
@@ -34,7 +35,7 @@ export function SignatureDocumentActions({ requestId, documentTitle }: Signature
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await downloadFileFromApi(endpoint, `${documentTitle}.pdf`);
+      await downloadFileFromApi(downloadEndpoint, `${documentTitle}.pdf`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo descargar el documento";
       toast.error(message);

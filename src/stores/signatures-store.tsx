@@ -711,7 +711,10 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
     }
 
     try {
-      await downloadFileFromApi(`/api/signatures/documents/${id}/download`, `documento-firmado-${id}.pdf`);
+      await downloadFileFromApi(
+        `/api/signatures/documents/${id}/download?disposition=attachment`,
+        `documento-firmado-${id}.pdf`,
+      );
       toast.success("Documento descargado");
     } catch (error) {
       console.error("Error downloading document:", error);

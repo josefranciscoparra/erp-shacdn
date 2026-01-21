@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Role } from "@prisma/client";
-import { ArrowLeft, FileCheck, FileSignature, History } from "lucide-react";
+import { ArrowLeft, FileSignature, History } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { features } from "@/config/features";
@@ -11,6 +11,7 @@ import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 import { AuditTimeline } from "./_components/audit-timeline";
+import { SignedDocumentButton } from "./_components/signed-document-button";
 
 export default async function SignatureAuditPage({ params }: { params: Promise<{ id: string }> }) {
   if (!features.signatures) {
@@ -163,14 +164,7 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
               Ver solicitud
             </Link>
           </Button>
-          {request.status === "COMPLETED" && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/api/signatures/documents/${id}/download`} target="_blank" rel="noopener noreferrer">
-                <FileCheck className="mr-2 h-4 w-4" />
-                Ver PDF firmado
-              </Link>
-            </Button>
-          )}
+          {request.status === "COMPLETED" && <SignedDocumentButton requestId={id} />}
         </div>
       </div>
 

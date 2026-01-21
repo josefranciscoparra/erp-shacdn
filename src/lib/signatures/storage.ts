@@ -95,8 +95,8 @@ export class SignatureStorageService {
   /**
    * Obtiene URL firmada para acceso temporal a un documento
    */
-  async getDocumentUrl(filePath: string, expiresIn: number = 3600) {
-    return await this.storageProvider.getSignedUrl(filePath, { expiresIn });
+  async getDocumentUrl(filePath: string, expiresIn: number = 3600, responseContentDisposition?: string) {
+    return await this.storageProvider.getSignedUrl(filePath, { expiresIn, responseContentDisposition });
   }
 
   /**

@@ -59,7 +59,10 @@ export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsP
 
     setDownloadingId(doc.signatureRequestId);
     try {
-      await downloadFileFromApi(doc.downloadUrl, `${doc.documentTitle}-firmado.pdf`);
+      const endpoint = doc.downloadUrl.includes("?")
+        ? `${doc.downloadUrl}&disposition=attachment`
+        : `${doc.downloadUrl}?disposition=attachment`;
+      await downloadFileFromApi(endpoint, `${doc.documentTitle}-firmado.pdf`);
     } catch (error) {
       console.error("Error downloading signed document:", error);
       const message = error instanceof Error ? error.message : "No se pudo descargar el documento firmado";

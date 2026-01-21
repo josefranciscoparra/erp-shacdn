@@ -29,6 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id } = await params;
+    const disposition = request.nextUrl.searchParams.get("disposition");
 
     // Buscar la solicitud de firma
     const signatureRequest = await prisma.signatureRequest.findUnique({
@@ -120,11 +121,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "Documento no disponible" }, { status: 500 });
       }
 
-      const originalUrl = await signatureStorageService.getDocumentUrl(originalPath);
+      const originalName = `${signatureRequest.document.title}.pdf`;
+      const contentDisposition = disposition === "attachment" ? `attachment; filename="${originalName}"` : undefined;
+      const originalUrl = await signatureStorageService.getDocumentUrl(originalPath, 3600, contentDisposition);
 
       return NextResponse.json({
         downloadUrl: originalUrl,
-        fileName: `${signatureRequest.document.title}.pdf`,
+        fileName: originalName,
       });
     }
 
@@ -138,11 +141,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Documento firmado no disponible" }, { status: 500 });
     }
 
-    const signedUrl = await signatureStorageService.getDocumentUrl(signedPath);
+    const signedName = `${signatureRequest.document.title}-firmado.pdf`;
+    const contentDisposition = disposition === "attachment" ? `attachment; filename="${signedName}"` : undefined;
+    const signedUrl = await signatureStorageService.getDocumentUrl(signedPath, 3600, contentDisposition);
 
     return NextResponse.json({
       downloadUrl: signedUrl,
-      fileName: `${signatureRequest.document.title}-firmado.pdf`,
+      fileName: signedName,
     });
   } catch (error) {
     console.error("❌ Error al descargar documento firmado:", error);
