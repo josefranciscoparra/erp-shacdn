@@ -85,7 +85,7 @@ export function MyDocuments() {
   // Descargar documento
   const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      await downloadFileFromApi(`/api/me/documents/${documentId}/download?action=url`, fileName);
+      await downloadFileFromApi(`/api/me/documents/${documentId}/download?action=url&disposition=attachment`, fileName);
       toast.success("Descarga iniciada");
     } catch (error) {
       console.error("Error downloading document:", error);

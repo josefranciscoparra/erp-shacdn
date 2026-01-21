@@ -364,9 +364,6 @@ export async function POST(request: NextRequest) {
  * Permite al empleado eliminar documentos que él mismo subió
  */
 export async function DELETE(request: NextRequest) {
-  const disabledResponse = ensureDocumentsEnabled();
-  if (disabledResponse) return disabledResponse;
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
@@ -374,6 +371,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     await ensureEmployeeHasAccessToActiveOrg(session);
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
+    }
 
     const { searchParams } = request.nextUrl;
     const documentId = searchParams.get("documentId");

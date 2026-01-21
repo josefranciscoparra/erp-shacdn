@@ -7,12 +7,14 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, ExternalLink, FileCheck, FileSignature, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { downloadFileFromApi } from "@/lib/client/file-download";
 import { type EmployeeSignedDocument, getEmployeeSignedDocuments } from "@/server/actions/employee-signatures";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
@@ -25,6 +27,7 @@ export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsP
   const [documents, setDocuments] = useState<EmployeeSignedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!signaturesAvailable) {
@@ -50,6 +53,21 @@ export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsP
 
     loadDocuments();
   }, [employeeId, signaturesAvailable]);
+
+  const handleDownload = async (doc: EmployeeSignedDocument) => {
+    if (!doc.downloadUrl) return;
+
+    setDownloadingId(doc.signatureRequestId);
+    try {
+      await downloadFileFromApi(doc.downloadUrl, `${doc.documentTitle}-firmado.pdf`);
+    } catch (error) {
+      console.error("Error downloading signed document:", error);
+      const message = error instanceof Error ? error.message : "No se pudo descargar el documento firmado";
+      toast.error(message);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   if (!signaturesAvailable) {
     return null;
@@ -180,11 +198,18 @@ export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsP
                       {doc.downloadUrl && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" asChild>
-                              <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void handleDownload(doc)}
+                              disabled={downloadingId === doc.signatureRequestId}
+                            >
+                              {downloadingId === doc.signatureRequestId ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
                                 <Download className="h-4 w-4" />
-                                <span className="sr-only">Descargar PDF firmado</span>
-                              </a>
+                              )}
+                              <span className="sr-only">Descargar PDF firmado</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Descargar PDF firmado</TooltipContent>

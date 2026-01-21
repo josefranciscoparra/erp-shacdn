@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 
 import { features } from "@/config/features";
+import { downloadFileFromApi, openFilePreviewFromApi } from "@/lib/client/file-download";
 import type { DocumentKind } from "@/lib/validations/document";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
@@ -79,7 +80,8 @@ interface DocumentsActions {
   fetchDocuments: (employeeId: string, options?: { refresh?: boolean }) => Promise<void>;
   uploadDocument: (employeeId: string, formData: FormData) => Promise<boolean>;
   deleteDocument: (employeeId: string, documentId: string) => Promise<boolean>;
-  downloadDocument: (employeeId: string, documentId: string) => Promise<void>;
+  downloadDocument: (employeeId: string, documentId: string, fileName?: string) => Promise<boolean>;
+  previewDocument: (employeeId: string, documentId: string) => Promise<void>;
 
   // Acciones para vista global
   fetchAllDocuments: (options?: { refresh?: boolean }) => Promise<void>;
@@ -276,17 +278,37 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   },
 
   // Descargar documento
-  downloadDocument: async (employeeId: string, documentId: string) => {
+  downloadDocument: async (employeeId: string, documentId: string, fileName?: string) => {
+    if (!ensureDocumentsEnabled()) {
+      return false;
+    }
+
+    try {
+      // Usar el helper centralizado con la estrategia de URL firmada (Enterprise pattern)
+      await downloadFileFromApi(
+        `/api/employees/${employeeId}/documents/${documentId}/download?action=url&disposition=attachment`,
+        fileName,
+      );
+      toast.success("Descarga iniciada");
+      return true;
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error(error instanceof Error ? error.message : "Error al descargar documento");
+      return false;
+    }
+  },
+
+  // Vista previa de documento
+  previewDocument: async (employeeId: string, documentId: string) => {
     if (!ensureDocumentsEnabled()) {
       return;
     }
 
     try {
-      // Usar el helper centralizado con la estrategia de URL firmada (Enterprise pattern)
-      await downloadFileFromApi(`/api/employees/${employeeId}/documents/${documentId}/download?action=url`);
+      await openFilePreviewFromApi(`/api/employees/${employeeId}/documents/${documentId}/download?action=url`);
     } catch (error) {
-      console.error("Error downloading document:", error);
-      toast.error(error instanceof Error ? error.message : "Error al descargar documento");
+      console.error("Error previewing document:", error);
+      toast.error(error instanceof Error ? error.message : "Error al abrir documento");
     }
   },
 

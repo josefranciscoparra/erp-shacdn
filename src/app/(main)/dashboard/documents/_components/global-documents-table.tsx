@@ -26,7 +26,6 @@ import {
   ExternalLink,
   User,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   AlertDialog,
@@ -76,47 +75,16 @@ export function GlobalDocumentsTable({ documents }: GlobalDocumentsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
-  const { deleteDocument, downloadDocument } = useDocumentsStore();
+  const { deleteDocument, downloadDocument, previewDocument } = useDocumentsStore();
 
   // Manejar descarga
   const handleDownload = async (employeeId: string, documentId: string, fileName: string) => {
-    try {
-      const url = await downloadDocument(employeeId, documentId);
-      if (url) {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 1000);
-
-        toast.success("Descarga iniciada");
-      }
-    } catch (error) {
-      toast.error("Error al descargar documento");
-    }
+    await downloadDocument(employeeId, documentId, fileName);
   };
 
   // Manejar vista previa
   const handlePreview = async (employeeId: string, documentId: string) => {
-    try {
-      const url = await downloadDocument(employeeId, documentId);
-      if (url) {
-        const newWindow = window.open(url, "_blank");
-        if (newWindow) {
-          setTimeout(() => {
-            window.URL.revokeObjectURL(url);
-          }, 5000);
-        }
-      }
-    } catch (error) {
-      toast.error("Error al abrir documento");
-    }
+    await previewDocument(employeeId, documentId);
   };
 
   // Manejar eliminación

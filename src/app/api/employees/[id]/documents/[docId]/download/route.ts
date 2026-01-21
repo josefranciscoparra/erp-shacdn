@@ -37,15 +37,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Determinar si generar URL firmada o descargar directamente
     const action = request.nextUrl.searchParams.get("action") ?? "download";
+    const disposition = request.nextUrl.searchParams.get("disposition");
 
     if (action === "url") {
+      let contentDisposition: string | undefined;
+
+      if (disposition === "attachment") {
+        contentDisposition = `attachment; filename="${document.fileName}"`;
+      }
+
       // Generar URL firmada para acceso temporal (1 hora)
       const signedUrl = await documentStorageService.getDocumentUrl(
         document.storageUrl,
         3600, // 1 hora
+        contentDisposition,
       );
 
-      return NextResponse.json({ url: signedUrl });
+      return NextResponse.json({ url: signedUrl, fileName: document.fileName, mimeType: document.mimeType });
     }
 
     // Descargar archivo directamente

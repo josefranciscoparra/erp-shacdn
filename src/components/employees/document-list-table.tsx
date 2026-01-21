@@ -12,8 +12,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { MoreHorizontal, Eye, Download, Trash, FileText, Image, File, ArrowUpDown, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { MoreHorizontal, Eye, Download, Trash, FileText, Image, File, ArrowUpDown } from "lucide-react";
 
 import {
   AlertDialog,
@@ -81,50 +80,16 @@ function FileIcon({ mimeType }: { mimeType: string }) {
 export function DocumentListTable({ documents, employeeId }: DocumentListTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
-  const { deleteDocument, downloadDocument } = useDocumentsStore();
+  const { deleteDocument, downloadDocument, previewDocument } = useDocumentsStore();
 
   // Manejar descarga
   const handleDownload = async (documentId: string, fileName: string) => {
-    try {
-      const url = await downloadDocument(employeeId, documentId);
-      if (url) {
-        // Crear enlace temporal para descarga
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Limpiar la URL temporal después de un momento
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 1000);
-
-        toast.success("Descarga iniciada");
-      }
-    } catch (error) {
-      toast.error("Error al descargar documento");
-    }
+    await downloadDocument(employeeId, documentId, fileName);
   };
 
   // Manejar vista previa
   const handlePreview = async (documentId: string) => {
-    try {
-      const url = await downloadDocument(employeeId, documentId);
-      if (url) {
-        const newWindow = window.open(url, "_blank");
-        // Limpiar la URL temporal después de que se abra
-        if (newWindow) {
-          setTimeout(() => {
-            window.URL.revokeObjectURL(url);
-          }, 5000);
-        }
-      }
-    } catch (error) {
-      toast.error("Error al abrir documento");
-    }
+    await previewDocument(employeeId, documentId);
   };
 
   // Manejar eliminación
