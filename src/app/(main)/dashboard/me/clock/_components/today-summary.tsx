@@ -18,6 +18,14 @@ interface TodaySummaryData {
   hasFinished: boolean;
   validationWarnings: string[];
   validationErrors: string[];
+  overtime?: {
+    calcStatus: string | null;
+    candidateStatus: string | null;
+    candidateMinutes: number | null;
+    candidateType: string | null;
+    requiresApproval: boolean;
+    compensationType: string | null;
+  };
 }
 
 /**
@@ -57,6 +65,16 @@ function TodaySummaryComponent() {
     loadSummary();
   }, [loadSummary]);
 
+  useEffect(() => {
+    if (!summary?.overtime?.calcStatus) return;
+    if (summary.overtime.calcStatus === "DIRTY" || summary.overtime.calcStatus === "CALCULATING") {
+      const timeout = setTimeout(() => {
+        loadSummary();
+      }, 4000);
+      return () => clearTimeout(timeout);
+    }
+  }, [summary, loadSummary]);
+
   if (isLoading) {
     return (
       <Card className="@container/card">
@@ -94,6 +112,71 @@ function TodaySummaryComponent() {
   const deviation = summary.deviationMinutes ?? 0;
   const isPositive = deviation > 0;
   const isNegative = deviation < 0;
+  const overtime = summary.overtime;
+  const overtimeMinutes = overtime ? (overtime.candidateMinutes ?? 0) : 0;
+  const overtimeHasData = overtime && overtimeMinutes !== 0;
+
+  const overtimeBadge = (() => {
+    if (!overtime) {
+      return (
+        <Badge variant="secondary" className="text-muted-foreground">
+          Sin datos
+        </Badge>
+      );
+    }
+
+    if (overtime.calcStatus === "DIRTY" || overtime.calcStatus === "CALCULATING") {
+      return (
+        <Badge variant="secondary" className="gap-1">
+          <Clock className="h-3 w-3" />
+          Calculando...
+        </Badge>
+      );
+    }
+
+    if (overtime.candidateStatus === "PENDING_APPROVAL") {
+      return (
+        <Badge variant="outline" className="border-amber-200 bg-amber-50/50 text-amber-700">
+          Pendiente de aprobación
+        </Badge>
+      );
+    }
+
+    if (overtime.candidateStatus === "REJECTED") {
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <XCircle className="h-3 w-3" />
+          Rechazado
+        </Badge>
+      );
+    }
+
+    if (!overtimeHasData || overtime.candidateStatus === "SKIPPED") {
+      return (
+        <Badge variant="secondary" className="text-muted-foreground">
+          Sin exceso
+        </Badge>
+      );
+    }
+
+    const label =
+      overtime.candidateType === "DEFICIT"
+        ? "Déficit"
+        : overtime.candidateType === "COMPLEMENTARY"
+          ? "Complementarias"
+          : overtime.candidateType === "NON_WORKDAY"
+            ? "No laborable"
+            : "Extra";
+
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-200 bg-emerald-50/50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400"
+      >
+        {label} · {formatDuration(Math.abs(overtimeMinutes))}
+      </Badge>
+    );
+  })();
 
   return (
     <Card className="@container/card">
@@ -126,6 +209,11 @@ function TodaySummaryComponent() {
               {summary.status === "INCOMPLETE" && "Incompleto"}
               {summary.status === "IN_PROGRESS" && "En progreso"}
             </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-sm">Horas extra:</span>
+            {overtimeBadge}
           </div>
 
           <Separator />

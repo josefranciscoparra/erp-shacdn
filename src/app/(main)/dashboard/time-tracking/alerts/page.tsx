@@ -126,6 +126,7 @@ const ALERT_TYPES = [
   { value: "MISSING_CLOCK_OUT", label: "Falta fichaje de salida" },
   { value: "NON_WORKDAY_CLOCK_IN", label: "Fichaje en día no laboral" },
   { value: "EXCESSIVE_HOURS", label: "Horas excesivas" },
+  { value: "OVERTIME_PENDING_APPROVAL", label: "Horas extra pendientes" },
 ];
 
 // Labels para severidad

@@ -24,6 +24,7 @@ const alertTypeLabels: Record<string, string> = {
   MISSING_CLOCK_OUT: "Falta Fichaje Salida",
   EXCESSIVE_HOURS: "Horas Excesivas",
   NON_WORKDAY_CLOCK_IN: "Fichaje Día No Laboral",
+  OVERTIME_PENDING_APPROVAL: "Horas Extra Pendientes",
 };
 
 // Labels para severidad

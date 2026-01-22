@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Role } from "@prisma/client";
 import {
+  AlarmClock,
   Blocks,
   Briefcase,
   Building2,
@@ -15,6 +16,7 @@ import {
   Database,
   FileCheck,
   Fingerprint,
+  Globe,
   LifeBuoy,
   MapPin,
   Megaphone,
@@ -35,8 +37,10 @@ import { ApprovalSettingsTab } from "./approval-settings-tab";
 import { ChatTab } from "./chat-tab";
 import { ExpensesTab } from "./expenses-tab";
 import { GeolocationTab } from "./geolocation-tab";
+import { GlobalSettingsTab } from "./global-settings-tab";
 import { ModulesTab } from "./modules-tab";
 import { OrganizationTab } from "./organization-tab";
+import { OvertimeTab } from "./overtime-tab";
 import { PermissionOverridesTab } from "./permission-overrides-tab";
 import { SettingsSidebar } from "./settings-sidebar";
 import { ShiftsTab } from "./shifts-tab";
@@ -92,6 +96,12 @@ export function SettingsContainer({
       ];
 
       const systemItems = [
+        {
+          label: "Configuración global",
+          value: "global-settings",
+          icon: <Globe className="h-4 w-4" />,
+          show: isSuperAdmin,
+        },
         {
           label: "Soporte",
           value: "support",
@@ -170,6 +180,12 @@ export function SettingsContainer({
         value: "time-bank",
         icon: <PiggyBank className="h-4 w-4" />,
         show: true, // Core (o podría ser toggleable en futuro)
+      },
+      {
+        label: "Horas Extra",
+        value: "overtime",
+        icon: <AlarmClock className="h-4 w-4" />,
+        show: true,
       },
       {
         label: "Geolocalización",
@@ -300,6 +316,8 @@ export function SettingsContainer({
         return <ShiftsTab />;
       case "time-bank":
         return <TimeBankTab />;
+      case "overtime":
+        return <OvertimeTab />;
       case "geolocation":
         return <GeolocationTab />;
       case "validations":
@@ -337,6 +355,8 @@ export function SettingsContainer({
         return <SystemInfoTab />;
       case "admin":
         return <AdminTab />;
+      case "global-settings":
+        return <GlobalSettingsTab />;
       case "support":
         return <SupportImpersonationTab />;
 

@@ -132,6 +132,14 @@ export async function getTodaySummary(): Promise<{
     hasFinished: boolean;
     validationWarnings: string[];
     validationErrors: string[];
+    overtime?: {
+      calcStatus: string | null;
+      candidateStatus: string | null;
+      candidateMinutes: number | null;
+      candidateType: string | null;
+      requiresApproval: boolean;
+      compensationType: string | null;
+    };
   };
   error?: string;
 }> {
@@ -177,6 +185,16 @@ export async function getTodaySummary(): Promise<{
         deviationMinutes: true,
         status: true,
         clockOut: true,
+        overtimeCalcStatus: true,
+        overtimeCandidate: {
+          select: {
+            status: true,
+            candidateMinutesFinal: true,
+            candidateType: true,
+            requiresApproval: true,
+            compensationType: true,
+          },
+        },
       },
     });
 
@@ -219,6 +237,14 @@ export async function getTodaySummary(): Promise<{
           hasFinished: false,
           validationWarnings: Array.from(allWarnings),
           validationErrors: Array.from(allErrors),
+          overtime: {
+            calcStatus: null,
+            candidateStatus: null,
+            candidateMinutes: null,
+            candidateType: null,
+            requiresApproval: false,
+            compensationType: null,
+          },
         },
       };
     }
@@ -272,6 +298,7 @@ export async function getTodaySummary(): Promise<{
         .catch((err) => console.error("Error syncing expectedMinutes to DB:", err));
     }
 
+    const overtimeCandidate = workdaySummary.overtimeCandidate;
     return {
       success: true,
       summary: {
@@ -282,6 +309,14 @@ export async function getTodaySummary(): Promise<{
         hasFinished: workdaySummary.clockOut !== null,
         validationWarnings: Array.from(allWarnings),
         validationErrors: Array.from(allErrors),
+        overtime: {
+          calcStatus: workdaySummary.overtimeCalcStatus,
+          candidateStatus: overtimeCandidate ? overtimeCandidate.status : null,
+          candidateMinutes: overtimeCandidate ? overtimeCandidate.candidateMinutesFinal : null,
+          candidateType: overtimeCandidate ? overtimeCandidate.candidateType : null,
+          requiresApproval: overtimeCandidate ? overtimeCandidate.requiresApproval : false,
+          compensationType: overtimeCandidate ? overtimeCandidate.compensationType : null,
+        },
       },
     };
   } catch (error) {
@@ -308,6 +343,14 @@ export async function getTodayScheduleAndSummary(): Promise<{
     hasFinished: boolean;
     validationWarnings: string[];
     validationErrors: string[];
+    overtime?: {
+      calcStatus: string | null;
+      candidateStatus: string | null;
+      candidateMinutes: number | null;
+      candidateType: string | null;
+      requiresApproval: boolean;
+      compensationType: string | null;
+    };
   };
   error?: string;
 }> {
@@ -367,6 +410,16 @@ export async function getTodayScheduleAndSummary(): Promise<{
           deviationMinutes: true,
           status: true,
           clockOut: true,
+          overtimeCalcStatus: true,
+          overtimeCandidate: {
+            select: {
+              status: true,
+              candidateMinutesFinal: true,
+              candidateType: true,
+              requiresApproval: true,
+              compensationType: true,
+            },
+          },
         },
       }),
       prisma.timeEntry.findMany({
@@ -404,6 +457,14 @@ export async function getTodayScheduleAndSummary(): Promise<{
           hasFinished: false,
           validationWarnings: Array.from(allWarnings),
           validationErrors: Array.from(allErrors),
+          overtime: {
+            calcStatus: null,
+            candidateStatus: null,
+            candidateMinutes: null,
+            candidateType: null,
+            requiresApproval: false,
+            compensationType: null,
+          },
         },
       };
     }
@@ -436,6 +497,7 @@ export async function getTodayScheduleAndSummary(): Promise<{
         .catch((err) => console.error("Error syncing expectedMinutes to DB:", err));
     }
 
+    const overtimeCandidate = workdaySummary.overtimeCandidate;
     return {
       success: true,
       schedule: schedule ?? undefined,
@@ -447,6 +509,14 @@ export async function getTodayScheduleAndSummary(): Promise<{
         hasFinished: Boolean(workdaySummary.clockOut),
         validationWarnings: Array.from(allWarnings),
         validationErrors: Array.from(allErrors),
+        overtime: {
+          calcStatus: workdaySummary.overtimeCalcStatus,
+          candidateStatus: overtimeCandidate ? overtimeCandidate.status : null,
+          candidateMinutes: overtimeCandidate ? overtimeCandidate.candidateMinutesFinal : null,
+          candidateType: overtimeCandidate ? overtimeCandidate.candidateType : null,
+          requiresApproval: overtimeCandidate ? overtimeCandidate.requiresApproval : false,
+          compensationType: overtimeCandidate ? overtimeCandidate.compensationType : null,
+        },
       },
     };
   } catch (error) {

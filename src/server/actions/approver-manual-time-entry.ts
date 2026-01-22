@@ -4,6 +4,7 @@ import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
+import { enqueueOvertimeWorkdayJob } from "@/server/jobs/overtime-queue";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 import { calculateWorkdayTotals, extractPaidBreakSlots } from "@/services/time-tracking";
 import type { EffectiveSchedule } from "@/types/schedule";
@@ -504,6 +505,8 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
         status,
+        overtimeCalcStatus: "DIRTY",
+        overtimeCalcUpdatedAt: new Date(),
       },
       update: {
         clockIn: firstEntry?.timestamp ?? null,
@@ -511,11 +514,19 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
         status,
+        overtimeCalcStatus: "DIRTY",
+        overtimeCalcUpdatedAt: new Date(),
       },
     });
 
     console.log("   ✅ WorkdaySummary actualizado correctamente");
     console.log(`   💾 Guardado en BD: ${updatedSummary.totalWorkedMinutes} min trabajados`);
+
+    await enqueueOvertimeWorkdayJob({
+      orgId: user.orgId,
+      employeeId: request.employeeId,
+      date: dayStart.toISOString().split("T")[0],
+    });
 
     // Actualizar la solicitud como aprobada
     await prisma.manualTimeEntryRequest.update({

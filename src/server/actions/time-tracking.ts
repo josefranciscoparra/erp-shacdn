@@ -17,6 +17,7 @@ import { AuthError } from "@/lib/auth-guard";
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
+import { enqueueOvertimeWorkdayJob } from "@/server/jobs/overtime-queue";
 import { getEffectiveSchedule, validateTimeEntry } from "@/services/schedules/schedule-engine";
 import {
   validateTransition,
@@ -32,7 +33,7 @@ import type { EffectiveSchedule } from "@/types/schedule";
 import { detectAlertsForTimeEntry } from "./alert-detection";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 import { resolvePaidBreakSlotIdsFromEntries } from "./shared/paid-breaks";
-import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
+import { removeAutoTimeBankMovement } from "./time-bank";
 
 /**
  * Helper para serializar TimeEntry convirtiendo Decimals a números
@@ -768,6 +769,11 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
 
   if (entries.length === 0 && !hasMidnightCrossing) {
     await removeAutoTimeBankMovement(orgId, employeeId, dayStart);
+    await enqueueOvertimeWorkdayJob({
+      orgId,
+      employeeId,
+      date: format(dayStart, "yyyy-MM-dd"),
+    });
     return null;
   }
 
@@ -890,6 +896,8 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
       expectedMinutes,
       deviationMinutes,
       status,
+      overtimeCalcStatus: "DIRTY",
+      overtimeCalcUpdatedAt: new Date(),
     },
     update: {
       clockIn: firstEntry?.timestamp,
@@ -899,10 +907,16 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
       expectedMinutes,
       deviationMinutes,
       status,
+      overtimeCalcStatus: "DIRTY",
+      overtimeCalcUpdatedAt: new Date(),
     },
   });
 
-  await syncTimeBankForWorkday(summary);
+  await enqueueOvertimeWorkdayJob({
+    orgId,
+    employeeId,
+    date: format(dayStart, "yyyy-MM-dd"),
+  });
 
   return summary;
 }
@@ -2599,6 +2613,8 @@ export async function recalculateWorkdaySummary(date: Date) {
         expectedMinutes,
         deviationMinutes,
         status,
+        overtimeCalcStatus: "DIRTY",
+        overtimeCalcUpdatedAt: new Date(),
       },
       update: {
         clockIn: firstEntry?.timestamp ?? null,
@@ -2608,11 +2624,17 @@ export async function recalculateWorkdaySummary(date: Date) {
         expectedMinutes,
         deviationMinutes,
         status,
+        overtimeCalcStatus: "DIRTY",
+        overtimeCalcUpdatedAt: new Date(),
       },
     });
 
     console.log("   ✅ WorkdaySummary actualizado correctamente");
-    await syncTimeBankForWorkday(summary);
+    await enqueueOvertimeWorkdayJob({
+      orgId,
+      employeeId,
+      date: format(dayStart, "yyyy-MM-dd"),
+    });
 
     return {
       success: true,
@@ -2716,7 +2738,15 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
           expectedMinutes: newExpectedMinutes,
           deviationMinutes: newDeviationMinutes,
           status: newStatus,
+          overtimeCalcStatus: "DIRTY",
+          overtimeCalcUpdatedAt: new Date(),
         },
+      });
+
+      await enqueueOvertimeWorkdayJob({
+        orgId,
+        employeeId,
+        date: format(dayStart, "yyyy-MM-dd"),
       });
 
       console.log(

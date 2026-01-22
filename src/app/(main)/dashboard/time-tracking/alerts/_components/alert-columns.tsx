@@ -100,6 +100,7 @@ const alertTypeLabels: Record<string, string> = {
   MISSING_CLOCK_OUT: "Falta fichaje de salida",
   EXCESSIVE_HOURS: "Horas excesivas",
   NON_WORKDAY_CLOCK_IN: "Fichaje en día no laboral",
+  OVERTIME_PENDING_APPROVAL: "Horas extra pendientes",
 };
 
 export const alertColumns: ColumnDef<AlertRow>[] = [

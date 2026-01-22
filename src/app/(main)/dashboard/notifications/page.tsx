@@ -123,6 +123,10 @@ const notificationIcons = {
   TIME_BANK_REQUEST_SUBMITTED: Calendar,
   TIME_BANK_REQUEST_APPROVED: Check,
   TIME_BANK_REQUEST_REJECTED: X,
+  OVERTIME_PENDING_APPROVAL: Clock,
+  OVERTIME_APPROVED: Check,
+  OVERTIME_REJECTED: X,
+  OVERTIME_ADJUSTED: Clock,
 };
 
 const notificationTypeLabels = {
@@ -148,6 +152,10 @@ const notificationTypeLabels = {
   TIME_BANK_REQUEST_SUBMITTED: "Bolsa: solicitud enviada",
   TIME_BANK_REQUEST_APPROVED: "Bolsa: solicitud aprobada",
   TIME_BANK_REQUEST_REJECTED: "Bolsa: solicitud rechazada",
+  OVERTIME_PENDING_APPROVAL: "Horas extra pendientes",
+  OVERTIME_APPROVED: "Horas extra aprobadas",
+  OVERTIME_REJECTED: "Horas extra rechazadas",
+  OVERTIME_ADJUSTED: "Horas extra ajustadas",
 };
 
 function getNotificationActionLabel(notification: Notification): string {
@@ -166,6 +174,16 @@ function getNotificationActionLabel(notification: Notification): string {
       return "Ir a Aprobaciones";
     }
     return "Ir a Mi Bolsa de Horas";
+  }
+  if (notification.type === "OVERTIME_PENDING_APPROVAL") {
+    return "Ir a aprobar";
+  }
+  if (
+    notification.type === "OVERTIME_APPROVED" ||
+    notification.type === "OVERTIME_REJECTED" ||
+    notification.type === "OVERTIME_ADJUSTED"
+  ) {
+    return "Ver mi bolsa";
   }
   if (notification.type === "DOCUMENT_UPLOADED") {
     return "Ir a Mis Documentos";
@@ -236,7 +254,8 @@ export default function NotificationsPage() {
       if (
         notification.type === "PTO_SUBMITTED" ||
         notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ||
-        notification.type === "TIME_BANK_REQUEST_SUBMITTED"
+        notification.type === "TIME_BANK_REQUEST_SUBMITTED" ||
+        notification.type === "OVERTIME_PENDING_APPROVAL"
       ) {
         return false;
       }
@@ -541,6 +560,22 @@ export default function NotificationsPage() {
         return;
       }
 
+      if (notification.type === "OVERTIME_PENDING_APPROVAL") {
+        router.push(`/dashboard/approvals/overtime`);
+        setIsDetailOpen(false);
+        return;
+      }
+
+      if (
+        notification.type === "OVERTIME_APPROVED" ||
+        notification.type === "OVERTIME_REJECTED" ||
+        notification.type === "OVERTIME_ADJUSTED"
+      ) {
+        router.push(`/dashboard/me/time-bank`);
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de PTO
       if (!notification.ptoRequestId) {
         router.push(`/dashboard/notifications?notification=${notification.id}`);
@@ -629,6 +664,13 @@ export default function NotificationsPage() {
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "TIME_BANK_REQUEST_REJECTED" &&
                     "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "OVERTIME_PENDING_APPROVAL" &&
+                    "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                  type === "OVERTIME_APPROVED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "OVERTIME_ADJUSTED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "OVERTIME_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
                 title={label}
               >
@@ -683,6 +725,7 @@ export default function NotificationsPage() {
         !notification.expenseId &&
         !notification.type.startsWith("EXPENSE_") &&
         !notification.type.startsWith("TIME_BANK_REQUEST_") &&
+        !notification.type.startsWith("OVERTIME_") &&
         notification.type !== "DOCUMENT_UPLOADED" &&
         notification.type !== "PAYSLIP_AVAILABLE" &&
         notification.type !== "SIGNATURE_PENDING" &&
