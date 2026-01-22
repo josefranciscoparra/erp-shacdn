@@ -127,6 +127,7 @@ const notificationIcons = {
   OVERTIME_APPROVED: Check,
   OVERTIME_REJECTED: X,
   OVERTIME_ADJUSTED: Clock,
+  OVERTIME_EXPIRED: FileClock,
 };
 
 const notificationTypeLabels = {
@@ -156,6 +157,7 @@ const notificationTypeLabels = {
   OVERTIME_APPROVED: "Horas extra aprobadas",
   OVERTIME_REJECTED: "Horas extra rechazadas",
   OVERTIME_ADJUSTED: "Horas extra ajustadas",
+  OVERTIME_EXPIRED: "Horas extra expiradas",
 };
 
 function getNotificationActionLabel(notification: Notification): string {
@@ -181,7 +183,8 @@ function getNotificationActionLabel(notification: Notification): string {
   if (
     notification.type === "OVERTIME_APPROVED" ||
     notification.type === "OVERTIME_REJECTED" ||
-    notification.type === "OVERTIME_ADJUSTED"
+    notification.type === "OVERTIME_ADJUSTED" ||
+    notification.type === "OVERTIME_EXPIRED"
   ) {
     return "Ver mi bolsa";
   }
@@ -569,7 +572,8 @@ export default function NotificationsPage() {
       if (
         notification.type === "OVERTIME_APPROVED" ||
         notification.type === "OVERTIME_REJECTED" ||
-        notification.type === "OVERTIME_ADJUSTED"
+        notification.type === "OVERTIME_ADJUSTED" ||
+        notification.type === "OVERTIME_EXPIRED"
       ) {
         router.push(`/dashboard/me/time-bank`);
         setIsDetailOpen(false);
@@ -671,6 +675,7 @@ export default function NotificationsPage() {
                   type === "OVERTIME_ADJUSTED" &&
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "OVERTIME_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "OVERTIME_EXPIRED" && "bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400",
                 )}
                 title={label}
               >

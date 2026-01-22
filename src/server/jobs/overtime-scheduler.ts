@@ -1,7 +1,11 @@
 import type { PgBoss } from "pg-boss";
 
 import { prisma } from "@/lib/prisma";
-import { enqueueOvertimeWeeklyReconciliationJob, enqueueOvertimeWorkdaySweepJob } from "@/server/jobs/overtime-queue";
+import {
+  enqueueOvertimeAuthorizationExpireJob,
+  enqueueOvertimeWeeklyReconciliationJob,
+  enqueueOvertimeWorkdaySweepJob,
+} from "@/server/jobs/overtime-queue";
 
 export const OVERTIME_WEEKLY_DISPATCH_JOB = "overtime.weekly.dispatch";
 
@@ -10,6 +14,7 @@ const DEFAULT_WEEKDAY = 1; // Lunes
 const DEFAULT_HOUR = 4; // 04:00
 const DEFAULT_WINDOW_MINUTES = 20;
 const DEFAULT_DISPATCH_INTERVAL_MINUTES = 10;
+const DEFAULT_AUTH_EXPIRY_DAYS = 7;
 
 const weekdayMap: Record<string, number> = {
   Mon: 1,
@@ -33,7 +38,8 @@ function resolveTimeZone(timezone?: string | null) {
   try {
     new Intl.DateTimeFormat("en-GB", { timeZone: timezone }).format(new Date());
     return timezone;
-  } catch {
+  } catch (error) {
+    console.warn(`[OvertimeScheduler] Timezone inválido: ${timezone}`, error);
     return DEFAULT_TIMEZONE;
   }
 }
@@ -104,6 +110,7 @@ async function getGlobalSchedulerSettings() {
       overtimeDailySweepHour: true,
       overtimeDailySweepWindowMinutes: true,
       overtimeDailySweepLookbackDays: true,
+      overtimeAuthorizationExpiryDays: true,
     },
   });
 
@@ -127,6 +134,13 @@ async function getGlobalSchedulerSettings() {
       typeof settings?.overtimeDailySweepWindowMinutes === "number" ? settings.overtimeDailySweepWindowMinutes : 20,
     overtimeDailySweepLookbackDays:
       typeof settings?.overtimeDailySweepLookbackDays === "number" ? settings.overtimeDailySweepLookbackDays : 2,
+    overtimeAuthorizationExpiryDays: (() => {
+      const raw =
+        typeof settings?.overtimeAuthorizationExpiryDays === "number"
+          ? settings.overtimeAuthorizationExpiryDays
+          : DEFAULT_AUTH_EXPIRY_DAYS;
+      return Math.max(1, Math.min(90, Math.round(raw)));
+    })(),
   };
 }
 
@@ -146,6 +160,7 @@ async function dispatchWeeklyOvertimeReconciliation() {
     overtimeDailySweepHour,
     overtimeDailySweepWindowMinutes,
     overtimeDailySweepLookbackDays,
+    overtimeAuthorizationExpiryDays,
   } = await getGlobalSchedulerSettings();
 
   const organizations = await prisma.organization.findMany({
@@ -176,6 +191,10 @@ async function dispatchWeeklyOvertimeReconciliation() {
       await enqueueOvertimeWorkdaySweepJob({
         orgId: organization.id,
         lookbackDays: overtimeDailySweepLookbackDays,
+      });
+      await enqueueOvertimeAuthorizationExpireJob({
+        orgId: organization.id,
+        expiryDays: overtimeAuthorizationExpiryDays,
       });
     }
 

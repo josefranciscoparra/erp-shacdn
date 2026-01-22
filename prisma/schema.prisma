@@ -252,6 +252,7 @@ model GlobalSettings {
   overtimeDailySweepHour                        Int      @default(4) // 0-23
   overtimeDailySweepWindowMinutes               Int      @default(20)
   overtimeDailySweepLookbackDays                Int      @default(2)
+  overtimeAuthorizationExpiryDays               Int      @default(7)
   createdAt                                     DateTime @default(now())
   updatedAt                                     DateTime @updatedAt
 
@@ -2145,6 +2146,7 @@ enum PtoNotificationType {
   OVERTIME_APPROVED // Hora extra aprobada
   OVERTIME_REJECTED // Hora extra rechazada
   OVERTIME_ADJUSTED // Hora extra ajustada por corrección
+  OVERTIME_EXPIRED // Hora extra expirada sin revisión
   PAYSLIP_AVAILABLE // Nómina disponible para el empleado
   SIGNATURE_REMINDER // Recordatorio de firma pendiente (antes de expirar)
 }

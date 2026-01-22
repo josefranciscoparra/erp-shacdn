@@ -24,6 +24,7 @@ type SchedulerConfig = {
   overtimeDailySweepHour: number;
   overtimeDailySweepWindowMinutes: number;
   overtimeDailySweepLookbackDays: number;
+  overtimeAuthorizationExpiryDays: number;
 };
 
 const weekdayOptions = [
@@ -50,6 +51,7 @@ export function OvertimeSchedulerSettingsCard() {
     overtimeDailySweepHour: 4,
     overtimeDailySweepWindowMinutes: 20,
     overtimeDailySweepLookbackDays: 2,
+    overtimeAuthorizationExpiryDays: 7,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -279,6 +281,27 @@ export function OvertimeSchedulerSettingsCard() {
           </div>
 
           <div className="space-y-2">
+            <Label>Días para expirar autorizaciones pendientes</Label>
+            <Input
+              type="number"
+              min="1"
+              max="90"
+              value={config.overtimeAuthorizationExpiryDays}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                const value = Number.isNaN(parsed) ? 7 : parsed;
+                setConfig((prev) => ({
+                  ...prev,
+                  overtimeAuthorizationExpiryDays: Math.max(1, Math.min(90, value)),
+                }));
+              }}
+            />
+            <p className="text-muted-foreground text-xs">
+              Solicitudes pendientes más antiguas se marcan como expiradas automáticamente.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label>Intervalo de comprobación (minutos)</Label>
             <Input
               type="number"
@@ -308,7 +331,8 @@ export function OvertimeSchedulerSettingsCard() {
               <p className="text-muted-foreground text-xs">
                 El master switch del cron se controla con la variable de entorno{" "}
                 <span className="font-medium">OVERTIME_RECONCILIATION_ENABLED</span>. La empresa debe tener activada la
-                reconciliación semanal en su configuración de horas extra.
+                reconciliación semanal en su configuración de horas extra. Este switch también controla el barrido
+                diario y la expiración de autorizaciones.
               </p>
             </div>
           </div>

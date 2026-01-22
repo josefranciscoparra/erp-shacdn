@@ -3,6 +3,7 @@ import { getBoss } from "@/server/jobs/boss";
 export const OVERTIME_WORKDAY_JOB = "overtime.workday.process";
 export const OVERTIME_WEEKLY_RECONCILIATION_JOB = "overtime.weekly.reconcile";
 export const OVERTIME_WORKDAY_SWEEP_JOB = "overtime.workday.sweep";
+export const OVERTIME_AUTHORIZATION_EXPIRE_JOB = "overtime.authorization.expire";
 
 export interface OvertimeWorkdayJobPayload {
   orgId: string;
@@ -18,6 +19,11 @@ export interface OvertimeWeeklyJobPayload {
 export interface OvertimeWorkdaySweepPayload {
   orgId: string;
   lookbackDays: number;
+}
+
+export interface OvertimeAuthorizationExpirePayload {
+  orgId: string;
+  expiryDays: number;
 }
 
 function buildSingletonKey(parts: Array<string | undefined>) {
@@ -63,6 +69,21 @@ export async function enqueueOvertimeWorkdaySweepJob(payload: OvertimeWorkdaySwe
     retryDelay: 120,
     retryBackoff: true,
     singletonKey: buildSingletonKey([payload.orgId, `sweep-${payload.lookbackDays}`]),
+    singletonSeconds: 60 * 60,
+    expireInSeconds: 60 * 60,
+  });
+}
+
+export async function enqueueOvertimeAuthorizationExpireJob(payload: OvertimeAuthorizationExpirePayload) {
+  const boss = await getBoss();
+
+  await boss.createQueue(OVERTIME_AUTHORIZATION_EXPIRE_JOB);
+
+  await boss.send(OVERTIME_AUTHORIZATION_EXPIRE_JOB, payload, {
+    retryLimit: 1,
+    retryDelay: 120,
+    retryBackoff: true,
+    singletonKey: buildSingletonKey([payload.orgId, `auth-expire-${payload.expiryDays}`]),
     singletonSeconds: 60 * 60,
     expireInSeconds: 60 * 60,
   });

@@ -14,6 +14,7 @@ const DEFAULT_GLOBAL_OVERTIME_SCHEDULER = {
   overtimeDailySweepHour: 4,
   overtimeDailySweepWindowMinutes: 20,
   overtimeDailySweepLookbackDays: 2,
+  overtimeAuthorizationExpiryDays: 7,
 } as const;
 
 type SuperAdminContext = {
@@ -53,6 +54,7 @@ export interface GlobalOvertimeSchedulerSettings {
   overtimeDailySweepHour: number;
   overtimeDailySweepWindowMinutes: number;
   overtimeDailySweepLookbackDays: number;
+  overtimeAuthorizationExpiryDays: number;
 }
 
 function normalizeGlobalSettings(
@@ -64,6 +66,7 @@ function normalizeGlobalSettings(
     overtimeDailySweepHour: number;
     overtimeDailySweepWindowMinutes: number;
     overtimeDailySweepLookbackDays: number;
+    overtimeAuthorizationExpiryDays: number;
   } | null,
 ): GlobalOvertimeSchedulerSettings {
   return {
@@ -95,6 +98,10 @@ function normalizeGlobalSettings(
       typeof settings?.overtimeDailySweepLookbackDays === "number"
         ? settings.overtimeDailySweepLookbackDays
         : DEFAULT_GLOBAL_OVERTIME_SCHEDULER.overtimeDailySweepLookbackDays,
+    overtimeAuthorizationExpiryDays:
+      typeof settings?.overtimeAuthorizationExpiryDays === "number"
+        ? settings.overtimeAuthorizationExpiryDays
+        : DEFAULT_GLOBAL_OVERTIME_SCHEDULER.overtimeAuthorizationExpiryDays,
   };
 }
 
@@ -109,6 +116,7 @@ async function fetchGlobalSettings() {
       overtimeDailySweepHour: true,
       overtimeDailySweepWindowMinutes: true,
       overtimeDailySweepLookbackDays: true,
+      overtimeAuthorizationExpiryDays: true,
     },
   });
 }
@@ -159,6 +167,9 @@ export async function updateGlobalOvertimeSchedulerSettings(
   if (data.overtimeDailySweepLookbackDays < 1 || data.overtimeDailySweepLookbackDays > 14) {
     throw new Error("El barrido diario solo puede mirar entre 1 y 14 días hacia atrás");
   }
+  if (data.overtimeAuthorizationExpiryDays < 1 || data.overtimeAuthorizationExpiryDays > 90) {
+    throw new Error("La expiración de autorizaciones debe estar entre 1 y 90 días");
+  }
 
   const previous = await prisma.globalSettings.findUnique({
     where: { id: "global" },
@@ -170,6 +181,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
       overtimeDailySweepHour: true,
       overtimeDailySweepWindowMinutes: true,
       overtimeDailySweepLookbackDays: true,
+      overtimeAuthorizationExpiryDays: true,
     },
   });
 
@@ -183,6 +195,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
       overtimeDailySweepHour: data.overtimeDailySweepHour,
       overtimeDailySweepWindowMinutes: data.overtimeDailySweepWindowMinutes,
       overtimeDailySweepLookbackDays: data.overtimeDailySweepLookbackDays,
+      overtimeAuthorizationExpiryDays: data.overtimeAuthorizationExpiryDays,
     },
     create: {
       id: "global",
@@ -193,6 +206,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
       overtimeDailySweepHour: data.overtimeDailySweepHour,
       overtimeDailySweepWindowMinutes: data.overtimeDailySweepWindowMinutes,
       overtimeDailySweepLookbackDays: data.overtimeDailySweepLookbackDays,
+      overtimeAuthorizationExpiryDays: data.overtimeAuthorizationExpiryDays,
     },
   });
 

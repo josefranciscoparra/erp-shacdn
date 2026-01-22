@@ -40,6 +40,8 @@ type OvertimePolicy = {
   maxNegativeMinutes: number;
 };
 
+type PrismaClientLike = Prisma.TransactionClient;
+
 const DEFAULT_OVERTIME_POLICY: OvertimePolicy = {
   calculationMode: "DAILY",
   approvalMode: "POST",
@@ -164,11 +166,12 @@ function normalizeDeviation(value: number, policy: OvertimePolicy): number {
 }
 
 async function getEmployeeBalanceMinutes(
+  client: PrismaClientLike,
   orgId: string,
   employeeId: string,
   exclude?: { movementId?: string },
 ): Promise<number> {
-  const aggregate = await prisma.timeBankMovement.aggregate({
+  const aggregate = await client.timeBankMovement.aggregate({
     where: {
       orgId,
       employeeId,
@@ -209,11 +212,17 @@ function clampMovementMinutes(
   return { appliedMinutes: minutes, clamped: false };
 }
 
-async function removeAutoMovementForWorkday(orgId: string, employeeId: string, date: Date, workdayId?: string | null) {
+async function removeAutoMovementForWorkday(
+  client: PrismaClientLike,
+  orgId: string,
+  employeeId: string,
+  date: Date,
+  workdayId?: string | null,
+) {
   const dayStart = startOfDay(date);
   const dayEnd = addDays(dayStart, 1);
 
-  await prisma.timeBankMovement.deleteMany({
+  await client.timeBankMovement.deleteMany({
     where: {
       orgId,
       employeeId,
@@ -223,8 +232,8 @@ async function removeAutoMovementForWorkday(orgId: string, employeeId: string, d
   });
 }
 
-async function removeOverworkMovement(overworkAuthorizationId: string) {
-  await prisma.timeBankMovement.deleteMany({
+async function removeOverworkMovement(client: PrismaClientLike, overworkAuthorizationId: string) {
+  await client.timeBankMovement.deleteMany({
     where: {
       overworkAuthorizationId,
       origin: "OVERTIME_AUTHORIZATION",
@@ -233,6 +242,7 @@ async function removeOverworkMovement(overworkAuthorizationId: string) {
 }
 
 async function upsertAutoDailyMovement(params: {
+  client: PrismaClientLike;
   orgId: string;
   employeeId: string;
   workdayId: string | null;
@@ -241,9 +251,9 @@ async function upsertAutoDailyMovement(params: {
   policy: OvertimePolicy;
   candidateType: OvertimeCandidateType;
 }): Promise<TimeBankMovement | null> {
-  const { orgId, employeeId, workdayId, date, minutes, policy, candidateType } = params;
+  const { client, orgId, employeeId, workdayId, date, minutes, policy, candidateType } = params;
 
-  const existing = await prisma.timeBankMovement.findFirst({
+  const existing = await client.timeBankMovement.findFirst({
     where: {
       orgId,
       employeeId,
@@ -254,12 +264,13 @@ async function upsertAutoDailyMovement(params: {
 
   if (minutes === 0) {
     if (existing) {
-      await prisma.timeBankMovement.delete({ where: { id: existing.id } });
+      await client.timeBankMovement.delete({ where: { id: existing.id } });
     }
     return null;
   }
 
   const balanceMinutes = await getEmployeeBalanceMinutes(
+    client,
     orgId,
     employeeId,
     existing ? { movementId: existing.id } : undefined,
@@ -268,7 +279,7 @@ async function upsertAutoDailyMovement(params: {
 
   if (appliedMinutes === 0) {
     if (existing) {
-      await prisma.timeBankMovement.delete({ where: { id: existing.id } });
+      await client.timeBankMovement.delete({ where: { id: existing.id } });
     }
     return null;
   }
@@ -291,7 +302,7 @@ async function upsertAutoDailyMovement(params: {
       return existing;
     }
 
-    return prisma.timeBankMovement.update({
+    return client.timeBankMovement.update({
       where: { id: existing.id },
       data: {
         minutes: appliedMinutes,
@@ -304,7 +315,7 @@ async function upsertAutoDailyMovement(params: {
     });
   }
 
-  return prisma.timeBankMovement.create({
+  return client.timeBankMovement.create({
     data: {
       orgId,
       employeeId,
@@ -322,6 +333,7 @@ async function upsertAutoDailyMovement(params: {
 }
 
 async function upsertOverworkMovement(params: {
+  client: PrismaClientLike;
   orgId: string;
   employeeId: string;
   workdayId: string | null;
@@ -330,13 +342,13 @@ async function upsertOverworkMovement(params: {
   minutes: number;
   candidateType: OvertimeCandidateType;
 }): Promise<TimeBankMovement | null> {
-  const { orgId, employeeId, workdayId, overworkAuthorizationId, date, minutes, candidateType } = params;
+  const { client, orgId, employeeId, workdayId, overworkAuthorizationId, date, minutes, candidateType } = params;
 
   if (minutes === 0) {
     return null;
   }
 
-  const existing = await prisma.timeBankMovement.findFirst({
+  const existing = await client.timeBankMovement.findFirst({
     where: {
       overworkAuthorizationId,
     },
@@ -350,7 +362,7 @@ async function upsertOverworkMovement(params: {
       return existing;
     }
 
-    return prisma.timeBankMovement.update({
+    return client.timeBankMovement.update({
       where: { id: existing.id },
       data: {
         minutes,
@@ -364,7 +376,7 @@ async function upsertOverworkMovement(params: {
     });
   }
 
-  return prisma.timeBankMovement.create({
+  return client.timeBankMovement.create({
     data: {
       orgId,
       employeeId,
@@ -437,7 +449,12 @@ function buildLimitFlags(candidateMinutesFinal: number, policy: OvertimePolicy) 
 }
 
 export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPayload) {
-  const dayStart = startOfDay(new Date(payload.date));
+  const parsedDate = new Date(payload.date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    console.error(`[OvertimeProcessor] Fecha inválida recibida en job de overtime: ${payload.date}`);
+    return;
+  }
+  const dayStart = startOfDay(parsedDate);
 
   const summary = await prisma.workdaySummary.findUnique({
     where: {
@@ -499,7 +516,12 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
   let effectiveSchedule = null;
   try {
     effectiveSchedule = await getEffectiveSchedule(payload.employeeId, scheduleDate);
-  } catch {
+  } catch (error) {
+    console.warn("[OvertimeProcessor] Error al resolver horario efectivo", {
+      employeeId: payload.employeeId,
+      date: scheduleDate.toISOString(),
+      error,
+    });
     effectiveSchedule = null;
   }
 
@@ -515,55 +537,57 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
   const isNonWorkingDay = !isWorkingDay || isAbsence;
 
   if (expectedMinutes === null) {
-    await prisma.overtimeCandidate.upsert({
-      where: {
-        orgId_employeeId_date: {
+    await prisma.$transaction(async (tx) => {
+      await tx.overtimeCandidate.upsert({
+        where: {
+          orgId_employeeId_date: {
+            orgId: payload.orgId,
+            employeeId: payload.employeeId,
+            date: dayStart,
+          },
+        },
+        create: {
           orgId: payload.orgId,
           employeeId: payload.employeeId,
           date: dayStart,
+          expectedMinutes: null,
+          workedMinutes,
+          deviationMinutesRaw: deviationRaw,
+          candidateMinutesRaw: deviationRaw,
+          calculationMode: policy.calculationMode,
+          approvalMode: policy.approvalMode,
+          compensationType: policy.compensationType,
+          requiresApproval: false,
+          status: "SKIPPED",
+          candidateType: "EXTRA",
+          flags: { reason: "NO_EXPECTED_MINUTES" },
+          lastCalculatedAt: new Date(),
+          workdaySummaryId: summary.id,
         },
-      },
-      create: {
-        orgId: payload.orgId,
-        employeeId: payload.employeeId,
-        date: dayStart,
-        expectedMinutes: null,
-        workedMinutes,
-        deviationMinutesRaw: deviationRaw,
-        candidateMinutesRaw: deviationRaw,
-        calculationMode: policy.calculationMode,
-        approvalMode: policy.approvalMode,
-        compensationType: policy.compensationType,
-        requiresApproval: false,
-        status: "SKIPPED",
-        candidateType: "EXTRA",
-        flags: { reason: "NO_EXPECTED_MINUTES" },
-        lastCalculatedAt: new Date(),
-        workdaySummaryId: summary.id,
-      },
-      update: {
-        expectedMinutes: null,
-        workedMinutes,
-        deviationMinutesRaw: deviationRaw,
-        candidateMinutesRaw: deviationRaw,
-        calculationMode: policy.calculationMode,
-        approvalMode: policy.approvalMode,
-        compensationType: policy.compensationType,
-        requiresApproval: false,
-        status: "SKIPPED",
-        candidateType: "EXTRA",
-        flags: { reason: "NO_EXPECTED_MINUTES" },
-        lastCalculatedAt: new Date(),
-        workdaySummaryId: summary.id,
-      },
-    });
+        update: {
+          expectedMinutes: null,
+          workedMinutes,
+          deviationMinutesRaw: deviationRaw,
+          candidateMinutesRaw: deviationRaw,
+          calculationMode: policy.calculationMode,
+          approvalMode: policy.approvalMode,
+          compensationType: policy.compensationType,
+          requiresApproval: false,
+          status: "SKIPPED",
+          candidateType: "EXTRA",
+          flags: { reason: "NO_EXPECTED_MINUTES" },
+          lastCalculatedAt: new Date(),
+          workdaySummaryId: summary.id,
+        },
+      });
 
-    await prisma.workdaySummary.update({
-      where: { id: summary.id },
-      data: {
-        overtimeCalcStatus: "SKIPPED",
-        overtimeCalcUpdatedAt: new Date(),
-      },
+      await tx.workdaySummary.update({
+        where: { id: summary.id },
+        data: {
+          overtimeCalcStatus: "SKIPPED",
+          overtimeCalcUpdatedAt: new Date(),
+        },
+      });
     });
 
     return;
@@ -618,236 +642,273 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
     nonWorkingDayPolicy: policy.nonWorkingDayPolicy,
   };
 
-  const candidate = await prisma.overtimeCandidate.upsert({
-    where: {
-      orgId_employeeId_date: {
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName}`.trim() : "Empleado";
+  const requestedById = employee?.userId ?? payload.employeeId;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const candidate = await tx.overtimeCandidate.upsert({
+      where: {
+        orgId_employeeId_date: {
+          orgId: payload.orgId,
+          employeeId: payload.employeeId,
+          date: dayStart,
+        },
+      },
+      create: {
         orgId: payload.orgId,
         employeeId: payload.employeeId,
         date: dayStart,
+        expectedMinutes,
+        workedMinutes,
+        deviationMinutesRaw: deviationRaw,
+        candidateMinutesRaw: candidateRaw,
+        candidateMinutesFinal,
+        calculationMode: policy.calculationMode,
+        approvalMode: policy.approvalMode,
+        compensationType: policy.compensationType,
+        requiresApproval,
+        status: "PENDING_CALC",
+        candidateType,
+        flags: flags as Prisma.InputJsonValue,
+        policySnapshot: policySnapshot as Prisma.InputJsonValue,
+        lastCalculatedAt: new Date(),
+        workdaySummaryId: summary.id,
       },
-    },
-    create: {
-      orgId: payload.orgId,
-      employeeId: payload.employeeId,
-      date: dayStart,
-      expectedMinutes,
-      workedMinutes,
-      deviationMinutesRaw: deviationRaw,
-      candidateMinutesRaw: candidateRaw,
-      candidateMinutesFinal,
-      calculationMode: policy.calculationMode,
-      approvalMode: policy.approvalMode,
-      compensationType: policy.compensationType,
-      requiresApproval,
-      status: "PENDING_CALC",
-      candidateType,
-      flags: flags as Prisma.InputJsonValue,
-      policySnapshot: policySnapshot as Prisma.InputJsonValue,
-      lastCalculatedAt: new Date(),
-      workdaySummaryId: summary.id,
-    },
-    update: {
-      expectedMinutes,
-      workedMinutes,
-      deviationMinutesRaw: deviationRaw,
-      candidateMinutesRaw: candidateRaw,
-      candidateMinutesFinal,
-      calculationMode: policy.calculationMode,
-      approvalMode: policy.approvalMode,
-      compensationType: policy.compensationType,
-      requiresApproval,
-      status: "PENDING_CALC",
-      candidateType,
-      flags: flags as Prisma.InputJsonValue,
-      policySnapshot: policySnapshot as Prisma.InputJsonValue,
-      lastCalculatedAt: new Date(),
-      workdaySummaryId: summary.id,
-    },
-  });
+      update: {
+        expectedMinutes,
+        workedMinutes,
+        deviationMinutesRaw: deviationRaw,
+        candidateMinutesRaw: candidateRaw,
+        candidateMinutesFinal,
+        calculationMode: policy.calculationMode,
+        approvalMode: policy.approvalMode,
+        compensationType: policy.compensationType,
+        requiresApproval,
+        status: "PENDING_CALC",
+        candidateType,
+        flags: flags as Prisma.InputJsonValue,
+        policySnapshot: policySnapshot as Prisma.InputJsonValue,
+        lastCalculatedAt: new Date(),
+        workdaySummaryId: summary.id,
+      },
+    });
 
-  let approvalStatus: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED" | undefined;
-  let movementCreated = false;
-  let overworkAuthorizationId = candidate.overworkAuthorizationId ?? null;
+    let approvalStatus: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED" | undefined;
+    let movementCreated = false;
+    let overworkAuthorizationId = candidate.overworkAuthorizationId ?? null;
+    let newAuthorizationCreated = false;
+    let alertId: string | null = null;
+    let adjustedApprovedAuth: {
+      previousMinutes: number;
+      newMinutes: number;
+      approvedById: string | null;
+    } | null = null;
 
-  if (candidateMinutesFinal === 0) {
-    await removeAutoMovementForWorkday(payload.orgId, payload.employeeId, dayStart, summary.id);
-    if (candidate.overworkAuthorizationId) {
-      const existingAuth = await prisma.overworkAuthorization.findUnique({
-        where: { id: candidate.overworkAuthorizationId },
-      });
-      if (existingAuth && existingAuth.status === "PENDING") {
-        await prisma.overworkAuthorization.update({
-          where: { id: existingAuth.id },
-          data: {
-            status: "CANCELLED",
-            resolvedAt: new Date(),
-          },
+    if (candidateMinutesFinal === 0) {
+      await removeAutoMovementForWorkday(tx, payload.orgId, payload.employeeId, dayStart, summary.id);
+      if (candidate.overworkAuthorizationId) {
+        const existingAuth = await tx.overworkAuthorization.findUnique({
+          where: { id: candidate.overworkAuthorizationId },
         });
+        if (existingAuth && existingAuth.status === "PENDING") {
+          await tx.overworkAuthorization.update({
+            where: { id: existingAuth.id },
+            data: {
+              status: "CANCELLED",
+              resolvedAt: new Date(),
+            },
+          });
+        }
       }
-    }
-  } else if (requiresApproval) {
-    const existingAuth = candidate.overworkAuthorizationId
-      ? await prisma.overworkAuthorization.findUnique({ where: { id: candidate.overworkAuthorizationId } })
-      : null;
+    } else if (requiresApproval) {
+      const existingAuth = candidate.overworkAuthorizationId
+        ? await tx.overworkAuthorization.findUnique({ where: { id: candidate.overworkAuthorizationId } })
+        : null;
 
-    if (!existingAuth) {
-      const newAuth = await prisma.overworkAuthorization.create({
-        data: {
-          orgId: payload.orgId,
-          employeeId: payload.employeeId,
-          requestedById: employee?.userId ?? payload.employeeId,
-          date: dayStart,
-          minutesApproved: candidateMinutesFinal,
-          justification: "Generado automáticamente por exceso de jornada",
-          status: "PENDING",
-          compensationType: policy.compensationType,
-        },
-      });
-      overworkAuthorizationId = newAuth.id;
-      approvalStatus = "PENDING";
-
-      if (employee?.userId) {
-        const approvers = await resolveApproverUsers(payload.employeeId, payload.orgId, "TIME_BANK");
-        const approverIds = approvers.map((approver) => approver.userId);
-
-        await Promise.all(
-          approverIds.map((approverId) =>
-            createNotification(
-              approverId,
-              payload.orgId,
-              "OVERTIME_PENDING_APPROVAL",
-              "Horas extra pendientes de aprobación",
-              `${employee.firstName} ${employee.lastName} registró ${(candidateMinutesFinal / 60).toFixed(
-                1,
-              )}h en ${dayStart.toLocaleDateString("es-ES")}.`,
-            ),
-          ),
-        );
-
-        const alert = await prisma.alert.create({
+      if (!existingAuth) {
+        const newAuth = await tx.overworkAuthorization.create({
           data: {
             orgId: payload.orgId,
             employeeId: payload.employeeId,
-            type: "OVERTIME_PENDING_APPROVAL",
-            severity: "WARNING",
-            title: "Horas extra pendientes",
-            description: `${employee.firstName} ${employee.lastName} registró horas extra pendientes de aprobación.`,
+            requestedById,
             date: dayStart,
-            departmentId: employee.departmentId,
-            costCenterId: employee.costCenterId,
-            originalCostCenterId: employee.costCenterId,
-            status: "ACTIVE",
-            deviationMinutes: candidateMinutesFinal,
-          },
-        });
-        await ensureAlertAssignments(alert.id, payload.employeeId);
-      }
-    } else {
-      approvalStatus = existingAuth.status;
-      if (existingAuth.status === "PENDING" && existingAuth.minutesApproved !== candidateMinutesFinal) {
-        await prisma.overworkAuthorization.update({
-          where: { id: existingAuth.id },
-          data: {
             minutesApproved: candidateMinutesFinal,
+            justification: "Generado automáticamente por exceso de jornada",
+            status: "PENDING",
             compensationType: policy.compensationType,
           },
         });
-      } else if (existingAuth.status === "APPROVED" && existingAuth.minutesApproved !== candidateMinutesFinal) {
-        await prisma.overworkAuthorization.update({
-          where: { id: existingAuth.id },
-          data: {
-            minutesApproved: candidateMinutesFinal,
-          },
-        });
+        overworkAuthorizationId = newAuth.id;
+        approvalStatus = "PENDING";
+        newAuthorizationCreated = true;
 
         if (employee?.userId) {
-          await createNotification(
-            employee.userId,
-            payload.orgId,
-            "OVERTIME_ADJUSTED",
-            "Horas extra ajustadas",
-            `Tus horas extra del ${dayStart.toLocaleDateString("es-ES")} se ajustaron de ${(
-              existingAuth.minutesApproved / 60
-            ).toFixed(1)}h a ${(candidateMinutesFinal / 60).toFixed(1)}h por corrección de fichaje.`,
-          );
-        }
-
-        if (existingAuth.approvedById) {
-          await createNotification(
-            existingAuth.approvedById,
-            payload.orgId,
-            "OVERTIME_ADJUSTED",
-            "Horas extra ajustadas",
-            `${employee?.firstName ?? "Empleado"} ${employee?.lastName ?? ""} ajustó las horas extra del ${dayStart.toLocaleDateString(
-              "es-ES",
-            )} a ${(candidateMinutesFinal / 60).toFixed(1)}h.`,
-          );
-        }
-      }
-    }
-  } else {
-    const movement = await upsertAutoDailyMovement({
-      orgId: payload.orgId,
-      employeeId: payload.employeeId,
-      workdayId: summary.id,
-      date: dayStart,
-      minutes: candidateMinutesFinal,
-      policy,
-      candidateType,
-    });
-    movementCreated = Boolean(movement);
-  }
-
-  if (overworkAuthorizationId) {
-    const currentAuth = await prisma.overworkAuthorization.findUnique({ where: { id: overworkAuthorizationId } });
-    const currentStatus = currentAuth ? currentAuth.status : null;
-    approvalStatus = currentStatus ?? approvalStatus;
-
-    if (currentAuth?.status === "APPROVED") {
-      if (policy.compensationType === "TIME" || policy.compensationType === "MIXED") {
-        if (candidateMinutesFinal === 0) {
-          await removeOverworkMovement(overworkAuthorizationId);
-        } else {
-          const movement = await upsertOverworkMovement({
-            orgId: payload.orgId,
-            employeeId: payload.employeeId,
-            workdayId: summary.id,
-            overworkAuthorizationId,
-            date: dayStart,
-            minutes: candidateMinutesFinal,
-            candidateType,
+          const alert = await tx.alert.create({
+            data: {
+              orgId: payload.orgId,
+              employeeId: payload.employeeId,
+              type: "OVERTIME_PENDING_APPROVAL",
+              severity: "WARNING",
+              title: "Horas extra pendientes",
+              description: `${employee.firstName} ${employee.lastName} registró horas extra pendientes de aprobación.`,
+              date: dayStart,
+              departmentId: employee.departmentId,
+              costCenterId: employee.costCenterId,
+              originalCostCenterId: employee.costCenterId,
+              status: "ACTIVE",
+              deviationMinutes: candidateMinutesFinal,
+            },
           });
-          movementCreated = Boolean(movement);
+          alertId = alert.id;
+        }
+      } else {
+        approvalStatus = existingAuth.status;
+        if (existingAuth.status === "PENDING" && existingAuth.minutesApproved !== candidateMinutesFinal) {
+          await tx.overworkAuthorization.update({
+            where: { id: existingAuth.id },
+            data: {
+              minutesApproved: candidateMinutesFinal,
+              compensationType: policy.compensationType,
+            },
+          });
+        } else if (existingAuth.status === "APPROVED" && existingAuth.minutesApproved !== candidateMinutesFinal) {
+          await tx.overworkAuthorization.update({
+            where: { id: existingAuth.id },
+            data: {
+              minutesApproved: candidateMinutesFinal,
+            },
+          });
+
+          adjustedApprovedAuth = {
+            previousMinutes: existingAuth.minutesApproved,
+            newMinutes: candidateMinutesFinal,
+            approvedById: existingAuth.approvedById,
+          };
+        }
+      }
+    } else {
+      const movement = await upsertAutoDailyMovement({
+        client: tx,
+        orgId: payload.orgId,
+        employeeId: payload.employeeId,
+        workdayId: summary.id,
+        date: dayStart,
+        minutes: candidateMinutesFinal,
+        policy,
+        candidateType,
+      });
+      movementCreated = Boolean(movement);
+    }
+
+    if (overworkAuthorizationId) {
+      const currentAuth = await tx.overworkAuthorization.findUnique({ where: { id: overworkAuthorizationId } });
+      const currentStatus = currentAuth ? currentAuth.status : null;
+      approvalStatus = currentStatus ?? approvalStatus;
+
+      if (currentAuth?.status === "APPROVED") {
+        if (policy.compensationType === "TIME" || policy.compensationType === "MIXED") {
+          if (candidateMinutesFinal === 0) {
+            await removeOverworkMovement(tx, overworkAuthorizationId);
+          } else {
+            const movement = await upsertOverworkMovement({
+              client: tx,
+              orgId: payload.orgId,
+              employeeId: payload.employeeId,
+              workdayId: summary.id,
+              overworkAuthorizationId,
+              date: dayStart,
+              minutes: candidateMinutesFinal,
+              candidateType,
+            });
+            movementCreated = Boolean(movement);
+          }
         }
       }
     }
+
+    const finalStatus = resolveCandidateStatus({
+      candidateMinutesFinal,
+      requiresApproval,
+      movementCreated,
+      compensationType: policy.compensationType,
+      approvalStatus,
+    });
+
+    await tx.overtimeCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        status: finalStatus,
+        overworkAuthorizationId,
+        resolvedAt: finalStatus === "SETTLED" || finalStatus === "REJECTED" ? new Date() : null,
+        lastCalculatedAt: new Date(),
+      },
+    });
+
+    await tx.workdaySummary.update({
+      where: { id: summary.id },
+      data: {
+        overtimeCalcStatus: mapCandidateStatusToCalcStatus(finalStatus),
+        overtimeCalcUpdatedAt: new Date(),
+      },
+    });
+
+    return {
+      newAuthorizationCreated,
+      alertId,
+      adjustedApprovedAuth,
+      overworkAuthorizationId,
+      candidateMinutesFinal,
+    };
+  });
+
+  if (result.newAuthorizationCreated && employee?.userId) {
+    const approvers = await resolveApproverUsers(payload.employeeId, payload.orgId, "TIME_BANK");
+    const approverIds = approvers.map((approver) => approver.userId);
+
+    await Promise.all(
+      approverIds.map((approverId) =>
+        createNotification(
+          approverId,
+          payload.orgId,
+          "OVERTIME_PENDING_APPROVAL",
+          "Horas extra pendientes de aprobación",
+          `${employeeName} registró ${(result.candidateMinutesFinal / 60).toFixed(1)}h en ${dayStart.toLocaleDateString(
+            "es-ES",
+          )}.`,
+        ),
+      ),
+    );
   }
 
-  const finalStatus = resolveCandidateStatus({
-    candidateMinutesFinal,
-    requiresApproval,
-    movementCreated,
-    compensationType: policy.compensationType,
-    approvalStatus,
-  });
+  if (result.alertId) {
+    await ensureAlertAssignments(result.alertId, payload.employeeId);
+  }
 
-  await prisma.overtimeCandidate.update({
-    where: { id: candidate.id },
-    data: {
-      status: finalStatus,
-      overworkAuthorizationId,
-      resolvedAt: finalStatus === "SETTLED" || finalStatus === "REJECTED" ? new Date() : null,
-      lastCalculatedAt: new Date(),
-    },
-  });
+  if (result.adjustedApprovedAuth) {
+    if (employee?.userId) {
+      await createNotification(
+        employee.userId,
+        payload.orgId,
+        "OVERTIME_ADJUSTED",
+        "Horas extra ajustadas",
+        `Tus horas extra del ${dayStart.toLocaleDateString("es-ES")} se ajustaron de ${(
+          result.adjustedApprovedAuth.previousMinutes / 60
+        ).toFixed(1)}h a ${(result.adjustedApprovedAuth.newMinutes / 60).toFixed(1)}h por corrección de fichaje.`,
+      );
+    }
 
-  await prisma.workdaySummary.update({
-    where: { id: summary.id },
-    data: {
-      overtimeCalcStatus: mapCandidateStatusToCalcStatus(finalStatus),
-      overtimeCalcUpdatedAt: new Date(),
-    },
-  });
+    if (result.adjustedApprovedAuth.approvedById) {
+      await createNotification(
+        result.adjustedApprovedAuth.approvedById,
+        payload.orgId,
+        "OVERTIME_ADJUSTED",
+        "Horas extra ajustadas",
+        `${employeeName} ajustó las horas extra del ${dayStart.toLocaleDateString("es-ES")} a ${(
+          result.adjustedApprovedAuth.newMinutes / 60
+        ).toFixed(1)}h.`,
+      );
+    }
+  }
 }
 
 export async function processWeeklyOvertimeReconciliation(payload: WeeklyOvertimeJobPayload) {
@@ -938,22 +999,34 @@ export async function processWeeklyOvertimeReconciliation(payload: WeeklyOvertim
     if (correction === 0) {
       continue;
     }
+    const balanceMinutes = await getEmployeeBalanceMinutes(prisma, payload.orgId, employeeId);
+    const { appliedMinutes, clamped } = clampMovementMinutes(correction, balanceMinutes, policy);
+
+    if (appliedMinutes === 0) {
+      continue;
+    }
 
     await prisma.timeBankMovement.create({
       data: {
         orgId: payload.orgId,
         employeeId,
         date: startOfDay(weekEnd),
-        minutes: correction,
-        type: correction >= 0 ? "CORRECTION" : "DEFICIT",
+        minutes: appliedMinutes,
+        type: appliedMinutes >= 0 ? "CORRECTION" : "DEFICIT",
         origin: "CORRECTION",
         status: "SETTLED",
-        description: "Ajuste semanal automático",
+        description: clamped ? "Ajuste semanal automático (recortado por límite)" : "Ajuste semanal automático",
         metadata: {
           weekStart: weekStart.toISOString(),
           weekEnd: weekEnd.toISOString(),
           weeklyNormalized,
           dailySum,
+          correction,
+          appliedMinutes,
+          clampedByLimit: clamped,
+          balanceBeforeMinutes: balanceMinutes,
+          maxPositiveMinutes: policy.maxPositiveMinutes,
+          maxNegativeMinutes: policy.maxNegativeMinutes,
         } as Prisma.InputJsonValue,
       },
     });
@@ -964,6 +1037,8 @@ export async function processOvertimeWorkdaySweep(payload: { orgId: string; look
   const lookback = Math.max(1, Math.min(14, Math.round(payload.lookbackDays)));
   const since = startOfDay(addDays(new Date(), lookback * -1));
   const batchSize = 200;
+  const maxJobs = 1000;
+  let enqueued = 0;
   let cursor: string | undefined = undefined;
   let hasMore = true;
 
@@ -985,11 +1060,23 @@ export async function processOvertimeWorkdaySweep(payload: { orgId: string; look
     });
 
     for (const summary of summaries) {
+      if (enqueued >= maxJobs) {
+        console.warn(
+          `[OvertimeSweep] Límite de ${maxJobs} jobs alcanzado para ${payload.orgId}. Continuará en el siguiente barrido.`,
+        );
+        hasMore = false;
+        break;
+      }
       await enqueueOvertimeWorkdayJob({
         orgId: payload.orgId,
         employeeId: summary.employeeId,
         date: summary.date.toISOString().slice(0, 10),
       });
+      enqueued += 1;
+    }
+
+    if (!hasMore) {
+      break;
     }
 
     if (summaries.length < batchSize) {
@@ -998,4 +1085,127 @@ export async function processOvertimeWorkdaySweep(payload: { orgId: string; look
       cursor = summaries[summaries.length - 1]?.id;
     }
   }
+}
+
+export async function processOverworkAuthorizationExpiry(payload: { orgId: string; expiryDays: number }) {
+  const expiryDays = Math.max(1, Math.min(90, Math.round(payload.expiryDays)));
+  const cutoff = startOfDay(addDays(new Date(), expiryDays * -1));
+
+  const pending = await prisma.overworkAuthorization.findMany({
+    where: {
+      orgId: payload.orgId,
+      status: "PENDING",
+      requestedAt: { lt: cutoff },
+    },
+    select: {
+      id: true,
+      orgId: true,
+      employeeId: true,
+      date: true,
+      minutesApproved: true,
+      employee: {
+        select: {
+          userId: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+
+  if (pending.length === 0) {
+    return;
+  }
+
+  const approverCache = new Map<string, string[]>();
+  const notifications: Prisma.PtoNotificationCreateManyInput[] = [];
+  const now = new Date();
+
+  for (const auth of pending) {
+    const employeeName = `${auth.employee.firstName} ${auth.employee.lastName}`.trim();
+    const dateLabel = auth.date.toLocaleDateString("es-ES");
+    const hoursLabel = (auth.minutesApproved / 60).toFixed(1);
+
+    if (auth.employee.userId) {
+      notifications.push({
+        userId: auth.employee.userId,
+        orgId: auth.orgId,
+        type: "OVERTIME_EXPIRED",
+        title: "Horas extra expiradas",
+        message: `Tu solicitud de ${hoursLabel}h del ${dateLabel} expiró sin revisión. Si necesitas regularizarlo, contacta con tu responsable.`,
+        isRead: false,
+      });
+    }
+
+    let approverIds = approverCache.get(auth.employeeId);
+    if (!approverIds) {
+      const approvers = await resolveApproverUsers(auth.employeeId, auth.orgId, "TIME_BANK");
+      approverIds = approvers.map((approver) => approver.userId);
+      approverCache.set(auth.employeeId, approverIds);
+    }
+
+    for (const approverId of approverIds) {
+      notifications.push({
+        userId: approverId,
+        orgId: auth.orgId,
+        type: "OVERTIME_EXPIRED",
+        title: "Horas extra expiradas",
+        message: `La solicitud de ${employeeName} (${hoursLabel}h, ${dateLabel}) expiró sin revisión.`,
+        isRead: false,
+      });
+    }
+  }
+
+  const ids = pending.map((item) => item.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.overworkAuthorization.updateMany({
+      where: { id: { in: ids }, status: "PENDING" },
+      data: {
+        status: "EXPIRED",
+        resolvedAt: now,
+      },
+    });
+
+    const candidates = await tx.overtimeCandidate.findMany({
+      where: {
+        overworkAuthorizationId: { in: ids },
+      },
+      select: {
+        id: true,
+        workdaySummaryId: true,
+      },
+    });
+
+    if (candidates.length > 0) {
+      const candidateIds = candidates.map((candidate) => candidate.id);
+      const summaryIds = candidates
+        .map((candidate) => candidate.workdaySummaryId)
+        .filter((id): id is string => Boolean(id));
+
+      await tx.overtimeCandidate.updateMany({
+        where: { id: { in: candidateIds } },
+        data: {
+          status: "REJECTED",
+          resolvedAt: now,
+        },
+      });
+
+      if (summaryIds.length > 0) {
+        await tx.workdaySummary.updateMany({
+          where: { id: { in: summaryIds } },
+          data: {
+            overtimeCalcStatus: "READY",
+            overtimeCalcUpdatedAt: now,
+          },
+        });
+      }
+    }
+
+    if (notifications.length > 0) {
+      await tx.ptoNotification.createMany({
+        data: notifications,
+      });
+    }
+  });
 }

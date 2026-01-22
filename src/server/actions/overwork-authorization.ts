@@ -142,7 +142,7 @@ export async function approveOverworkAuthorization(input: {
   compensationType?: OvertimeCompensationType;
   comments?: string;
 }) {
-  const { userId } = await getAuthenticatedUser();
+  const { userId, role, email, name } = await getAuthenticatedUser();
   await ensureReviewerPermission();
 
   const request = await prisma.overworkAuthorization.findUnique({
@@ -163,6 +163,13 @@ export async function approveOverworkAuthorization(input: {
   }
 
   const selectedCompensation = input.compensationType ?? request.compensationType;
+
+  const previousSnapshot = {
+    status: request.status,
+    minutesApproved: request.minutesApproved,
+    compensationType: request.compensationType,
+    justification: request.justification,
+  };
 
   await prisma.overworkAuthorization.update({
     where: { id: request.id },
@@ -241,11 +248,35 @@ export async function approveOverworkAuthorization(input: {
     );
   }
 
+  await prisma.auditLog.create({
+    data: {
+      action: "OVERTIME_AUTHORIZATION_APPROVED",
+      category: "TIME_BANK",
+      entityId: request.id,
+      entityType: "OverworkAuthorization",
+      entityData: {
+        previous: previousSnapshot,
+        new: {
+          status: "APPROVED",
+          minutesApproved: request.minutesApproved,
+          compensationType: selectedCompensation,
+          justification: input.comments ?? request.justification,
+        },
+      } as Prisma.InputJsonValue,
+      description: `Horas extra aprobadas por ${name ?? email}`,
+      performedById: userId,
+      performedByEmail: email ?? "",
+      performedByName: name ?? "",
+      performedByRole: role,
+      orgId: request.orgId,
+    },
+  });
+
   return { success: true };
 }
 
 export async function rejectOverworkAuthorization(input: { authorizationId: string; rejectionReason: string }) {
-  const { userId } = await getAuthenticatedUser();
+  const { userId, role, email, name } = await getAuthenticatedUser();
   await ensureReviewerPermission();
 
   const request = await prisma.overworkAuthorization.findUnique({
@@ -264,6 +295,13 @@ export async function rejectOverworkAuthorization(input: { authorizationId: stri
   if (request.status !== "PENDING") {
     throw new Error("Esta solicitud ya fue procesada");
   }
+
+  const previousSnapshot = {
+    status: request.status,
+    minutesApproved: request.minutesApproved,
+    compensationType: request.compensationType,
+    justification: request.justification,
+  };
 
   await prisma.overworkAuthorization.update({
     where: { id: request.id },
@@ -313,6 +351,30 @@ export async function rejectOverworkAuthorization(input: { authorizationId: stri
       `Tus horas extra del ${request.date.toLocaleDateString("es-ES")} han sido rechazadas.`,
     );
   }
+
+  await prisma.auditLog.create({
+    data: {
+      action: "OVERTIME_AUTHORIZATION_REJECTED",
+      category: "TIME_BANK",
+      entityId: request.id,
+      entityType: "OverworkAuthorization",
+      entityData: {
+        previous: previousSnapshot,
+        new: {
+          status: "REJECTED",
+          minutesApproved: request.minutesApproved,
+          compensationType: request.compensationType,
+          justification: input.rejectionReason,
+        },
+      } as Prisma.InputJsonValue,
+      description: `Horas extra rechazadas por ${name ?? email}`,
+      performedById: userId,
+      performedByEmail: email ?? "",
+      performedByName: name ?? "",
+      performedByRole: role,
+      orgId: request.orgId,
+    },
+  });
 
   return { success: true };
 }

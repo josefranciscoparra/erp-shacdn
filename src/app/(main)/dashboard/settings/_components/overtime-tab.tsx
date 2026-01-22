@@ -115,6 +115,11 @@ export function OvertimeTab() {
     return `Barrido diario ${hourLabel} · ventana ${globalSchedule.overtimeDailySweepWindowMinutes} min · últimos ${globalSchedule.overtimeDailySweepLookbackDays} días`;
   })();
 
+  const expiryLabel = (() => {
+    if (!globalSchedule) return "Expiración de autorizaciones no disponible";
+    return `Expiración de autorizaciones: ${globalSchedule.overtimeAuthorizationExpiryDays} días`;
+  })();
+
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
@@ -292,7 +297,7 @@ export function OvertimeTab() {
                 />
               </div>
               <p className="text-muted-foreground text-xs">
-                {weeklyScheduleLabel}. {dailySweepLabel}. (Configuración global en Administración &gt; Organizaciones)
+                {weeklyScheduleLabel}. {dailySweepLabel}. {expiryLabel}. (Configuración global en Ajustes de superadmin)
               </p>
             </div>
           </div>
