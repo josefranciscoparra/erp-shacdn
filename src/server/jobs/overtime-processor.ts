@@ -530,6 +530,12 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
   const expectedMinutes = expectedFromSummary ?? expectedFromSchedule ?? null;
   const workedMinutes = Math.round(decimalToNumber(summary.totalWorkedMinutes));
   const deviationRaw = expectedMinutes !== null ? workedMinutes - expectedMinutes : 0;
+  const resolutionStatus = summary.resolutionStatus ?? "OK";
+  const dataQuality = summary.dataQuality ?? "CONFIRMED";
+  const requiresReview =
+    resolutionStatus === "UNRESOLVED_MISSING_CLOCK_OUT" ||
+    resolutionStatus === "AUTO_CLOSED_SAFETY" ||
+    dataQuality !== "CONFIRMED";
 
   const scheduleIsWorkingDay = effectiveSchedule ? effectiveSchedule.isWorkingDay : null;
   const isWorkingDay = scheduleIsWorkingDay ?? (expectedMinutes ?? 0) > 0;
@@ -614,7 +620,8 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
     candidateMinutesFinal > 0 &&
     candidateType !== "DEFICIT" &&
     (policy.approvalMode !== "NONE" ||
-      (candidateType === "NON_WORKDAY" && policy.nonWorkingDayPolicy === "REQUIRE_APPROVAL"));
+      (candidateType === "NON_WORKDAY" && policy.nonWorkingDayPolicy === "REQUIRE_APPROVAL") ||
+      requiresReview);
 
   const limitFlags = buildLimitFlags(candidateMinutesFinal, policy);
   const scheduleSource = effectiveSchedule ? effectiveSchedule.source : null;
@@ -626,6 +633,9 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
     exceptionType: scheduleExceptionType,
     candidateType,
     isPartTime,
+    resolutionStatus,
+    dataQuality,
+    requiresReview,
     ...limitFlags,
   };
 

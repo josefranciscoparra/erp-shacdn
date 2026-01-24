@@ -46,6 +46,9 @@ model Organization {
   geolocationMinAccuracy Int     @default(100) // Precisión mínima requerida en metros
   geolocationMaxRadius   Int     @default(200) // Radio máximo permitido por defecto en metros
 
+  // Configuración de zona horaria
+  timezone String @default("Europe/Madrid")
+
   // Configuración de Validaciones de Fichajes
   clockInToleranceMinutes                  Int     @default(15) // Tolerancia para entrada (minutos de retraso aceptables)
   clockOutToleranceMinutes                 Int     @default(15) // Tolerancia para salida (minutos de retraso aceptables)
@@ -55,6 +58,17 @@ model Organization {
   nonWorkdayClockInWarning                 Boolean @default(true) // Mostrar warning al fichar en día no laboral
   autoCloseMissingClockOutEnabled          Boolean @default(false) // Cerrar automáticamente fichajes abiertos al superar un % de jornada
   autoCloseMissingClockOutThresholdPercent Int     @default(150) // % de jornada para autocierre (ej: 150 = 1.5x)
+  missingClockOutMode                      MissingClockOutMode @default(UNRESOLVED) // Estrategia ante fichajes sin salida
+  notifyEmployeeOnUnresolved               Boolean             @default(true) // Notificar al empleado cuando haya fichaje pendiente
+  requireApprovalWhenOvertime              Boolean             @default(true) // Exigir aprobación si hay impacto en horas extra
+  autoCloseEnabled                          Boolean             @default(false) // Activar autocierre opcional (enterprise)
+  autoCloseStrategy                         AutoCloseStrategy   @default(SCHEDULE_END) // Estrategia de autocierre
+  autoCloseToleranceMinutes                Int                 @default(15) // Tolerancia en minutos sobre fin de jornada
+  autoCloseTriggerExtraMinutes             Int                 @default(120) // Minutos extra sobre fin de jornada para autocierre
+  autoCloseMaxOpenHours                    Int                 @default(16) // Airbag técnico: máximo de horas abiertas
+  autoCloseFixedHour                       Int                 @default(0) // Hora fija (0-23) si estrategia FIXED_HOUR
+  autoCloseFixedMinute                     Int                 @default(0) // Minuto fijo (0-59) si estrategia FIXED_HOUR
+  autoClosedRequiresReview                 Boolean             @default(true) // Autocierre siempre pendiente de revisión
 
   // Configuración de Alertas de Fichajes (Sistema Avanzado)
   criticalLateArrivalMinutes    Int      @default(30) // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)
@@ -118,6 +132,10 @@ model Organization {
   timeBankSettings             TimeBankSettings?
   timeBankMovements            TimeBankMovement[]
   timeBankRequests             TimeBankRequest[]
+  protectedWindows             ProtectedWindow[]
+  onCallSchedules              OnCallSchedule[]
+  onCallInterventions          OnCallIntervention[]
+  onCallAllowances             OnCallAllowance[]
   overworkAuthorizations       OverworkAuthorization[]
 
   // Configuración de Gastos (Público vs Privado)
@@ -253,6 +271,13 @@ model GlobalSettings {
   overtimeDailySweepWindowMinutes               Int      @default(20)
   overtimeDailySweepLookbackDays                Int      @default(2)
   overtimeAuthorizationExpiryDays               Int      @default(7)
+  timeTrackingSweepHour                         Int      @default(4) // 0-23 (inicio)
+  timeTrackingSweepStartMinute                  Int      @default(0) // 0-59 (inicio)
+  timeTrackingSweepEndHour                      Int      @default(4) // 0-23 (fin)
+  timeTrackingSweepEndMinute                    Int      @default(20) // 0-59 (fin)
+  timeTrackingSweepWindowMinutes                Int      @default(20)
+  timeTrackingSweepLookbackDays                 Int      @default(1)
+  timeTrackingDispatchIntervalMinutes           Int      @default(10)
   createdAt                                     DateTime @default(now())
   updatedAt                                     DateTime @updatedAt
 
@@ -337,6 +362,7 @@ model User {
   recurringPtoAdjustments           RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
   createdSignableDocuments          SignableDocument[] // Documentos firmables que ha creado
   approvedManualTimeEntries         ManualTimeEntryRequest[]    @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
+  onCallInterventionApprovals       OnCallIntervention[]        @relation("OnCallInterventionApprover")
   createdExpenses                   Expense[]                   @relation("ExpenseCreator") // Gastos creados
   createdProcedures                 ExpenseProcedure[]          @relation("ProcedureCreator") // Expedientes de gasto creados
   reimbursedExpenses                Expense[]                   @relation("ExpenseReimburser") // Gastos que he reembolsado
@@ -714,6 +740,10 @@ model Employee {
   expenses                Expense[]
   expenseProcedures       ExpenseProcedure[]
   expenseReports          ExpenseReport[]
+  protectedWindows        ProtectedWindow[]
+  onCallSchedules         OnCallSchedule[]
+  onCallInterventions     OnCallIntervention[]
+  onCallAllowances        OnCallAllowance[]
 
   // Aprobador específico de gastos para este empleado (opcional, sobrescribe org)
   expenseApproverId String?
@@ -1435,6 +1465,10 @@ model TimeEntry {
   isManual        Boolean @default(false)
   manualRequestId String? // ID de la solicitud que lo creó
 
+  // Intervenciones de guardia (si aplica)
+  onCallInterventionId String?
+  onCallIntervention   OnCallIntervention? @relation(fields: [onCallInterventionId], references: [id])
+
   // Validación contra horario (Schedule V2.0)
   validationWarnings String[] @default([]) // Warnings de validación (ej: "Fichaje tardío: 20 minutos")
   validationErrors   String[] @default([]) // Errores de validación (ej: "Día no laboral")
@@ -1446,6 +1480,7 @@ model TimeEntry {
   cancelledAt           DateTime? // Fecha/hora de cancelación
   originalDurationHours Decimal?            @db.Decimal(6, 2) // Duración original si fue cancelado por larga duración
   cancellationNotes     String? // Notas adicionales sobre la cancelación
+  autoCloseReason       AutoCloseReason? // Motivo de autocierre (si aplica)
 
   // Sistema de permisos y alertas
   alerts Alert[] @relation("TimeEntryAlerts") // Alertas generadas por este fichaje
@@ -1488,6 +1523,10 @@ model WorkdaySummary {
   excessiveTimeNotified Boolean            @default(false) // Si se notificó fichaje excesivo (> 150% jornada)
   overtimeCalcStatus    OvertimeCalcStatus @default(DIRTY)
   overtimeCalcUpdatedAt DateTime?
+  resolutionStatus      WorkdayResolutionStatus @default(OK) // Estado de resolución del día
+  dataQuality           WorkdayDataQuality      @default(CONFIRMED) // Calidad de los datos
+  resolutionFlags       Json? // Flags adicionales (crossedMidnight, dataQualityLow, etc.)
+  resolvedAt            DateTime? // Fecha de resolución final (si aplica)
 
   // NUEVOS campos para Sistema de Horarios V2.0
   expectedMinutes  Decimal? @db.Decimal(6, 2) // Minutos esperados según horario asignado
@@ -1524,6 +1563,176 @@ model WorkdaySummary {
   @@map("workday_summaries")
 }
 
+// Ventanas protegidas para fichajes especiales (guardias, cierres, etc.)
+model ProtectedWindow {
+  id          String                 @id @default(cuid())
+  name        String
+  description String?
+  scope       ProtectedWindowScope   @default(ORGANIZATION)
+  weekdays    Int[]                  @default([]) // 1=Lunes ... 7=Domingo
+  startMinutes Int // Minutos desde 00:00
+  endMinutes   Int // Minutos desde 00:00 (puede cruzar medianoche)
+  overrideToleranceMinutes Int?
+  overrideMaxOpenHours     Int?
+  isActive    Boolean                @default(true)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Ámbito opcional por empleado
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("protected_windows")
+}
+
+enum ProtectedWindowScope {
+  ORGANIZATION
+  EMPLOYEE
+}
+
+// Guardias planificadas (disponibilidad)
+model OnCallSchedule {
+  id        String               @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  notes     String?
+  status    OnCallScheduleStatus @default(SCHEDULED)
+  scope     OnCallScheduleScope  @default(EMPLOYEE)
+
+  // Compensación de disponibilidad (no ligada a fichajes)
+  availabilityCompensationType     OnCallAvailabilityCompensationType @default(NONE)
+  availabilityCompensationMinutes  Int                               @default(0)
+  availabilityCompensationAmount   Decimal                           @default(0.0) @db.Decimal(10, 2)
+  availabilityCompensationCurrency String                            @default("EUR")
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  interventions OnCallIntervention[]
+  allowance     OnCallAllowance?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([startAt])
+  @@map("on_call_schedules")
+}
+
+enum OnCallScheduleStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+enum OnCallScheduleScope {
+  ORGANIZATION
+  EMPLOYEE
+}
+
+enum OnCallAvailabilityCompensationType {
+  NONE
+  TIME
+  PAY
+  MIXED
+}
+
+// Intervenciones reales durante guardias
+model OnCallIntervention {
+  id        String                  @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  notes     String?
+  status    OnCallInterventionStatus @default(REGISTERED)
+  requiresApproval Boolean          @default(false)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  scheduleId String?
+  schedule   OnCallSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  // Aprobación específica de intervenciones
+  approverId       String?
+  approver         User?     @relation("OnCallInterventionApprover", fields: [approverId], references: [id])
+  approvedAt       DateTime?
+  approverComments String?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+
+  createdClockInId  String?
+  createdClockOutId String?
+  timeEntries       TimeEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([startAt])
+  @@map("on_call_interventions")
+}
+
+enum OnCallInterventionStatus {
+  REGISTERED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+// Compensación por disponibilidad de guardias (no ligada a fichajes)
+model OnCallAllowance {
+  id               String                         @id @default(cuid())
+  compensationType OnCallAvailabilityCompensationType
+  minutes          Int                            @default(0)
+  amount           Decimal                        @default(0.0) @db.Decimal(10, 2)
+  currency         String                         @default("EUR")
+  status           OnCallAllowanceStatus          @default(PENDING)
+  settledAt        DateTime?
+  notes            String?
+  metadata         Json?
+
+  scheduleId String
+  schedule   OnCallSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scheduleId])
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("on_call_allowances")
+}
+
+enum OnCallAllowanceStatus {
+  PENDING
+  SETTLED
+  CANCELLED
+}
+
 // Tipos de fichaje
 enum TimeEntryType {
   CLOCK_IN // Entrada
@@ -1541,6 +1750,23 @@ enum WorkdayStatus {
   ABSENT // Ausente (no fichó)
 }
 
+// Estado de resolución de un día con fichaje irregular
+enum WorkdayResolutionStatus {
+  OK
+  UNRESOLVED_MISSING_CLOCK_OUT
+  AUTO_CLOSED_SAFETY
+  RESOLVED_BY_EMPLOYEE
+  RESOLVED_APPROVED
+  RESOLVED_REJECTED
+}
+
+// Calidad de los datos del día
+enum WorkdayDataQuality {
+  CONFIRMED
+  ESTIMATED
+  LOW
+}
+
 // Motivos de cancelación de fichajes
 enum CancellationReason {
   EXCESSIVE_DURATION // Fichaje de larga duración (> 150% jornada laboral)
@@ -1548,6 +1774,26 @@ enum CancellationReason {
   SYSTEM_ERROR // Error técnico del sistema
   ADMIN_CORRECTION // Corrección administrativa
   REPLACED_BY_MANUAL_REQUEST // Reemplazado por solicitud manual aprobada
+}
+
+// Estrategia ante fichajes sin salida
+enum MissingClockOutMode {
+  UNRESOLVED // No inventa salida, deja pendiente
+  AUTO_CLOSE // Permite autocierre según reglas
+}
+
+// Estrategias de autocierre opcional
+enum AutoCloseStrategy {
+  SCHEDULE_END // Cierra al fin de jornada + tolerancia
+  FIXED_HOUR // Cierra a una hora fija (ej: 06:00)
+}
+
+// Motivo de autocierre registrado en TimeEntry
+enum AutoCloseReason {
+  SCHEDULE_END
+  FIXED_HOUR
+  MAX_OPEN_HOURS
+  CROSSED_MIDNIGHT
 }
 
 // ==================== SISTEMA DE BOLSA DE HORAS ====================
@@ -1765,6 +2011,7 @@ enum TimeBankMovementOrigin {
   AUTO_DAILY // Diferencia automática (resumen diario)
   AUTO_FESTIVE // Festivo detectado automáticamente
   AUTO_DEFICIT // Penalización automática por déficit
+  ON_CALL_AVAILABILITY // Compensación por guardia (disponibilidad)
   MANUAL_ADMIN // Ajuste manual RRHH
   EMPLOYEE_REQUEST // Solicitud del empleado
   OVERTIME_AUTHORIZATION // Horas extra autorizadas
@@ -2098,6 +2345,9 @@ model PtoNotification {
   expenseId String?
   expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
+  // Referencia genérica para idempotencia (fichajes, overtime, etc.)
+  referenceId String?
+
   createdAt DateTime @default(now())
 
   // Multi-tenancy
@@ -2115,6 +2365,8 @@ model PtoNotification {
   @@index([ptoRequestId])
   @@index([manualTimeEntryRequestId])
   @@index([expenseId])
+  @@index([referenceId])
+  @@unique([userId, type, referenceId])
   @@map("pto_notifications")
 }
 
@@ -2135,6 +2387,8 @@ enum PtoNotificationType {
   MANUAL_TIME_ENTRY_APPROVED // Solicitud de fichaje manual aprobada
   MANUAL_TIME_ENTRY_REJECTED // Solicitud de fichaje manual rechazada
   TIME_ENTRY_EXCESSIVE // Fichaje excede 150% de jornada laboral (requiere regularización)
+  TIME_ENTRY_UNRESOLVED // Fichaje sin salida pendiente de regularizar
+  TIME_ENTRY_AUTO_CLOSED // Fichaje autocerrado por seguridad
   EXPENSE_SUBMITTED // Nueva solicitud de gasto
   EXPENSE_APPROVED // Gasto aprobado
   EXPENSE_REJECTED // Gasto rechazado
@@ -2147,6 +2401,12 @@ enum PtoNotificationType {
   OVERTIME_REJECTED // Hora extra rechazada
   OVERTIME_ADJUSTED // Hora extra ajustada por corrección
   OVERTIME_EXPIRED // Hora extra expirada sin revisión
+  ON_CALL_SCHEDULE_ASSIGNED // Guardia asignada
+  ON_CALL_SCHEDULE_UPDATED // Guardia actualizada
+  ON_CALL_SCHEDULE_CANCELLED // Guardia cancelada
+  ON_CALL_INTERVENTION_PENDING // Intervención pendiente de aprobación
+  ON_CALL_INTERVENTION_APPROVED // Intervención aprobada
+  ON_CALL_INTERVENTION_REJECTED // Intervención rechazada
   PAYSLIP_AVAILABLE // Nómina disponible para el empleado
   SIGNATURE_REMINDER // Recordatorio de firma pendiente (antes de expirar)
 }

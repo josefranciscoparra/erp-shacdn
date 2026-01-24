@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,7 +23,6 @@ import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
 import { SectionHeader } from "@/components/hr/section-header";
-import { ExcessiveTimeDialog } from "@/components/time-tracking/excessive-time-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,11 +34,11 @@ import { cn } from "@/lib/utils";
 import { getClockBootstrap } from "@/server/actions/clock-bootstrap";
 import { dismissNotification } from "@/server/actions/dismissed-notifications";
 import { checkGeolocationConsent } from "@/server/actions/geolocation";
-import { clockOut } from "@/server/actions/time-tracking";
 import { formatDuration } from "@/services/schedules";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 
+import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
 import { MinifiedDailyInfo } from "./minified-daily-info";
 import { ProjectSelector } from "./project-selector";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
@@ -125,19 +123,19 @@ export function ClockIn() {
 
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
-  const [isExcessive, setIsExcessive] = useState(false);
-  const [showExcessiveDialog, setShowExcessiveDialog] = useState(false);
+  const [showRegularizationDialog, setShowRegularizationDialog] = useState(false);
   const [incompleteEntryInfo, setIncompleteEntryInfo] = useState<{
     date: Date;
     lastEntryTime: Date;
     durationHours: number;
     durationMinutes: number;
-    dailyHours: number;
-    percentageOfJourney: number;
+    maxOpenHours: number;
+    scheduleEndTime: Date | null;
+    scheduleSource: string | null;
+    reason: "CROSSED_MIDNIGHT" | "EXCEEDS_MAX_OPEN_HOURS" | "EXCEEDS_SCHEDULE_END";
+    autoCloseEnabled: boolean;
     clockInId: string;
   } | null>(null);
-
-  const router = useRouter();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -228,19 +226,20 @@ export function ClockIn() {
 
       if (result.incompleteEntry) {
         setHasIncompleteEntry(true);
-        setIsExcessive(result.incompleteEntry.isExcessive ?? false);
         setIncompleteEntryInfo({
           date: result.incompleteEntry.clockInDate,
           lastEntryTime: result.incompleteEntry.clockInTime,
           durationHours: result.incompleteEntry.durationHours,
           durationMinutes: result.incompleteEntry.durationMinutes,
-          dailyHours: result.incompleteEntry.dailyHours,
-          percentageOfJourney: result.incompleteEntry.percentageOfJourney,
+          maxOpenHours: result.incompleteEntry.maxOpenHours,
+          scheduleEndTime: result.incompleteEntry.scheduleEndTime,
+          scheduleSource: result.incompleteEntry.scheduleSource,
+          reason: result.incompleteEntry.reason,
+          autoCloseEnabled: result.incompleteEntry.autoCloseEnabled,
           clockInId: result.incompleteEntry.clockInId,
         });
       } else {
         setHasIncompleteEntry(false);
-        setIsExcessive(false);
         setIncompleteEntryInfo(null);
       }
     },
@@ -249,7 +248,6 @@ export function ClockIn() {
       setGeolocationEnabled,
       setHasIncompleteEntry,
       setIncompleteEntryInfo,
-      setIsExcessive,
       setScheduleExpectedMinutes,
       setTodayDeviation,
       setTodaySchedule,
@@ -482,62 +480,11 @@ export function ClockIn() {
   };
 
   const handleClockOut = async () => {
-    // Si hay fichaje excesivo, mostrar modal de confirmación
-    if (isExcessive && incompleteEntryInfo) {
-      setShowExcessiveDialog(true);
-      return;
-    }
-
-    // Fichaje normal
     await executeWithGeolocation(clockOutAction);
   };
 
-  // Handler cuando usuario confirma cerrar fichaje excesivo
-  const handleConfirmCloseExcessive = async () => {
-    if (!incompleteEntryInfo) return;
-
-    try {
-      // Llamar clockOut con parámetros de cancelación
-      const geoData =
-        geolocationEnabled && geolocation.location
-          ? {
-              latitude: geolocation.location.latitude,
-              longitude: geolocation.location.longitude,
-              accuracy: geolocation.location.accuracy,
-            }
-          : {};
-
-      const result = await clockOut(
-        geoData.latitude,
-        geoData.longitude,
-        geoData.accuracy,
-        true, // cancelAsClosed
-        {
-          reason: "EXCESSIVE_DURATION",
-          originalDurationHours: incompleteEntryInfo.durationHours,
-          clockInId: incompleteEntryInfo.clockInId,
-          notes: `Fichaje cancelado por larga duración (${incompleteEntryInfo.percentageOfJourney.toFixed(0)}% de jornada)`,
-        },
-      );
-
-      if (isClockActionFailure(result)) {
-        toast.error(result.error ?? "Error al cerrar fichaje");
-        return;
-      }
-
-      toast.success("Fichaje cerrado y cancelado correctamente");
-      setShowExcessiveDialog(false);
-      await loadBootstrap(); // Recargar datos
-    } catch (error) {
-      console.error("Error al cerrar fichaje excesivo:", error);
-      toast.error("Error al cerrar fichaje");
-    }
-  };
-
-  // Handler cuando usuario decide regularizar
-  const handleGoToRegularize = () => {
-    setShowExcessiveDialog(false);
-    router.push("/dashboard/me/clock/requests");
+  const handleOpenRegularization = () => {
+    setShowRegularizationDialog(true);
   };
 
   // Handler para descartar notificación de fichaje incompleto
@@ -660,6 +607,32 @@ export function ClockIn() {
         ];
   const chartLastUpdatedAt = chartSnapshot?.updatedAt ?? currentTime;
 
+  const incompleteSummary = useMemo(() => {
+    if (!incompleteEntryInfo) return null;
+    const hours = Math.floor(incompleteEntryInfo.durationMinutes / 60);
+    const minutes = Math.floor(incompleteEntryInfo.durationMinutes % 60);
+    const durationLabel = `${hours}h ${minutes}min`;
+    if (incompleteEntryInfo.reason === "CROSSED_MIDNIGHT") {
+      return {
+        title: "Fichaje abierto desde ayer",
+        description: "Se detectó un fichaje sin salida que cruzó la medianoche.",
+        durationLabel,
+      };
+    }
+    if (incompleteEntryInfo.reason === "EXCEEDS_MAX_OPEN_HOURS") {
+      return {
+        title: "Fichaje con duración excesiva",
+        description: `Superó el máximo de ${incompleteEntryInfo.maxOpenHours}h abiertas.`,
+        durationLabel,
+      };
+    }
+    return {
+      title: "Fichaje pendiente de regularizar",
+      description: "Superó el fin de jornada + tolerancia configurada.",
+      durationLabel,
+    };
+  }, [incompleteEntryInfo]);
+
   // Controlar animación inicial: Solo animar la primera vez que se carga el gráfico
   const [hasAnimated, setHasAnimated] = useState(false);
   useEffect(() => {
@@ -774,26 +747,46 @@ export function ClockIn() {
       {hasIncompleteEntry && incompleteEntryInfo && (
         <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
           <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          <AlertTitle className="text-orange-800 dark:text-orange-300">Fichaje Pendiente de Resolver</AlertTitle>
+          <AlertTitle className="text-orange-800 dark:text-orange-300">
+            {incompleteSummary?.title ?? "Fichaje pendiente de regularizar"}
+          </AlertTitle>
           <AlertDescription className="text-orange-700 dark:text-orange-400">
             <div className="flex flex-col gap-2">
               <p>
                 Tienes una entrada sin cerrar desde el{" "}
                 <strong>{new Date(incompleteEntryInfo.lastEntryTime).toLocaleString("es-ES")}</strong> (
-                {Math.floor(incompleteEntryInfo.durationMinutes / 60)}h{" "}
-                {Math.floor(incompleteEntryInfo.durationMinutes % 60)}min abierto).
+                {incompleteSummary?.durationLabel ?? "—"} abierto).
               </p>
-              <Link href="/dashboard/me/clock/requests" onClick={handleDismissIncompleteEntry}>
+              <p className="text-xs">{incompleteSummary?.description}</p>
+              {incompleteEntryInfo.scheduleEndTime && (
+                <p className="text-xs">
+                  Fin de jornada estimado:{" "}
+                  {new Date(incompleteEntryInfo.scheduleEndTime).toLocaleTimeString("es-ES", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2 border-orange-300 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900"
+                  onClick={handleOpenRegularization}
                 >
                   <Clock className="h-3.5 w-3.5" />
-                  Crear solicitud para resolver
+                  Regularizar salida
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
-              </Link>
+                <Button variant="ghost" size="sm" onClick={handleDismissIncompleteEntry}>
+                  Descartar aviso
+                </Button>
+              </div>
+              {incompleteEntryInfo.autoCloseEnabled && (
+                <p className="text-xs text-orange-700/80 dark:text-orange-400/80">
+                  El sistema puede autocerrar este fichaje según la política de la empresa.
+                </p>
+              )}
             </div>
           </AlertDescription>
         </Alert>
@@ -982,10 +975,7 @@ export function ClockIn() {
                     size="lg"
                     onClick={handleClockOut}
                     variant="destructive"
-                    className={cn(
-                      "w-full disabled:opacity-70",
-                      isExcessive && "border-2 border-orange-500 ring-2 ring-orange-200",
-                    )}
+                    className="w-full disabled:opacity-70"
                     disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                   >
                     {isLoading || isClocking || isScheduleLoading ? (
@@ -1202,23 +1192,11 @@ export function ClockIn() {
         </CardContent>
       </Card>
 
-      {/* Modal de fichaje excesivo */}
-      {isExcessive && incompleteEntryInfo && (
-        <ExcessiveTimeDialog
-          open={showExcessiveDialog}
-          onOpenChange={setShowExcessiveDialog}
-          excessiveInfo={{
-            durationHours: incompleteEntryInfo.durationHours,
-            dailyHours: incompleteEntryInfo.dailyHours,
-            percentageOfJourney: incompleteEntryInfo.percentageOfJourney,
-            clockInDate: incompleteEntryInfo.date,
-            clockInTime: incompleteEntryInfo.lastEntryTime,
-            clockInId: incompleteEntryInfo.clockInId,
-          }}
-          onConfirmClose={handleConfirmCloseExcessive}
-          onGoToRegularize={handleGoToRegularize}
-        />
-      )}
+      <ManualTimeEntryDialog
+        open={showRegularizationDialog}
+        onOpenChange={setShowRegularizationDialog}
+        initialDate={incompleteEntryInfo?.date}
+      />
     </div>
   );
 }

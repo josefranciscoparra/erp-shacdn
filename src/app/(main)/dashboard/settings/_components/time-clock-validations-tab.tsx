@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -23,8 +24,17 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
-  autoCloseMissingClockOutEnabled: boolean;
-  autoCloseMissingClockOutThresholdPercent: number;
+  missingClockOutMode: "UNRESOLVED" | "AUTO_CLOSE";
+  notifyEmployeeOnUnresolved: boolean;
+  requireApprovalWhenOvertime: boolean;
+  autoCloseEnabled: boolean;
+  autoCloseStrategy: "SCHEDULE_END" | "FIXED_HOUR";
+  autoCloseToleranceMinutes: number;
+  autoCloseTriggerExtraMinutes: number;
+  autoCloseMaxOpenHours: number;
+  autoCloseFixedHour: number;
+  autoCloseFixedMinute: number;
+  autoClosedRequiresReview: boolean;
   // Nuevos campos de alertas
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
@@ -44,8 +54,17 @@ export function TimeClockValidationsTab() {
     lateClockOutToleranceMinutes: 30,
     nonWorkdayClockInAllowed: false,
     nonWorkdayClockInWarning: true,
-    autoCloseMissingClockOutEnabled: false,
-    autoCloseMissingClockOutThresholdPercent: 150,
+    missingClockOutMode: "UNRESOLVED",
+    notifyEmployeeOnUnresolved: true,
+    requireApprovalWhenOvertime: true,
+    autoCloseEnabled: false,
+    autoCloseStrategy: "SCHEDULE_END",
+    autoCloseToleranceMinutes: 15,
+    autoCloseTriggerExtraMinutes: 120,
+    autoCloseMaxOpenHours: 16,
+    autoCloseFixedHour: 0,
+    autoCloseFixedMinute: 0,
+    autoClosedRequiresReview: true,
     criticalLateArrivalMinutes: 30,
     criticalEarlyDepartureMinutes: 30,
     alertsEnabled: true,
@@ -101,17 +120,17 @@ export function TimeClockValidationsTab() {
           <div className="flex items-center gap-2">
             <Settings2Icon className="h-5 w-5" />
             <div>
-              <h3 className="font-semibold">Configuración de Validaciones de Fichajes</h3>
+              <h3 className="font-semibold">Control de fichajes</h3>
               <p className="text-muted-foreground text-sm">
-                Define las tolerancias y reglas para los fichajes de entrada y salida
+                Configura márgenes de tolerancia, alertas y gestión de fichajes incompletos.
               </p>
             </div>
           </div>
 
           <div className="grid gap-6 @xl/main:grid-cols-2">
-            {/* Tolerancia Entrada */}
+            {/* Margen de entrada */}
             <div className="space-y-2">
-              <Label htmlFor="clockInTolerance">Tolerancia Entrada (minutos)</Label>
+              <Label htmlFor="clockInTolerance">Margen de entrada (minutos)</Label>
               <Input
                 id="clockInTolerance"
                 type="number"
@@ -122,14 +141,12 @@ export function TimeClockValidationsTab() {
                   setConfig((prev) => ({ ...prev, clockInToleranceMinutes: parseInt(e.target.value) || 0 }))
                 }
               />
-              <p className="text-muted-foreground text-xs">
-                Minutos de retraso aceptables sin generar alerta (por defecto: 15 min)
-              </p>
+              <p className="text-muted-foreground text-xs">Retraso permitido sin generar alerta.</p>
             </div>
 
-            {/* Tolerancia Salida */}
+            {/* Margen de salida */}
             <div className="space-y-2">
-              <Label htmlFor="clockOutTolerance">Tolerancia Salida (minutos)</Label>
+              <Label htmlFor="clockOutTolerance">Margen de salida (minutos)</Label>
               <Input
                 id="clockOutTolerance"
                 type="number"
@@ -140,14 +157,12 @@ export function TimeClockValidationsTab() {
                   setConfig((prev) => ({ ...prev, clockOutToleranceMinutes: parseInt(e.target.value) || 0 }))
                 }
               />
-              <p className="text-muted-foreground text-xs">
-                Minutos de adelanto/retraso aceptables en salida (por defecto: 15 min)
-              </p>
+              <p className="text-muted-foreground text-xs">Variación permitida en la hora de salida.</p>
             </div>
 
-            {/* Tolerancia Entrada Anticipada */}
+            {/* Entrada anticipada */}
             <div className="space-y-2">
-              <Label htmlFor="earlyClockInTolerance">Tolerancia Entrada Anticipada (minutos)</Label>
+              <Label htmlFor="earlyClockInTolerance">Entrada anticipada (minutos)</Label>
               <Input
                 id="earlyClockInTolerance"
                 type="number"
@@ -158,14 +173,12 @@ export function TimeClockValidationsTab() {
                   setConfig((prev) => ({ ...prev, earlyClockInToleranceMinutes: parseInt(e.target.value) || 0 }))
                 }
               />
-              <p className="text-muted-foreground text-xs">
-                Minutos antes del horario permitidos para fichar entrada (por defecto: 30 min)
-              </p>
+              <p className="text-muted-foreground text-xs">Minutos antes del horario en que se permite fichar.</p>
             </div>
 
-            {/* Tolerancia Salida Tardía */}
+            {/* Salida tardía */}
             <div className="space-y-2">
-              <Label htmlFor="lateClockOutTolerance">Tolerancia Salida Tardía (minutos)</Label>
+              <Label htmlFor="lateClockOutTolerance">Salida tardía (minutos)</Label>
               <Input
                 id="lateClockOutTolerance"
                 type="number"
@@ -176,9 +189,7 @@ export function TimeClockValidationsTab() {
                   setConfig((prev) => ({ ...prev, lateClockOutToleranceMinutes: parseInt(e.target.value) || 0 }))
                 }
               />
-              <p className="text-muted-foreground text-xs">
-                Minutos después del horario permitidos para fichar salida (por defecto: 30 min)
-              </p>
+              <p className="text-muted-foreground text-xs">Minutos después del horario en que se permite fichar.</p>
             </div>
           </div>
 
@@ -201,12 +212,12 @@ export function TimeClockValidationsTab() {
               />
             </div> */}
 
-            {/* Mostrar warning en días no laborables */}
+            {/* Aviso en días no laborables */}
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="nonWorkdayWarning">Alertar al fichar en día no laboral</Label>
+                <Label htmlFor="nonWorkdayWarning">Aviso en días no laborables</Label>
                 <p className="text-muted-foreground text-sm">
-                  Mostrar aviso amarillo cuando fichen en días no laborables (aunque esté permitido)
+                  Mostrar aviso cuando se fiche en festivos o fines de semana.
                 </p>
               </div>
               <Switch
@@ -216,57 +227,208 @@ export function TimeClockValidationsTab() {
               />
             </div>
 
-            {/* Autocierre de fichajes abiertos */}
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="autoCloseMissingClockOut">Autocierre de fichajes abiertos</Label>
-                <p className="text-muted-foreground text-sm">
-                  Cierra automáticamente fichajes que superan el porcentaje configurado de la jornada (desactivado por
-                  defecto)
-                </p>
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-1">
+                <Label>Fichajes incompletos</Label>
+                <p className="text-muted-foreground text-sm">Qué hacer cuando un empleado olvida fichar la salida.</p>
               </div>
-              <Switch
-                id="autoCloseMissingClockOut"
-                checked={config.autoCloseMissingClockOutEnabled}
-                onCheckedChange={(checked) =>
-                  setConfig((prev) => ({ ...prev, autoCloseMissingClockOutEnabled: checked }))
-                }
-              />
+
+              <div className="grid gap-4 @xl/main:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Modo</Label>
+                  <Select
+                    value={config.missingClockOutMode}
+                    onValueChange={(value) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        missingClockOutMode: value as ValidationConfig["missingClockOutMode"],
+                        autoCloseEnabled: value === "AUTO_CLOSE",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UNRESOLVED">Pendiente de regularizar</SelectItem>
+                      <SelectItem value="AUTO_CLOSE">Cierre automático</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    Recomendado: dejar pendiente para que el empleado regularice manualmente.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Notificar</Label>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <p className="text-muted-foreground text-sm">
+                      Avisar al empleado cuando tenga un fichaje sin completar
+                    </p>
+                    <Switch
+                      checked={config.notifyEmployeeOnUnresolved}
+                      onCheckedChange={(checked) =>
+                        setConfig((prev) => ({ ...prev, notifyEmployeeOnUnresolved: checked }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Aprobación si genera horas extra</Label>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <p className="text-muted-foreground text-sm">Requerir aprobación cuando afecte a horas extra</p>
+                    <Switch
+                      checked={config.requireApprovalWhenOvertime}
+                      onCheckedChange={(checked) =>
+                        setConfig((prev) => ({ ...prev, requireApprovalWhenOvertime: checked }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2 rounded-lg border p-4">
-              <Label htmlFor="autoCloseMissingClockOutThreshold">Porcentaje de jornada para autocierre</Label>
-              <Input
-                id="autoCloseMissingClockOutThreshold"
-                type="number"
-                min="100"
-                max="500"
-                value={config.autoCloseMissingClockOutThresholdPercent}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setConfig((prev) => ({
-                    ...prev,
-                    autoCloseMissingClockOutThresholdPercent: Number.isNaN(value)
-                      ? prev.autoCloseMissingClockOutThresholdPercent
-                      : value,
-                  }));
-                }}
-                disabled={!config.autoCloseMissingClockOutEnabled}
-              />
-              <p className="text-muted-foreground text-xs">
-                Ejemplo: 150% = 1.5x la jornada diaria. Si la jornada es 8h, el autocierre se activa a partir de 12h.
-              </p>
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-1">
+                <Label>Cierre automático</Label>
+                <p className="text-muted-foreground text-sm">
+                  Cuando está activo, el sistema cierra automáticamente los fichajes olvidados. Siempre queda registro
+                  para revisión.
+                </p>
+              </div>
+
+              <div className="grid gap-4 @xl/main:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Estrategia</Label>
+                  <Select
+                    value={config.autoCloseStrategy}
+                    onValueChange={(value) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        autoCloseStrategy: value as ValidationConfig["autoCloseStrategy"],
+                      }))
+                    }
+                    disabled={config.missingClockOutMode !== "AUTO_CLOSE"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SCHEDULE_END">Fin de jornada</SelectItem>
+                      <SelectItem value="FIXED_HOUR">Hora fija</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    {config.autoCloseStrategy === "SCHEDULE_END"
+                      ? "Cierra con la hora del horario previsto."
+                      : "Cierra siempre a la misma hora."}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Requiere revisión</Label>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <p className="text-muted-foreground text-sm">
+                      Los cierres automáticos quedan pendientes de validar
+                    </p>
+                    <Switch
+                      checked={config.autoClosedRequiresReview}
+                      onCheckedChange={(checked) =>
+                        setConfig((prev) => ({ ...prev, autoClosedRequiresReview: checked }))
+                      }
+                      disabled={config.missingClockOutMode !== "AUTO_CLOSE"}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Margen tras fin de jornada (min)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1440"
+                    value={config.autoCloseToleranceMinutes}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setConfig((prev) => ({
+                        ...prev,
+                        autoCloseToleranceMinutes: Number.isNaN(value) ? prev.autoCloseToleranceMinutes : value,
+                      }));
+                    }}
+                    disabled={config.missingClockOutMode !== "AUTO_CLOSE"}
+                  />
+                  <p className="text-muted-foreground text-xs">Minutos de espera antes de cerrar automáticamente.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Máximo sin cierre (horas)</Label>
+                  <Input
+                    type="number"
+                    min="4"
+                    max="48"
+                    value={config.autoCloseMaxOpenHours}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setConfig((prev) => ({
+                        ...prev,
+                        autoCloseMaxOpenHours: Number.isNaN(value) ? prev.autoCloseMaxOpenHours : value,
+                      }));
+                    }}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Si un fichaje lleva abierto más de estas horas, se autocierra por seguridad.
+                  </p>
+                </div>
+
+                {config.autoCloseStrategy === "FIXED_HOUR" && (
+                  <div className="space-y-2">
+                    <Label>Hora de cierre (hh:mm)</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={config.autoCloseFixedHour}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setConfig((prev) => ({
+                            ...prev,
+                            autoCloseFixedHour: Number.isNaN(value) ? prev.autoCloseFixedHour : value,
+                          }));
+                        }}
+                        disabled={config.missingClockOutMode !== "AUTO_CLOSE"}
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={config.autoCloseFixedMinute}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setConfig((prev) => ({
+                            ...prev,
+                            autoCloseFixedMinute: Number.isNaN(value) ? prev.autoCloseFixedMinute : value,
+                          }));
+                        }}
+                        disabled={config.missingClockOutMode !== "AUTO_CLOSE"}
+                      />
+                    </div>
+                    <p className="text-muted-foreground text-xs">Se aplicará en la zona horaria de la empresa.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Sección de Alertas Avanzadas */}
+          {/* Sección de Alertas */}
           <div className="border-t pt-6">
             <div className="mb-4 flex items-center gap-2">
               <Settings2Icon className="h-5 w-5" />
               <div>
-                <h3 className="font-semibold">Sistema de Alertas Avanzadas</h3>
+                <h3 className="font-semibold">Alertas</h3>
                 <p className="text-muted-foreground text-sm">
-                  Configura umbrales críticos y notificaciones automáticas para RRHH
+                  Define cuándo una incidencia se considera crítica y quién debe ser notificado.
                 </p>
               </div>
             </div>
@@ -274,7 +436,7 @@ export function TimeClockValidationsTab() {
             <div className="grid gap-6 @xl/main:grid-cols-2">
               {/* Umbral crítico entrada tarde */}
               <div className="space-y-2">
-                <Label htmlFor="criticalLateArrival">Umbral Crítico - Entrada Tarde (minutos)</Label>
+                <Label htmlFor="criticalLateArrival">Retraso crítico (minutos)</Label>
                 <Input
                   id="criticalLateArrival"
                   type="number"
@@ -286,13 +448,13 @@ export function TimeClockValidationsTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  A partir de estos minutos de retraso, la alerta es CRÍTICA (por defecto: 30 min)
+                  A partir de estos minutos, el retraso se marca como crítico.
                 </p>
               </div>
 
               {/* Umbral crítico salida temprana */}
               <div className="space-y-2">
-                <Label htmlFor="criticalEarlyDeparture">Umbral Crítico - Salida Temprana (minutos)</Label>
+                <Label htmlFor="criticalEarlyDeparture">Salida anticipada crítica (minutos)</Label>
                 <Input
                   id="criticalEarlyDeparture"
                   type="number"
@@ -304,18 +466,18 @@ export function TimeClockValidationsTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  A partir de estos minutos de salida anticipada, la alerta es CRÍTICA (por defecto: 30 min)
+                  A partir de estos minutos, la salida anticipada se marca como crítica.
                 </p>
               </div>
             </div>
 
             <div className="mt-4 space-y-4">
-              {/* Activar sistema de alertas */}
+              {/* Activar alertas */}
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <Label htmlFor="alertsEnabled">Activar Sistema de Alertas</Label>
+                  <Label htmlFor="alertsEnabled">Activar alertas</Label>
                   <p className="text-muted-foreground text-sm">
-                    Detectar automáticamente entradas tarde, salidas temprano y ausencias sin justificar
+                    Detectar automáticamente retrasos, salidas anticipadas y ausencias.
                   </p>
                 </div>
                 <Switch
@@ -327,9 +489,9 @@ export function TimeClockValidationsTab() {
 
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <Label htmlFor="alertsRequireResolution">Requerir resolución de alertas</Label>
+                  <Label htmlFor="alertsRequireResolution">Resolución obligatoria</Label>
                   <p className="text-muted-foreground text-sm">
-                    Si lo desactivas, las alertas se muestran en modo lectura y no se pueden resolver.
+                    Las alertas deben resolverse. Si se desactiva, solo son informativas.
                   </p>
                 </div>
                 <Switch
@@ -340,15 +502,12 @@ export function TimeClockValidationsTab() {
                 />
               </div>
 
-              {/**
-               * Sin efecto por ahora: no existe lógica para enviar notificaciones automáticas,
-               * así que dejamos el bloque comentado hasta que se implemente el flujo real.
-               */}
-              {/* <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <Label htmlFor="alertNotifications">Enviar Notificaciones Automáticas</Label>
+                  <Label htmlFor="alertNotifications">Notificar a responsables</Label>
                   <p className="text-muted-foreground text-sm">
-                    Notificar a RRHH/managers cuando se detecten alertas críticas
+                    Enviar aviso cuando se detecten incidencias críticas. Los responsables se configuran en
+                    Aprobaciones.
                   </p>
                 </div>
                 <Switch
@@ -357,7 +516,7 @@ export function TimeClockValidationsTab() {
                   onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertNotificationsEnabled: checked }))}
                   disabled={!config.alertsEnabled}
                 />
-              </div> */}
+              </div>
             </div>
           </div>
 
@@ -365,15 +524,14 @@ export function TimeClockValidationsTab() {
             <div className="flex items-center gap-2">
               <ClockIcon className="h-5 w-5" />
               <div>
-                <h3 className="font-semibold">Bolsa de Horas</h3>
+                <h3 className="font-semibold">Bolsa de horas</h3>
                 <p className="text-muted-foreground text-sm">
-                  El flujo de aprobaciones se configura desde la pestaña &quot;Aprobaciones&quot;.
+                  La configuración de saldo y límites está en la pestaña Bolsa de horas.
                 </p>
               </div>
             </div>
             <p className="text-muted-foreground text-xs">
-              Configura el workflow de TIME_BANK en Aprobaciones para definir responsables, jerarquías o listas de
-              aprobadores.
+              Los responsables de aprobar solicitudes se definen en la pestaña Aprobaciones.
             </p>
           </div>
 
@@ -389,30 +547,32 @@ export function TimeClockValidationsTab() {
       <Card className="rounded-lg border p-6">
         <div className="flex gap-3">
           <ClockIcon className="text-primary mt-0.5 h-5 w-5 flex-shrink-0" />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">¿Cómo funcionan las validaciones y alertas?</p>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">¿Cómo funcionan las alertas?</p>
+            <p className="text-muted-foreground text-xs">
+              El sistema detecta automáticamente incidencias en los fichajes y las clasifica por gravedad:
+            </p>
             <ul className="text-muted-foreground list-inside list-disc space-y-1 text-xs">
               <li>
-                <strong>Tolerancia Entrada:</strong> Fichajes dentro de esta tolerancia no generan warning de retraso
+                <strong>Sin alerta:</strong> dentro del margen de tolerancia
               </li>
               <li>
-                <strong>Tolerancia Salida:</strong> Salidas dentro de esta tolerancia no generan avisos
+                <strong>Aviso:</strong> fuera del margen pero dentro del umbral crítico
               </li>
               <li>
-                <strong>Entrada Anticipada:</strong> Cuánto antes puede fichar sin generar alerta
-              </li>
-              <li>
-                <strong>Salida Tardía:</strong> Cuánto después puede fichar salida sin generar alerta
-              </li>
-              <li>
-                <strong>Alertas (3 niveles):</strong> INFO (informativo), WARNING (dentro de tolerancia), CRÍTICO
-                (supera umbral crítico)
-              </li>
-              <li>
-                <strong>Ejemplo:</strong> Tolerancia entrada 15min, Umbral crítico 30min → 0-15min = OK, 16-30min =
-                WARNING, +30min = CRÍTICO
+                <strong>Crítico:</strong> supera el umbral crítico configurado
               </li>
             </ul>
+            <div className="bg-muted/50 rounded-md p-3">
+              <p className="text-muted-foreground text-xs">
+                <strong>Ejemplo:</strong> Con margen de 15 min y umbral crítico de 30 min:
+              </p>
+              <ul className="text-muted-foreground mt-1 list-inside list-disc space-y-0.5 text-xs">
+                <li>Retraso de 10 min → sin alerta</li>
+                <li>Retraso de 20 min → aviso</li>
+                <li>Retraso de 45 min → crítico</li>
+              </ul>
+            </div>
           </div>
         </div>
       </Card>

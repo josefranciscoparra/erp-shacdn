@@ -9,14 +9,23 @@ import {
   endOfMonth,
   subDays,
   addDays,
+  addMinutes,
   format,
-  isSameDay,
 } from "date-fns";
 
 import { AuthError } from "@/lib/auth-guard";
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
+import {
+  getLocalDateParts,
+  getLocalDayAnchor,
+  getLocalDayEndUtc,
+  getLocalDayStartUtc,
+  getLocalMinutesOfDay,
+  isSameLocalDay,
+  resolveTimeZone,
+} from "@/lib/timezone-utils";
 import { enqueueOvertimeWorkdayJob } from "@/server/jobs/overtime-queue";
 import { getEffectiveSchedule, validateTimeEntry } from "@/services/schedules/schedule-engine";
 import {
@@ -110,21 +119,24 @@ async function resolveAutoCloseTimeForPreviousDay(
   employeeId: string,
   openEntryTimestamp: Date,
   now: Date,
+  timeZone: string,
 ): Promise<{ closeTime: Date; closeLabel: string; closeReason: string }> {
-  const dayStart = startOfDay(openEntryTimestamp);
-  let closeTime = endOfDay(dayStart);
+  const dayStart = getLocalDayStartUtc(openEntryTimestamp, timeZone);
+  let closeTime = getLocalDayEndUtc(openEntryTimestamp, timeZone);
   let closeReason = "sin horario (fallback)";
 
   try {
-    const schedule = await getEffectiveSchedule(employeeId, dayStart);
+    const scheduleDate = getLocalDayAnchor(openEntryTimestamp, timeZone);
+    const schedule = await getEffectiveSchedule(employeeId, scheduleDate);
     const lastSlot = getLastExpectedWorkSlot(schedule.timeSlots);
     if (lastSlot) {
       const crossesMidnight = lastSlot.endMinutes <= lastSlot.startMinutes;
-      const endBase = crossesMidnight ? addDays(dayStart, 1) : dayStart;
+      const nextDayStart = getLocalDayStartUtc(addDays(openEntryTimestamp, 1), timeZone);
+      const endBase = crossesMidnight ? nextDayStart : dayStart;
       closeTime = new Date(endBase.getTime() + lastSlot.endMinutes * 60 * 1000);
       closeReason = crossesMidnight ? "fin de jornada (cruce medianoche)" : "fin de jornada";
       if (closeTime.getTime() < openEntryTimestamp.getTime()) {
-        closeTime = endOfDay(dayStart);
+        closeTime = getLocalDayEndUtc(openEntryTimestamp, timeZone);
         closeReason = "sin horario (fallback)";
       }
     }
@@ -313,149 +325,125 @@ function extractManualBreaks(
   return breaks;
 }
 
-type AutoCloseConfig = {
-  enabled: boolean;
-  thresholdPercent: number;
+type MissingClockOutPolicy = {
+  missingClockOutMode: "UNRESOLVED" | "AUTO_CLOSE";
+  notifyEmployeeOnUnresolved: boolean;
+  requireApprovalWhenOvertime: boolean;
+  autoCloseEnabled: boolean;
+  autoCloseStrategy: "SCHEDULE_END" | "FIXED_HOUR";
+  autoCloseToleranceMinutes: number;
+  autoCloseTriggerExtraMinutes: number;
+  autoCloseMaxOpenHours: number;
+  autoCloseFixedHour: number;
+  autoCloseFixedMinute: number;
+  autoClosedRequiresReview: boolean;
 };
 
-const DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT = 150;
+type ProtectedOverrides = {
+  toleranceMinutes?: number;
+  maxOpenHours?: number;
+};
 
-async function getAutoCloseMissingClockOutConfig(orgId: string): Promise<AutoCloseConfig> {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId },
-      select: {
-        autoCloseMissingClockOutEnabled: true,
-        autoCloseMissingClockOutThresholdPercent: true,
-      },
-    });
-
-    if (!org) {
-      return {
-        enabled: false,
-        thresholdPercent: DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT,
-      };
-    }
-
-    const thresholdPercent =
-      typeof org.autoCloseMissingClockOutThresholdPercent === "number"
-        ? org.autoCloseMissingClockOutThresholdPercent
-        : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
-
-    return {
-      enabled: org.autoCloseMissingClockOutEnabled === true,
-      thresholdPercent,
-    };
-  } catch (error) {
-    console.error("Error al obtener configuración de autocierre:", error);
-    return {
-      enabled: false,
-      thresholdPercent: DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT,
-    };
+function isMinutesWithinWindow(minutesOfDay: number, startMinutes: number, endMinutes: number) {
+  if (startMinutes <= endMinutes) {
+    return minutesOfDay >= startMinutes && minutesOfDay < endMinutes;
   }
+  return minutesOfDay >= startMinutes || minutesOfDay < endMinutes;
 }
 
-async function autoCloseOpenClockInIfNeeded(
-  employeeId: string,
+async function resolveProtectedOverrides(
   orgId: string,
-  dailyHours: number,
-  openClockIn: { id: string; timestamp: Date },
-  now: Date,
-  autoCloseConfig: AutoCloseConfig,
-): Promise<{ clockOutId: string; clockOutTime: Date } | null> {
-  if (!autoCloseConfig.enabled) {
-    return null;
-  }
+  employeeId: string,
+  timeZone: string,
+  date: Date,
+): Promise<ProtectedOverrides> {
+  const minutesOfDay = getLocalMinutesOfDay(date, timeZone);
+  const weekday = getLocalDateParts(date, timeZone).weekday;
 
-  if (!Number.isFinite(dailyHours) || dailyHours <= 0) {
-    return null;
-  }
-
-  const thresholdPercent =
-    autoCloseConfig.thresholdPercent >= 100 ? autoCloseConfig.thresholdPercent : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
-  const thresholdMinutes = dailyHours * 60 * (thresholdPercent / 100);
-  const thresholdTime = new Date(openClockIn.timestamp.getTime() + thresholdMinutes * 60 * 1000);
-
-  if (now.getTime() < thresholdTime.getTime()) {
-    return null;
-  }
-
-  const clockOutEntry = await prisma.$transaction(
-    async (tx) => {
-      const existingClockOut = await tx.timeEntry.findFirst({
-        where: {
-          employeeId,
-          orgId,
-          entryType: "CLOCK_OUT",
-          isCancelled: false,
-          timestamp: {
-            gt: openClockIn.timestamp,
-          },
-        },
-        orderBy: {
-          timestamp: "asc",
-        },
-      });
-
-      if (existingClockOut) {
-        return null;
-      }
-
-      const lastEntry = await tx.timeEntry.findFirst({
-        where: {
-          employeeId,
-          orgId,
-          isCancelled: false,
-          timestamp: {
-            gte: openClockIn.timestamp,
-            lte: now,
-          },
-        },
-        orderBy: {
-          timestamp: "desc",
-        },
-      });
-
-      const closeTime =
-        lastEntry && lastEntry.timestamp.getTime() > thresholdTime.getTime() ? lastEntry.timestamp : thresholdTime;
-
-      if (lastEntry && lastEntry.entryType === "BREAK_START") {
-        await tx.timeEntry.create({
-          data: {
-            orgId,
-            employeeId,
-            entryType: "BREAK_END",
-            timestamp: closeTime,
-            isAutomatic: true,
-            notes: "Autocierre de pausa por fichaje abierto",
-          },
-        });
-      }
-
-      return tx.timeEntry.create({
-        data: {
-          orgId,
-          employeeId,
-          entryType: "CLOCK_OUT",
-          timestamp: closeTime,
-          isAutomatic: true,
-          notes: `Autocierre automático al superar ${thresholdPercent}% de jornada`,
-        },
-      });
+  const windows = await prisma.protectedWindow.findMany({
+    where: {
+      orgId,
+      isActive: true,
+      OR: [{ scope: "ORGANIZATION" }, { scope: "EMPLOYEE", employeeId }],
     },
-    { isolationLevel: "Serializable" },
+  });
+
+  const activeWindows = windows.filter((window) => {
+    if (!window.weekdays || window.weekdays.length === 0) return false;
+    if (!window.weekdays.includes(weekday)) return false;
+    return isMinutesWithinWindow(minutesOfDay, window.startMinutes, window.endMinutes);
+  });
+
+  if (activeWindows.length === 0) {
+    return {};
+  }
+
+  const toleranceMinutes = Math.max(
+    ...activeWindows.map((window) =>
+      typeof window.overrideToleranceMinutes === "number" ? window.overrideToleranceMinutes : 0,
+    ),
+  );
+  const maxOpenHours = Math.max(
+    ...activeWindows.map((window) =>
+      typeof window.overrideMaxOpenHours === "number" ? window.overrideMaxOpenHours : 0,
+    ),
   );
 
-  if (!clockOutEntry) {
-    return null;
-  }
+  return {
+    toleranceMinutes: toleranceMinutes > 0 ? toleranceMinutes : undefined,
+    maxOpenHours: maxOpenHours > 0 ? maxOpenHours : undefined,
+  };
+}
 
-  await updateWorkdaySummary(employeeId, orgId, clockOutEntry.timestamp);
+async function getMissingClockOutPolicy(orgId: string): Promise<{ policy: MissingClockOutPolicy; timezone: string }> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: {
+      timezone: true,
+      missingClockOutMode: true,
+      notifyEmployeeOnUnresolved: true,
+      requireApprovalWhenOvertime: true,
+      autoCloseEnabled: true,
+      autoCloseStrategy: true,
+      autoCloseToleranceMinutes: true,
+      autoCloseTriggerExtraMinutes: true,
+      autoCloseMaxOpenHours: true,
+      autoCloseFixedHour: true,
+      autoCloseFixedMinute: true,
+      autoClosedRequiresReview: true,
+    },
+  });
 
   return {
-    clockOutId: clockOutEntry.id,
-    clockOutTime: clockOutEntry.timestamp,
+    policy: {
+      missingClockOutMode: org?.missingClockOutMode ?? "UNRESOLVED",
+      notifyEmployeeOnUnresolved:
+        typeof org?.notifyEmployeeOnUnresolved === "boolean" ? org.notifyEmployeeOnUnresolved : true,
+      requireApprovalWhenOvertime:
+        typeof org?.requireApprovalWhenOvertime === "boolean" ? org.requireApprovalWhenOvertime : true,
+      autoCloseEnabled: org?.autoCloseEnabled === true,
+      autoCloseStrategy: org?.autoCloseStrategy ?? "SCHEDULE_END",
+      autoCloseToleranceMinutes:
+        typeof org?.autoCloseToleranceMinutes === "number" ? org.autoCloseToleranceMinutes : 15,
+      autoCloseTriggerExtraMinutes:
+        typeof org?.autoCloseTriggerExtraMinutes === "number" ? org.autoCloseTriggerExtraMinutes : 120,
+      autoCloseMaxOpenHours: typeof org?.autoCloseMaxOpenHours === "number" ? org.autoCloseMaxOpenHours : 16,
+      autoCloseFixedHour: typeof org?.autoCloseFixedHour === "number" ? org.autoCloseFixedHour : 0,
+      autoCloseFixedMinute: typeof org?.autoCloseFixedMinute === "number" ? org.autoCloseFixedMinute : 0,
+      autoClosedRequiresReview:
+        typeof org?.autoClosedRequiresReview === "boolean" ? org.autoClosedRequiresReview : true,
+    },
+    timezone: resolveTimeZone(org?.timezone),
   };
+}
+
+export async function getOrganizationTimeZone(orgId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+
+  return resolveTimeZone(org?.timezone ?? null);
 }
 
 interface AutomaticBreakResult {
@@ -497,9 +485,10 @@ async function processAutomaticBreaks(
   };
 
   // Ventana amplia para capturar turnos que cruzan medianoche (día anterior + día actual)
-  const todayStart = startOfDay(clockOutTime);
-  const windowStart = subDays(todayStart, 1);
-  const windowEnd = endOfDay(clockOutTime);
+  const timeZone = await getOrganizationTimeZone(orgId);
+  const todayStart = getLocalDayStartUtc(clockOutTime, timeZone);
+  const windowStart = getLocalDayStartUtc(subDays(clockOutTime, 1), timeZone);
+  const windowEnd = getLocalDayEndUtc(clockOutTime, timeZone);
 
   try {
     // 1. Obtener fichajes del rango (ayer + hoy) para detectar sesiones cruzando medianoche
@@ -521,9 +510,8 @@ async function processAutomaticBreaks(
     }
 
     // Usar el día lógico de la sesión (día del CLOCK_IN) para el horario y cálculo de minutos
-    const scheduleBaseDate = startOfDay(lastClockIn.timestamp);
-    const scheduleDate = new Date(scheduleBaseDate);
-    scheduleDate.setHours(12, 0, 0, 0); // mediodía para evitar problemas de TZ
+    const scheduleBaseDate = getLocalDayStartUtc(lastClockIn.timestamp, timeZone);
+    const scheduleDate = getLocalDayAnchor(lastClockIn.timestamp, timeZone);
 
     // 1b. Obtener horario efectivo del día lógico
     const schedule = await getEffectiveSchedule(employeeId, scheduleDate);
@@ -673,9 +661,34 @@ async function processAutomaticBreaks(
 
 // Helper para actualizar el resumen del día
 // MEJORADO: Maneja fichajes que cruzan medianoche (turnos de noche)
-async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
-  const dayStart = startOfDay(date);
-  const dayEnd = endOfDay(date);
+export async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
+  const timeZone = await getOrganizationTimeZone(orgId);
+  const dayStart = getLocalDayStartUtc(date, timeZone);
+  const dayEnd = getLocalDayEndUtc(date, timeZone);
+  const legacyDayStart = startOfDay(date);
+
+  if (legacyDayStart.getTime() !== dayStart.getTime()) {
+    const legacySummary = await prisma.workdaySummary.findUnique({
+      where: {
+        orgId_employeeId_date: {
+          orgId,
+          employeeId,
+          date: legacyDayStart,
+        },
+      },
+    });
+
+    if (legacySummary) {
+      try {
+        await prisma.workdaySummary.update({
+          where: { id: legacySummary.id },
+          data: { date: dayStart },
+        });
+      } catch (error) {
+        console.warn("No se pudo migrar WorkdaySummary al día local:", error);
+      }
+    }
+  }
 
   // Obtener todos los fichajes del día (SOLO fichajes NO cancelados)
   const entries = await prisma.timeEntry.findMany({
@@ -699,9 +712,9 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let midnightCrossingMinutes = 0;
   let hasMidnightCrossing = false;
 
-  const previousDay = subDays(dayStart, 1);
-  const previousDayStart = startOfDay(previousDay);
-  const previousDayEnd = endOfDay(previousDay);
+  const previousDay = subDays(date, 1);
+  const previousDayStart = getLocalDayStartUtc(previousDay, timeZone);
+  const previousDayEnd = getLocalDayEndUtc(previousDay, timeZone);
 
   // Buscar último fichaje del día anterior
   const lastEntryYesterday = await prisma.timeEntry.findFirst({
@@ -934,8 +947,9 @@ export async function getCurrentStatus() {
     const employeeId = employee.id;
 
     const today = new Date();
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(today, timeZone);
+    const dayEnd = getLocalDayEndUtc(today, timeZone);
 
     // Obtener el último fichaje del día
     const lastEntry = await prisma.timeEntry.findFirst({
@@ -1004,6 +1018,9 @@ export async function clockIn(
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
     const now = new Date();
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(now, timeZone);
+    const dayEnd = getLocalDayEndUtc(now, timeZone);
 
     // Validar fichaje según horario ANTES de la transacción (operación de lectura)
     const validation = await validateTimeEntry(employeeId, now, "CLOCK_IN");
@@ -1047,10 +1064,10 @@ export async function clockIn(
             const lastEntryLabel = lastEntry
               ? `${lastEntry.entryType} ${format(lastEntry.timestamp, "yyyy-MM-dd HH:mm")}`
               : "desconocido";
-            const isPreviousDay = lastEntry ? !isSameDay(lastEntry.timestamp, now) : false;
+            const isPreviousDay = lastEntry ? !isSameLocalDay(lastEntry.timestamp, now, timeZone) : false;
             const autoCloseInfo =
               lastEntry && isPreviousDay
-                ? await resolveAutoCloseTimeForPreviousDay(employeeId, lastEntry.timestamp, now)
+                ? await resolveAutoCloseTimeForPreviousDay(employeeId, lastEntry.timestamp, now, timeZone)
                 : null;
             const closeTime = autoCloseInfo?.closeTime ?? new Date(now.getTime());
             const closeLabel = autoCloseInfo?.closeLabel ?? format(closeTime, "yyyy-MM-dd HH:mm");
@@ -1068,6 +1085,7 @@ export async function clockIn(
                   employeeId,
                   entryType: "BREAK_END",
                   timestamp: breakEndTimestamp,
+                  isAutomatic: true,
                   notes: `Autocorrección: cierre automático de pausa previa (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`,
                 },
               });
@@ -1079,6 +1097,8 @@ export async function clockIn(
                 employeeId,
                 entryType: "CLOCK_OUT",
                 timestamp: clockOutTimestamp,
+                isAutomatic: true,
+                autoCloseReason: isPreviousDay ? "CROSSED_MIDNIGHT" : null,
                 notes: `Autocorrección: cierre automático de sesión previa (último fichaje: ${lastEntryLabel}, cierre: ${closeMeta}).`,
               },
             });
@@ -1123,8 +1143,38 @@ export async function clockIn(
 
     // Actualizar el resumen del día (FUERA de la transacción, no es crítico)
     await updateWorkdaySummary(employeeId, orgId, now);
-    if (entry.autoCorrectionCloseTime && !isSameDay(entry.autoCorrectionCloseTime, now)) {
+    if (entry.autoCorrectionCloseTime && !isSameLocalDay(entry.autoCorrectionCloseTime, now, timeZone)) {
       await updateWorkdaySummary(employeeId, orgId, entry.autoCorrectionCloseTime);
+
+      const summary = await prisma.workdaySummary.findUnique({
+        where: {
+          orgId_employeeId_date: {
+            orgId,
+            employeeId,
+            date: getLocalDayStartUtc(entry.autoCorrectionCloseTime, timeZone),
+          },
+        },
+      });
+
+      if (summary) {
+        const existingFlags =
+          summary.resolutionFlags && typeof summary.resolutionFlags === "object" ? summary.resolutionFlags : {};
+        await prisma.workdaySummary.update({
+          where: { id: summary.id },
+          data: {
+            resolutionStatus: "AUTO_CLOSED_SAFETY",
+            dataQuality: "ESTIMATED",
+            resolutionFlags: {
+              ...existingFlags,
+              autoCorrection: true,
+              autoClosedAt: new Date().toISOString(),
+              autoCloseReason: "CROSSED_MIDNIGHT",
+            },
+            overtimeCalcStatus: "DIRTY",
+            overtimeCalcUpdatedAt: new Date(),
+          },
+        });
+      }
     }
 
     // Detectar alertas en tiempo real (FUERA de la transacción, no es crítico)
@@ -1384,9 +1434,6 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
     const entry = await prisma.$transaction(
       async (tx) => {
         // 1. Obtener último fichaje del día DENTRO de la transacción
-        const dayStart = startOfDay(now);
-        const dayEnd = endOfDay(now);
-
         const lastEntry = await tx.timeEntry.findFirst({
           where: {
             employeeId,
@@ -1466,9 +1513,6 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
     const { entry, breakStartEntry } = await prisma.$transaction(
       async (tx) => {
         // 1. Obtener último fichaje del día DENTRO de la transacción
-        const dayStart = startOfDay(now);
-        const dayEnd = endOfDay(now);
-
         const lastEntry = await tx.timeEntry.findFirst({
           where: {
             employeeId,
@@ -1798,9 +1842,10 @@ export async function getExpectedHoursForToday() {
       return { hoursToday: 0, isWorkingDay: false, hasActiveContract: true };
     }
 
-    // Obtener día de la semana actual (0 = domingo, 1 = lunes, ..., 6 = sábado)
     const today = new Date();
-    const dayOfWeek = today.getDay();
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const localParts = getLocalDateParts(today, timeZone);
+    const dayOfWeek = localParts.weekday % 7;
 
     const resolvedScheduleType = contract.workScheduleType;
     if (resolvedScheduleType === "FLEXIBLE") {
@@ -1808,9 +1853,9 @@ export async function getExpectedHoursForToday() {
     }
 
     // Verificar si hoy es festivo
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
-    const currentYear = today.getFullYear();
+    const dayStart = getLocalDayStartUtc(today, timeZone);
+    const dayEnd = getLocalDayEndUtc(today, timeZone);
+    const currentYear = localParts.year;
 
     const isHoliday = await prisma.calendarEvent.findFirst({
       where: {
@@ -1835,7 +1880,7 @@ export async function getExpectedHoursForToday() {
     // Verificar si estamos en periodo de jornada intensiva
     let isIntensivePeriod = false;
     if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
-      const currentMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const currentMonthDay = `${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}`;
       const startMonthDay = contract.intensiveStartDate;
       const endMonthDay = contract.intensiveEndDate;
 
@@ -1934,8 +1979,9 @@ export async function getTodaySummary() {
     const employeeId = employee.id;
 
     const today = new Date();
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(today, timeZone);
+    const dayEnd = getLocalDayEndUtc(today, timeZone);
 
     // Obtener el resumen del día
     const summary = await prisma.workdaySummary.findUnique({
@@ -2050,8 +2096,9 @@ export async function getTodaySummaryLite(): Promise<TodaySummaryLite> {
     }
 
     const today = new Date();
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(today, timeZone);
+    const dayEnd = getLocalDayEndUtc(today, timeZone);
 
     const [summary, lastEntry] = await Promise.all([
       prisma.workdaySummary.findUnique({
@@ -2237,7 +2284,7 @@ export async function detectIncompleteEntries() {
   try {
     const employee = await getAuthenticatedEmployee();
     const now = new Date();
-    const autoCloseConfig = await getAutoCloseMissingClockOutConfig(employee.orgId);
+    const { policy, timezone } = await getMissingClockOutPolicy(employee.orgId);
 
     // Buscar último CLOCK_IN sin CLOCK_OUT correspondiente (NO cancelado)
     const openClockIn = await prisma.timeEntry.findFirst({
@@ -2274,46 +2321,62 @@ export async function detectIncompleteEntries() {
       return null; // Ya tiene salida, no está abierto
     }
 
-    const autoCloseResult = await autoCloseOpenClockInIfNeeded(
-      employee.employeeId,
-      employee.orgId,
-      employee.dailyHours,
-      { id: openClockIn.id, timestamp: openClockIn.timestamp },
-      now,
-      autoCloseConfig,
-    );
-
-    if (autoCloseResult) {
-      return null;
-    }
-
     // Calcular duración
     const durationMinutes = Math.floor((now.getTime() - new Date(openClockIn.timestamp).getTime()) / (1000 * 60));
     const durationHours = durationMinutes / 60;
+    const triggerExtraMinutes = Math.max(0, policy.autoCloseTriggerExtraMinutes || 0);
 
-    // Calcular umbral y % de jornada
-    const dailyHours = employee.dailyHours;
-    const thresholdPercent =
-      autoCloseConfig.thresholdPercent >= 100 ? autoCloseConfig.thresholdPercent : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
-    const thresholdHours = (dailyHours * thresholdPercent) / 100;
-    const percentageOfJourney = (durationHours / dailyHours) * 100;
-    const isExcessive = durationHours > thresholdHours;
+    const isCrossedMidnight = !isSameLocalDay(openClockIn.timestamp, now, timezone);
+    const overrides = await resolveProtectedOverrides(employee.orgId, employee.employeeId, timezone, now);
+    const maxOpenHours = overrides.maxOpenHours ?? policy.autoCloseMaxOpenHours;
+    const exceedsMaxOpenHours = durationMinutes >= maxOpenHours * 60;
 
-    // Solo retornar si supera el % configurado de la jornada
-    // Fichajes abiertos normales (del mismo día, dentro del rango) no deben generar aviso
-    if (!isExcessive) {
+    let scheduleEndTime: Date | null = null;
+    let exceedsScheduleEnd = false;
+    let scheduleSource: string | null = null;
+
+    try {
+      const scheduleDate = getLocalDayAnchor(openClockIn.timestamp, timezone);
+      const schedule = await getEffectiveSchedule(employee.employeeId, scheduleDate);
+      scheduleSource = schedule.source ?? null;
+      const lastSlot = getLastExpectedWorkSlot(schedule.timeSlots);
+      if (lastSlot) {
+        const crossesMidnight = lastSlot.endMinutes <= lastSlot.startMinutes;
+        const dayStart = getLocalDayStartUtc(openClockIn.timestamp, timezone);
+        const nextDayStart = getLocalDayStartUtc(addDays(openClockIn.timestamp, 1), timezone);
+        const endBase = crossesMidnight ? nextDayStart : dayStart;
+        scheduleEndTime = new Date(endBase.getTime() + lastSlot.endMinutes * 60 * 1000);
+        const toleranceMinutes = overrides.toleranceMinutes ?? policy.autoCloseToleranceMinutes;
+        const exceedsEnd = now.getTime() >= addMinutes(scheduleEndTime, toleranceMinutes).getTime();
+        // Evitar falsos positivos al fichar tarde: exigir un mínimo de minutos abiertos
+        exceedsScheduleEnd = exceedsEnd && durationMinutes >= triggerExtraMinutes;
+      }
+    } catch (error) {
+      console.warn("Error al resolver horario para fichaje abierto:", error);
+    }
+
+    if (!isCrossedMidnight && !exceedsScheduleEnd && !exceedsMaxOpenHours) {
       return null;
     }
 
+    const reason = isCrossedMidnight
+      ? "CROSSED_MIDNIGHT"
+      : exceedsMaxOpenHours
+        ? "EXCEEDS_MAX_OPEN_HOURS"
+        : "EXCEEDS_SCHEDULE_END";
+
+    const summaryDate = getLocalDayStartUtc(new Date(openClockIn.timestamp), timezone);
+
     return {
       hasIncompleteEntry: true,
-      isExcessive: true, // Siempre true cuando llegamos aquí
       durationHours,
       durationMinutes,
-      dailyHours,
-      thresholdHours,
-      percentageOfJourney,
-      clockInDate: startOfDay(new Date(openClockIn.timestamp)),
+      maxOpenHours,
+      scheduleEndTime,
+      scheduleSource,
+      reason,
+      autoCloseEnabled: policy.autoCloseEnabled && policy.missingClockOutMode === "AUTO_CLOSE",
+      clockInDate: summaryDate,
       clockInTime: openClockIn.timestamp,
       clockInId: openClockIn.id,
       workdayId: openClockIn.workdayId,
@@ -2321,42 +2384,6 @@ export async function detectIncompleteEntries() {
   } catch (error) {
     console.error("Error al detectar fichajes incompletos:", error);
     return null;
-  }
-}
-
-/**
- * Crea una notificación cuando un fichaje excede el 150% de la jornada laboral
- * Se usa para alertar al usuario de que necesita regularizar su fichaje
- * NOTA: Esta función ya no se usa con el nuevo flujo de cancelación
- */
-async function createExcessiveTimeNotification(
-  userId: string,
-  orgId: string,
-  workdayId: string,
-  durationHours: number,
-  dailyHours: number,
-  workdayDate: Date,
-) {
-  try {
-    const { createNotification } = await import("./notifications");
-
-    const percentageWorked = (durationHours / dailyHours) * 100;
-
-    await createNotification(
-      userId,
-      orgId,
-      "TIME_ENTRY_EXCESSIVE",
-      "Fichaje excede jornada laboral",
-      `Has estado fichado ${durationHours.toFixed(1)}h (${percentageWorked.toFixed(0)}% de tu jornada de ${dailyHours}h). Revisa si necesitas regularizar este fichaje del ${workdayDate.toLocaleDateString("es-ES")}.`,
-      undefined, // ptoRequestId
-      undefined, // manualTimeEntryRequestId
-      undefined, // expenseId
-    );
-
-    console.log(`✅ Notificación de fichaje excesivo creada para workday ${workdayId}`);
-  } catch (error) {
-    console.error("Error al crear notificación de fichaje excesivo:", error);
-    // No lanzar error para no bloquear el fichaje
   }
 }
 
@@ -2371,8 +2398,9 @@ export async function cancelOpenClockIn(
   reason: string = "Reemplazado por solicitud manual aprobada",
 ) {
   try {
-    const dayStart = startOfDay(date);
-    const dayEnd = endOfDay(date);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(date, timeZone);
+    const dayEnd = getLocalDayEndUtc(date, timeZone);
 
     // Buscar CLOCK_IN sin CLOCK_OUT del día (no cancelado)
     const openClockIn = await prisma.timeEntry.findFirst({
@@ -2447,8 +2475,9 @@ export async function recalculateWorkdaySummary(date: Date) {
     const { employee, orgId } = await getAuthenticatedEmployee();
     const employeeId = employee.id;
 
-    const dayStart = startOfDay(date);
-    const dayEnd = endOfDay(date);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(date, timeZone);
+    const dayEnd = getLocalDayEndUtc(date, timeZone);
 
     console.log("🔄 RECALCULANDO WorkdaySummary...");
     console.log(`   Empleado: ${employeeId}`);
@@ -2847,8 +2876,9 @@ export async function changeProject(
     }
 
     const now = new Date();
-    const dayStart = startOfDay(now);
-    const dayEnd = endOfDay(now);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(now, timeZone);
+    const dayEnd = getLocalDayEndUtc(now, timeZone);
 
     // 1. Obtener el último fichaje del día
     const lastEntry = await prisma.timeEntry.findFirst({
@@ -2946,8 +2976,9 @@ export async function getCurrentProject(): Promise<{
     const { employeeId, orgId } = await getAuthenticatedEmployee();
 
     const now = new Date();
-    const dayStart = startOfDay(now);
-    const dayEnd = endOfDay(now);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(now, timeZone);
+    const dayEnd = getLocalDayEndUtc(now, timeZone);
 
     // Buscar el último CLOCK_IN del día (que tiene projectId)
     const lastClockIn = await prisma.timeEntry.findFirst({

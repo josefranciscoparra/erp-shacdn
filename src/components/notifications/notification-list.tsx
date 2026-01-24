@@ -48,6 +48,8 @@ const notificationIcons = {
   MANUAL_TIME_ENTRY_SUBMITTED: Clock,
   MANUAL_TIME_ENTRY_APPROVED: Check,
   MANUAL_TIME_ENTRY_REJECTED: X,
+  TIME_ENTRY_UNRESOLVED: AlertTriangle,
+  TIME_ENTRY_AUTO_CLOSED: AlertTriangle,
   EXPENSE_SUBMITTED: Receipt,
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
@@ -55,6 +57,12 @@ const notificationIcons = {
   TIME_BANK_REQUEST_SUBMITTED: Calendar,
   TIME_BANK_REQUEST_APPROVED: Check,
   TIME_BANK_REQUEST_REJECTED: X,
+  ON_CALL_SCHEDULE_ASSIGNED: Calendar,
+  ON_CALL_SCHEDULE_UPDATED: Calendar,
+  ON_CALL_SCHEDULE_CANCELLED: Ban,
+  ON_CALL_INTERVENTION_PENDING: Clock,
+  ON_CALL_INTERVENTION_APPROVED: Check,
+  ON_CALL_INTERVENTION_REJECTED: X,
 };
 
 interface NotificationListProps {
@@ -184,6 +192,10 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
                         "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                       notification.type === "MANUAL_TIME_ENTRY_REJECTED" &&
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                      notification.type === "TIME_ENTRY_UNRESOLVED" &&
+                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                      notification.type === "TIME_ENTRY_AUTO_CLOSED" &&
+                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                       notification.type === "EXPENSE_SUBMITTED" &&
                         "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
                       notification.type === "EXPENSE_APPROVED" &&
@@ -197,6 +209,18 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
                       notification.type === "TIME_BANK_REQUEST_APPROVED" &&
                         "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                       notification.type === "TIME_BANK_REQUEST_REJECTED" &&
+                        "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                      notification.type === "ON_CALL_SCHEDULE_ASSIGNED" &&
+                        "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                      notification.type === "ON_CALL_SCHEDULE_UPDATED" &&
+                        "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+                      notification.type === "ON_CALL_SCHEDULE_CANCELLED" &&
+                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                      notification.type === "ON_CALL_INTERVENTION_PENDING" &&
+                        "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+                      notification.type === "ON_CALL_INTERVENTION_APPROVED" &&
+                        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                      notification.type === "ON_CALL_INTERVENTION_REJECTED" &&
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                     )}
                   >

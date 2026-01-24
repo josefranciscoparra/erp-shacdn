@@ -136,16 +136,16 @@ export function OvertimeSchedulerSettingsCard() {
             <AlarmClock className="h-5 w-5" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold">Reconciliación semanal global</h3>
+            <h3 className="font-semibold">Cierre semanal de horas extra</h3>
             <p className="text-muted-foreground text-sm">
-              Define cuándo el worker procesa el cierre semanal de horas extra para todas las empresas.
+              Define cuándo se procesa automáticamente el cierre semanal para todas las empresas.
             </p>
           </div>
         </div>
 
         <div className="grid gap-6 @xl/main:grid-cols-2">
           <div className="space-y-2">
-            <Label>Día de ejecución (local por empresa)</Label>
+            <Label>Día de cierre (según horario local)</Label>
             <Select
               value={String(config.overtimeReconciliationWeekday)}
               onValueChange={(value) =>
@@ -169,7 +169,7 @@ export function OvertimeSchedulerSettingsCard() {
           </div>
 
           <div className="space-y-2">
-            <Label>Hora de ejecución</Label>
+            <Label>Hora de cierre</Label>
             <Select
               value={String(config.overtimeReconciliationHour)}
               onValueChange={(value) =>
@@ -215,7 +215,7 @@ export function OvertimeSchedulerSettingsCard() {
           </div>
 
           <div className="space-y-2">
-            <Label>Hora del barrido diario</Label>
+            <Label>Revisión diaria</Label>
             <Select
               value={String(config.overtimeDailySweepHour)}
               onValueChange={(value) =>
@@ -236,13 +236,11 @@ export function OvertimeSchedulerSettingsCard() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs">
-              El barrido procesa fichajes con cálculo pendiente en la madrugada local.
-            </p>
+            <p className="text-muted-foreground text-xs">Revisa automáticamente ajustes pendientes cada madrugada.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Ventana del barrido (minutos)</Label>
+            <Label>Ventana de revisión (minutos)</Label>
             <Input
               type="number"
               min="5"
@@ -260,7 +258,7 @@ export function OvertimeSchedulerSettingsCard() {
           </div>
 
           <div className="space-y-2">
-            <Label>Días a revisar en barrido</Label>
+            <Label>Días a revisar</Label>
             <Input
               type="number"
               min="1"
@@ -275,13 +273,11 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">
-              Útil para reintentar cálculos atrasados si el worker estuvo caído.
-            </p>
+            <p className="text-muted-foreground text-xs">Útil para recuperar días con ajustes pendientes.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Días para expirar autorizaciones pendientes</Label>
+            <Label>Caducidad de autorizaciones pendientes</Label>
             <Input
               type="number"
               min="1"
@@ -297,7 +293,7 @@ export function OvertimeSchedulerSettingsCard() {
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Solicitudes pendientes más antiguas se marcan como expiradas automáticamente.
+              Las solicitudes pendientes se cierran automáticamente al superar este plazo.
             </p>
           </div>
 
@@ -317,9 +313,7 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">
-              Si cambias este intervalo, reinicia el worker para aplicar el nuevo ritmo de chequeo.
-            </p>
+            <p className="text-muted-foreground text-xs">Los cambios pueden tardar unos minutos en aplicarse.</p>
           </div>
         </div>
 
@@ -329,10 +323,8 @@ export function OvertimeSchedulerSettingsCard() {
             <div className="space-y-1">
               <p className="font-medium">Nota</p>
               <p className="text-muted-foreground text-xs">
-                El master switch del cron se controla con la variable de entorno{" "}
-                <span className="font-medium">OVERTIME_RECONCILIATION_ENABLED</span>. La empresa debe tener activada la
-                reconciliación semanal en su configuración de horas extra. Este switch también controla el barrido
-                diario y la expiración de autorizaciones.
+                Esta configuración aplica a todas las empresas. Cada empresa puede activar o no el cierre semanal en su
+                pestaña de Horas extra.
               </p>
             </div>
           </div>

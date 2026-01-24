@@ -38,21 +38,51 @@ export async function createNotification(
   ptoRequestId?: string,
   manualTimeEntryRequestId?: string,
   expenseId?: string,
+  referenceId?: string,
 ) {
   try {
-    const notification = await prisma.ptoNotification.create({
-      data: {
-        userId,
-        orgId,
-        type,
-        title,
-        message,
-        ptoRequestId,
-        manualTimeEntryRequestId,
-        expenseId,
-        isRead: false,
-      },
-    });
+    const notification = referenceId
+      ? await prisma.ptoNotification.upsert({
+          where: {
+            userId_type_referenceId: {
+              userId,
+              type,
+              referenceId,
+            },
+          },
+          create: {
+            userId,
+            orgId,
+            type,
+            title,
+            message,
+            ptoRequestId,
+            manualTimeEntryRequestId,
+            expenseId,
+            referenceId,
+            isRead: false,
+          },
+          update: {
+            title,
+            message,
+            ptoRequestId,
+            manualTimeEntryRequestId,
+            expenseId,
+          },
+        })
+      : await prisma.ptoNotification.create({
+          data: {
+            userId,
+            orgId,
+            type,
+            title,
+            message,
+            ptoRequestId,
+            manualTimeEntryRequestId,
+            expenseId,
+            isRead: false,
+          },
+        });
 
     return notification;
   } catch (error) {

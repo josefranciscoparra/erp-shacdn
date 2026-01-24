@@ -15,6 +15,7 @@ import {
 } from "date-fns";
 
 import { safePermission } from "@/lib/auth-guard";
+import { getLocalDayRange } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 import { minutesToTime } from "@/services/schedules/schedule-helpers";
@@ -2031,10 +2032,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     if (dateFrom || dateTo) {
       timeEntriesWhere.timestamp = {};
       if (dateFrom) {
-        timeEntriesWhere.timestamp.gte = dateFrom;
+        timeEntriesWhere.timestamp.gte = getLocalDayRange(dateFrom).start;
       }
       if (dateTo) {
-        timeEntriesWhere.timestamp.lte = dateTo;
+        timeEntriesWhere.timestamp.lte = getLocalDayRange(dateTo).end;
       }
     }
 

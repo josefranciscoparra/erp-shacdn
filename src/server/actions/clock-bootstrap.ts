@@ -1,14 +1,13 @@
 "use server";
 
-import { endOfDay, startOfDay } from "date-fns";
-
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
+import { getLocalDayAnchor, getLocalDayEndUtc, getLocalDayStartUtc } from "@/lib/timezone-utils";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 import type { EffectiveSchedule } from "@/types/schedule";
 
 import { getAuthenticatedUser } from "./shared/get-authenticated-employee";
-import { detectIncompleteEntries, getExpectedHoursForToday } from "./time-tracking";
+import { detectIncompleteEntries, getExpectedHoursForToday, getOrganizationTimeZone } from "./time-tracking";
 
 type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
 
@@ -67,12 +66,13 @@ interface ClockBootstrapResult {
   };
   incompleteEntry?: {
     hasIncompleteEntry: boolean;
-    isExcessive: boolean;
     durationHours: number;
     durationMinutes: number;
-    dailyHours: number;
-    thresholdHours: number;
-    percentageOfJourney: number;
+    maxOpenHours: number;
+    scheduleEndTime: Date | null;
+    scheduleSource: string | null;
+    reason: "CROSSED_MIDNIGHT" | "EXCEEDS_MAX_OPEN_HOURS" | "EXCEEDS_SCHEDULE_END";
+    autoCloseEnabled: boolean;
     clockInDate: Date;
     clockInTime: Date;
     clockInId: string;
@@ -128,10 +128,10 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
         : "Cambia a tu organización de empleado para fichar.";
 
     const today = new Date();
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
-    const scheduleDate = new Date(today);
-    scheduleDate.setHours(12, 0, 0, 0);
+    const timeZone = await getOrganizationTimeZone(orgId);
+    const dayStart = getLocalDayStartUtc(today, timeZone);
+    const dayEnd = getLocalDayEndUtc(today, timeZone);
+    const scheduleDate = getLocalDayAnchor(today, timeZone);
 
     if (!canClockByOrg) {
       return {

@@ -29,6 +29,7 @@ import {
   FileX,
   FileText,
   Clock,
+  AlertTriangle,
   Receipt,
   Mail,
   MailOpen,
@@ -116,6 +117,8 @@ const notificationIcons = {
   MANUAL_TIME_ENTRY_SUBMITTED: Clock,
   MANUAL_TIME_ENTRY_APPROVED: Check,
   MANUAL_TIME_ENTRY_REJECTED: X,
+  TIME_ENTRY_UNRESOLVED: AlertTriangle,
+  TIME_ENTRY_AUTO_CLOSED: AlertTriangle,
   EXPENSE_SUBMITTED: Receipt,
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
@@ -128,6 +131,12 @@ const notificationIcons = {
   OVERTIME_REJECTED: X,
   OVERTIME_ADJUSTED: Clock,
   OVERTIME_EXPIRED: FileClock,
+  ON_CALL_SCHEDULE_ASSIGNED: Calendar,
+  ON_CALL_SCHEDULE_UPDATED: Calendar,
+  ON_CALL_SCHEDULE_CANCELLED: Ban,
+  ON_CALL_INTERVENTION_PENDING: Clock,
+  ON_CALL_INTERVENTION_APPROVED: Check,
+  ON_CALL_INTERVENTION_REJECTED: X,
 };
 
 const notificationTypeLabels = {
@@ -146,6 +155,8 @@ const notificationTypeLabels = {
   MANUAL_TIME_ENTRY_SUBMITTED: "Fichaje manual solicitado",
   MANUAL_TIME_ENTRY_APPROVED: "Fichaje manual aprobado",
   MANUAL_TIME_ENTRY_REJECTED: "Fichaje manual rechazado",
+  TIME_ENTRY_UNRESOLVED: "Fichaje sin salida",
+  TIME_ENTRY_AUTO_CLOSED: "Fichaje autocerrado",
   EXPENSE_SUBMITTED: "Gasto enviado",
   EXPENSE_APPROVED: "Gasto aprobado",
   EXPENSE_REJECTED: "Gasto rechazado",
@@ -158,6 +169,12 @@ const notificationTypeLabels = {
   OVERTIME_REJECTED: "Horas extra rechazadas",
   OVERTIME_ADJUSTED: "Horas extra ajustadas",
   OVERTIME_EXPIRED: "Horas extra expiradas",
+  ON_CALL_SCHEDULE_ASSIGNED: "Guardia asignada",
+  ON_CALL_SCHEDULE_UPDATED: "Guardia actualizada",
+  ON_CALL_SCHEDULE_CANCELLED: "Guardia cancelada",
+  ON_CALL_INTERVENTION_PENDING: "Intervención pendiente",
+  ON_CALL_INTERVENTION_APPROVED: "Intervención aprobada",
+  ON_CALL_INTERVENTION_REJECTED: "Intervención rechazada",
 };
 
 function getNotificationActionLabel(notification: Notification): string {
@@ -188,6 +205,18 @@ function getNotificationActionLabel(notification: Notification): string {
   ) {
     return "Ver mi bolsa";
   }
+  if (notification.type === "ON_CALL_INTERVENTION_PENDING") {
+    return "Ir a aprobar intervención";
+  }
+  if (
+    notification.type === "ON_CALL_INTERVENTION_APPROVED" ||
+    notification.type === "ON_CALL_INTERVENTION_REJECTED" ||
+    notification.type === "ON_CALL_SCHEDULE_ASSIGNED" ||
+    notification.type === "ON_CALL_SCHEDULE_UPDATED" ||
+    notification.type === "ON_CALL_SCHEDULE_CANCELLED"
+  ) {
+    return "Ver guardias";
+  }
   if (notification.type === "DOCUMENT_UPLOADED") {
     return "Ir a Mis Documentos";
   }
@@ -196,6 +225,12 @@ function getNotificationActionLabel(notification: Notification): string {
   }
   if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
     return "Ir a revisar solicitud";
+  }
+  if (notification.type === "TIME_ENTRY_UNRESOLVED" || notification.type === "TIME_ENTRY_AUTO_CLOSED") {
+    if ((notification.title?.toLowerCase() || "").includes("revisión")) {
+      return "Ver alertas";
+    }
+    return "Ir a solicitudes";
   }
   if (notification.type === "SIGNATURE_PENDING") {
     return "Ir a firmar";
@@ -258,7 +293,8 @@ export default function NotificationsPage() {
         notification.type === "PTO_SUBMITTED" ||
         notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ||
         notification.type === "TIME_BANK_REQUEST_SUBMITTED" ||
-        notification.type === "OVERTIME_PENDING_APPROVAL"
+        notification.type === "OVERTIME_PENDING_APPROVAL" ||
+        notification.type === "ON_CALL_INTERVENTION_PENDING"
       ) {
         return false;
       }
@@ -527,6 +563,16 @@ export default function NotificationsPage() {
         return;
       }
 
+      if (notification.type === "TIME_ENTRY_UNRESOLVED" || notification.type === "TIME_ENTRY_AUTO_CLOSED") {
+        if ((notification.title?.toLowerCase() || "").includes("revisión")) {
+          router.push(`/dashboard/time-tracking/alerts`);
+        } else {
+          router.push(`/dashboard/me/clock/requests`);
+        }
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de firma
       if (
         notification.type === "SIGNATURE_PENDING" ||
@@ -576,6 +622,24 @@ export default function NotificationsPage() {
         notification.type === "OVERTIME_EXPIRED"
       ) {
         router.push(`/dashboard/me/time-bank`);
+        setIsDetailOpen(false);
+        return;
+      }
+
+      if (notification.type === "ON_CALL_INTERVENTION_PENDING") {
+        router.push(`/dashboard/approvals/on-call`);
+        setIsDetailOpen(false);
+        return;
+      }
+
+      if (
+        notification.type === "ON_CALL_INTERVENTION_APPROVED" ||
+        notification.type === "ON_CALL_INTERVENTION_REJECTED" ||
+        notification.type === "ON_CALL_SCHEDULE_ASSIGNED" ||
+        notification.type === "ON_CALL_SCHEDULE_UPDATED" ||
+        notification.type === "ON_CALL_SCHEDULE_CANCELLED"
+      ) {
+        router.push(`/dashboard/time-tracking/on-call`);
         setIsDetailOpen(false);
         return;
       }
@@ -652,6 +716,10 @@ export default function NotificationsPage() {
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "MANUAL_TIME_ENTRY_REJECTED" &&
                     "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "TIME_ENTRY_UNRESOLVED" &&
+                    "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                  type === "TIME_ENTRY_AUTO_CLOSED" &&
+                    "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                   type === "EXPENSE_SUBMITTED" &&
                     "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
                   type === "EXPENSE_APPROVED" && "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
@@ -676,6 +744,18 @@ export default function NotificationsPage() {
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "OVERTIME_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                   type === "OVERTIME_EXPIRED" && "bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400",
+                  type === "ON_CALL_SCHEDULE_ASSIGNED" &&
+                    "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                  type === "ON_CALL_SCHEDULE_UPDATED" &&
+                    "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+                  type === "ON_CALL_SCHEDULE_CANCELLED" &&
+                    "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                  type === "ON_CALL_INTERVENTION_PENDING" &&
+                    "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+                  type === "ON_CALL_INTERVENTION_APPROVED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "ON_CALL_INTERVENTION_REJECTED" &&
+                    "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
                 title={label}
               >
@@ -731,6 +811,9 @@ export default function NotificationsPage() {
         !notification.type.startsWith("EXPENSE_") &&
         !notification.type.startsWith("TIME_BANK_REQUEST_") &&
         !notification.type.startsWith("OVERTIME_") &&
+        !notification.type.startsWith("ON_CALL_") &&
+        notification.type !== "TIME_ENTRY_UNRESOLVED" &&
+        notification.type !== "TIME_ENTRY_AUTO_CLOSED" &&
         notification.type !== "DOCUMENT_UPLOADED" &&
         notification.type !== "PAYSLIP_AVAILABLE" &&
         notification.type !== "SIGNATURE_PENDING" &&

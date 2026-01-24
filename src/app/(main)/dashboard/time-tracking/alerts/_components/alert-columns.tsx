@@ -98,6 +98,7 @@ const alertTypeLabels: Record<string, string> = {
   CRITICAL_EARLY_DEPARTURE: "Se va antes (crítico)",
   MISSING_CLOCK_IN: "Falta fichaje de entrada",
   MISSING_CLOCK_OUT: "Falta fichaje de salida",
+  AUTO_CLOSED_SAFETY: "Autocierre de seguridad",
   EXCESSIVE_HOURS: "Horas excesivas",
   NON_WORKDAY_CLOCK_IN: "Fichaje en día no laboral",
   OVERTIME_PENDING_APPROVAL: "Horas extra pendientes",

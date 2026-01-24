@@ -242,6 +242,11 @@ export function useSidebarItems(): NavGroup[] {
               permission: "approve_requests",
             },
             {
+              title: "Intervenciones",
+              url: "/dashboard/approvals/on-call",
+              permission: "approve_requests",
+            },
+            {
               title: "Gastos",
               url: "/dashboard/approvals/expenses",
               permission: "approve_requests",
@@ -400,6 +405,16 @@ export function useSidebarItems(): NavGroup[] {
               title: "Monitor en Vivo",
               url: "/dashboard/time-tracking/live",
               permission: "view_time_tracking",
+            },
+            {
+              title: "Guardias",
+              url: "/dashboard/time-tracking/on-call",
+              permission: "manage_time_tracking",
+            },
+            {
+              title: "Ventanas protegidas",
+              url: "/dashboard/time-tracking/protected-windows",
+              permission: "manage_time_tracking",
             },
             {
               title: "Bolsa de Horas",

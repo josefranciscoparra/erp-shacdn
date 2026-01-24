@@ -125,24 +125,22 @@ export function TimeBankTab() {
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             <div>
-              <h3 className="font-semibold">Configuración de Bolsa de Horas</h3>
+              <h3 className="font-semibold">Bolsa de horas</h3>
               <p className="text-muted-foreground text-sm">
-                Define los márgenes y límites para el cálculo automático de la bolsa de horas
+                Configura cómo se acumulan las diferencias horarias y los límites de saldo.
               </p>
             </div>
           </div>
 
           {/* Sección: Márgenes de Gracia */}
           <div className="space-y-4">
-            <h4 className="text-sm font-medium">Márgenes de Gracia</h4>
-            <p className="text-muted-foreground text-xs">
-              Pequeñas diferencias que no se acumulan en la bolsa de horas
-            </p>
+            <h4 className="text-sm font-medium">Tolerancia</h4>
+            <p className="text-muted-foreground text-xs">Pequeñas diferencias de tiempo que no afectan al saldo.</p>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               {/* Margen de exceso */}
               <div className="space-y-2">
-                <Label htmlFor="excessGrace">Margen de Exceso (minutos)</Label>
+                <Label htmlFor="excessGrace">Tiempo de más (min)</Label>
                 <Input
                   id="excessGrace"
                   type="number"
@@ -157,13 +155,13 @@ export function TimeBankTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  Si un empleado trabaja hasta {config.excessGraceMinutes} minutos de más, NO se acumula en la bolsa
+                  Hasta {config.excessGraceMinutes} min de más no se suman al saldo.
                 </p>
               </div>
 
               {/* Margen de déficit */}
               <div className="space-y-2">
-                <Label htmlFor="deficitGrace">Margen de Déficit (minutos)</Label>
+                <Label htmlFor="deficitGrace">Tiempo de menos (min)</Label>
                 <Input
                   id="deficitGrace"
                   type="number"
@@ -178,7 +176,7 @@ export function TimeBankTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  Si un empleado trabaja hasta {config.deficitGraceMinutes} minutos de menos, NO penaliza
+                  Hasta {config.deficitGraceMinutes} min de menos no se restan del saldo.
                 </p>
               </div>
             </div>
@@ -186,11 +184,11 @@ export function TimeBankTab() {
 
           {/* Sección: Redondeo */}
           <div className="space-y-4 border-t pt-4">
-            <h4 className="text-sm font-medium">Redondeo de Diferencias</h4>
+            <h4 className="text-sm font-medium">Redondeo</h4>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="rounding">Incremento de Redondeo</Label>
+                <Label htmlFor="rounding">Redondeo</Label>
                 <Select
                   value={String(config.roundingIncrementMinutes)}
                   onValueChange={(value) =>
@@ -208,22 +206,20 @@ export function TimeBankTab() {
                     <SelectItem value="15">15 minutos</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">
-                  Las diferencias se redondean a múltiplos de este valor antes de aplicar márgenes
-                </p>
+                <p className="text-muted-foreground text-xs">Las diferencias se ajustan al múltiplo más cercano.</p>
               </div>
             </div>
           </div>
 
           {/* Sección: Límites */}
           <div className="space-y-4 border-t pt-4">
-            <h4 className="text-sm font-medium">Límites de Saldo</h4>
-            <p className="text-muted-foreground text-xs">El saldo de la bolsa no puede exceder estos límites</p>
+            <h4 className="text-sm font-medium">Límites</h4>
+            <p className="text-muted-foreground text-xs">Déjalo en 0 para no establecer límite.</p>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               {/* Límite positivo */}
               <div className="space-y-2">
-                <Label htmlFor="maxPositive">Máximo Saldo Positivo (horas)</Label>
+                <Label htmlFor="maxPositive">Saldo máximo a favor (horas)</Label>
                 <Input
                   id="maxPositive"
                   type="number"
@@ -237,14 +233,12 @@ export function TimeBankTab() {
                     }))
                   }
                 />
-                <p className="text-muted-foreground text-xs">
-                  Máximo de horas que un empleado puede acumular ({config.maxPositiveHours * 60} minutos)
-                </p>
+                <p className="text-muted-foreground text-xs">Horas máximas que un empleado puede acumular.</p>
               </div>
 
               {/* Límite negativo */}
               <div className="space-y-2">
-                <Label htmlFor="maxNegative">Máximo Saldo Negativo (horas)</Label>
+                <Label htmlFor="maxNegative">Saldo máximo en contra (horas)</Label>
                 <Input
                   id="maxNegative"
                   type="number"
@@ -258,9 +252,7 @@ export function TimeBankTab() {
                     }))
                   }
                 />
-                <p className="text-muted-foreground text-xs">
-                  Máximo déficit permitido antes de alertar ({config.maxNegativeHours * 60} minutos)
-                </p>
+                <p className="text-muted-foreground text-xs">Horas máximas que un empleado puede deber.</p>
               </div>
             </div>
           </div>
@@ -279,35 +271,17 @@ export function TimeBankTab() {
         <div className="flex gap-3">
           <Info className="text-primary mt-0.5 h-5 w-5 flex-shrink-0" />
           <div className="space-y-2">
-            <p className="text-sm font-medium">¿Cómo funciona el cálculo de la bolsa de horas?</p>
+            <p className="text-sm font-medium">¿Cómo funciona la bolsa de horas?</p>
             <div className="text-muted-foreground space-y-2 text-xs">
+              <p>La bolsa registra automáticamente las diferencias entre el horario esperado y el trabajado.</p>
               <p>
-                <strong>Orden de aplicación:</strong> Primero se redondea la diferencia, luego se aplican los márgenes.
-              </p>
-              <p>
-                <strong>Ejemplo con redondeo 5 min, exceso 15 min, déficit 10 min:</strong>
+                <strong>Ejemplo:</strong> Con tolerancia de 15 min y redondeo de 5 min:
               </p>
               <ul className="list-inside list-disc space-y-1 pl-2">
-                <li>
-                  +7 min trabajados → redondea a +5 min → menor que 15 min de exceso → <strong>0 min</strong>
-                </li>
-                <li>
-                  +16 min trabajados → redondea a +15 min → menor o igual que 15 min → <strong>0 min</strong>
-                </li>
-                <li>
-                  +23 min trabajados → redondea a +25 min → mayor que 15 min → <strong>+25 min</strong>
-                </li>
-                <li>
-                  -7 min trabajados → redondea a -5 min → menor o igual que 10 min de déficit → <strong>0 min</strong>
-                </li>
-                <li>
-                  -18 min trabajados → redondea a -20 min → mayor que 10 min → <strong>-20 min</strong>
-                </li>
+                <li>+12 min → se redondea a +10 min → dentro de tolerancia → no se suma</li>
+                <li>+23 min → se redondea a +25 min → supera tolerancia → se suman 25 min</li>
               </ul>
-              <p className="mt-2">
-                <strong>Límites:</strong> Si el saldo alcanza el límite configurado, los movimientos automáticos se
-                recortan y las nuevas solicitudes se bloquean.
-              </p>
+              <p>Cuando el saldo alcanza un límite, el sistema deja de acumular automáticamente.</p>
             </div>
           </div>
         </div>

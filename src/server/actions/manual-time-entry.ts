@@ -316,6 +316,37 @@ export async function createManualTimeEntryRequest(
       );
     }
 
+    const existingSummary = await prisma.workdaySummary.findUnique({
+      where: {
+        orgId_employeeId_date: {
+          orgId,
+          employeeId: employee.id,
+          date: dayStart,
+        },
+      },
+    });
+
+    if (existingSummary) {
+      const flags =
+        existingSummary.resolutionFlags && typeof existingSummary.resolutionFlags === "object"
+          ? existingSummary.resolutionFlags
+          : {};
+      await prisma.workdaySummary.update({
+        where: { id: existingSummary.id },
+        data: {
+          resolutionStatus: "RESOLVED_BY_EMPLOYEE",
+          dataQuality: "ESTIMATED",
+          resolutionFlags: {
+            ...flags,
+            manualRequestId: request.id,
+            regularizationRequestedAt: new Date().toISOString(),
+          },
+          overtimeCalcStatus: "DIRTY",
+          overtimeCalcUpdatedAt: new Date(),
+        },
+      });
+    }
+
     return {
       success: true,
       requestId: request.id,

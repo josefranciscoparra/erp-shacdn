@@ -6,6 +6,7 @@ import { registerEmployeeImportWorker } from "@/server/jobs/employee-import-work
 import { registerOvertimeWorker } from "@/server/jobs/overtime-worker";
 import { registerPayslipWorker } from "@/server/jobs/payslip-worker";
 import { registerSignatureBatchWorker } from "@/server/jobs/signature-batch-worker";
+import { registerTimeTrackingWorker } from "@/server/jobs/time-tracking-worker";
 
 async function startWorker() {
   const boss = await getBoss();
@@ -16,6 +17,7 @@ async function startWorker() {
   await registerPayslipWorker(boss);
   await registerSignatureBatchWorker(boss);
   await registerOvertimeWorker(boss);
+  await registerTimeTrackingWorker(boss);
   console.log("[Worker] Job runner iniciado");
 }
 

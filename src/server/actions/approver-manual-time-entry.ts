@@ -522,6 +522,26 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     console.log("   ✅ WorkdaySummary actualizado correctamente");
     console.log(`   💾 Guardado en BD: ${updatedSummary.totalWorkedMinutes} min trabajados`);
 
+    const summaryFlags =
+      updatedSummary.resolutionFlags && typeof updatedSummary.resolutionFlags === "object"
+        ? updatedSummary.resolutionFlags
+        : {};
+    await prisma.workdaySummary.update({
+      where: { id: updatedSummary.id },
+      data: {
+        resolutionStatus: "RESOLVED_APPROVED",
+        dataQuality: "CONFIRMED",
+        resolvedAt: new Date(),
+        resolutionFlags: {
+          ...summaryFlags,
+          manualRequestId: request.id,
+          approvedById: session.user.id,
+        },
+        overtimeCalcStatus: "DIRTY",
+        overtimeCalcUpdatedAt: new Date(),
+      },
+    });
+
     await enqueueOvertimeWorkdayJob({
       orgId: user.orgId,
       employeeId: request.employeeId,
@@ -618,6 +638,37 @@ export async function rejectManualTimeEntryRequest(input: RejectManualTimeEntryR
         rejectionReason: input.rejectionReason.trim(),
       },
     });
+
+    const dayStart = buildUtcDayStart(request.date);
+    const summary = await prisma.workdaySummary.findUnique({
+      where: {
+        orgId_employeeId_date: {
+          orgId: user.orgId,
+          employeeId: request.employeeId,
+          date: dayStart,
+        },
+      },
+    });
+
+    if (summary) {
+      const summaryFlags =
+        summary.resolutionFlags && typeof summary.resolutionFlags === "object" ? summary.resolutionFlags : {};
+      await prisma.workdaySummary.update({
+        where: { id: summary.id },
+        data: {
+          resolutionStatus: "RESOLVED_REJECTED",
+          dataQuality: "LOW",
+          resolvedAt: new Date(),
+          resolutionFlags: {
+            ...summaryFlags,
+            manualRequestId: request.id,
+            rejectedById: session.user.id,
+          },
+          overtimeCalcStatus: "DIRTY",
+          overtimeCalcUpdatedAt: new Date(),
+        },
+      });
+    }
 
     // Notificar al empleado
     if (request.employee.userId) {

@@ -10,8 +10,17 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
-  autoCloseMissingClockOutEnabled: boolean;
-  autoCloseMissingClockOutThresholdPercent: number;
+  missingClockOutMode: "UNRESOLVED" | "AUTO_CLOSE";
+  notifyEmployeeOnUnresolved: boolean;
+  requireApprovalWhenOvertime: boolean;
+  autoCloseEnabled: boolean;
+  autoCloseStrategy: "SCHEDULE_END" | "FIXED_HOUR";
+  autoCloseToleranceMinutes: number;
+  autoCloseTriggerExtraMinutes: number;
+  autoCloseMaxOpenHours: number;
+  autoCloseFixedHour: number;
+  autoCloseFixedMinute: number;
+  autoClosedRequiresReview: boolean;
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
   alertsEnabled: boolean;
@@ -40,8 +49,17 @@ export async function getOrganizationValidationConfig(): Promise<ValidationConfi
         lateClockOutToleranceMinutes: true,
         nonWorkdayClockInAllowed: true,
         nonWorkdayClockInWarning: true,
-        autoCloseMissingClockOutEnabled: true,
-        autoCloseMissingClockOutThresholdPercent: true,
+        missingClockOutMode: true,
+        notifyEmployeeOnUnresolved: true,
+        requireApprovalWhenOvertime: true,
+        autoCloseEnabled: true,
+        autoCloseStrategy: true,
+        autoCloseToleranceMinutes: true,
+        autoCloseTriggerExtraMinutes: true,
+        autoCloseMaxOpenHours: true,
+        autoCloseFixedHour: true,
+        autoCloseFixedMinute: true,
+        autoClosedRequiresReview: true,
         criticalLateArrivalMinutes: true,
         criticalEarlyDepartureMinutes: true,
         alertsEnabled: true,
@@ -80,15 +98,19 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
       config.clockOutToleranceMinutes < 0 ||
       config.earlyClockInToleranceMinutes < 0 ||
       config.lateClockOutToleranceMinutes < 0 ||
-      config.autoCloseMissingClockOutThresholdPercent < 0 ||
+      config.autoCloseToleranceMinutes < 0 ||
+      config.autoCloseTriggerExtraMinutes < 0 ||
+      config.autoCloseMaxOpenHours < 1 ||
       config.criticalLateArrivalMinutes < 0 ||
       config.criticalEarlyDepartureMinutes < 0
     ) {
       throw new Error("Los valores de tolerancia deben ser números positivos");
     }
-
-    if (config.autoCloseMissingClockOutThresholdPercent < 100) {
-      throw new Error("El porcentaje de autocierre debe ser igual o mayor a 100");
+    if (config.autoCloseFixedHour < 0 || config.autoCloseFixedHour > 23) {
+      throw new Error("La hora fija de autocierre debe estar entre 0 y 23");
+    }
+    if (config.autoCloseFixedMinute < 0 || config.autoCloseFixedMinute > 59) {
+      throw new Error("El minuto fijo de autocierre debe estar entre 0 y 59");
     }
 
     // Validar que los umbrales críticos sean mayores que las tolerancias
@@ -109,8 +131,17 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
         lateClockOutToleranceMinutes: config.lateClockOutToleranceMinutes,
         nonWorkdayClockInAllowed: config.nonWorkdayClockInAllowed,
         nonWorkdayClockInWarning: config.nonWorkdayClockInWarning,
-        autoCloseMissingClockOutEnabled: config.autoCloseMissingClockOutEnabled,
-        autoCloseMissingClockOutThresholdPercent: config.autoCloseMissingClockOutThresholdPercent,
+        missingClockOutMode: config.missingClockOutMode,
+        notifyEmployeeOnUnresolved: config.notifyEmployeeOnUnresolved,
+        requireApprovalWhenOvertime: config.requireApprovalWhenOvertime,
+        autoCloseEnabled: config.autoCloseEnabled,
+        autoCloseStrategy: config.autoCloseStrategy,
+        autoCloseToleranceMinutes: config.autoCloseToleranceMinutes,
+        autoCloseTriggerExtraMinutes: config.autoCloseTriggerExtraMinutes,
+        autoCloseMaxOpenHours: config.autoCloseMaxOpenHours,
+        autoCloseFixedHour: config.autoCloseFixedHour,
+        autoCloseFixedMinute: config.autoCloseFixedMinute,
+        autoClosedRequiresReview: config.autoClosedRequiresReview,
         criticalLateArrivalMinutes: config.criticalLateArrivalMinutes,
         criticalEarlyDepartureMinutes: config.criticalEarlyDepartureMinutes,
         alertsEnabled: config.alertsEnabled,

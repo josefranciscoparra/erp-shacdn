@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const ApprovalRequestTypeSchema = z.enum(["PTO", "MANUAL_TIME_ENTRY", "TIME_BANK", "EXPENSE"]);
+export const ApprovalRequestTypeSchema = z.enum([
+  "PTO",
+  "MANUAL_TIME_ENTRY",
+  "TIME_BANK",
+  "EXPENSE",
+  "ON_CALL_INTERVENTION",
+]);
 export type ApprovalRequestType = z.infer<typeof ApprovalRequestTypeSchema>;
 
 export const ApprovalCriterionSchema = z.enum([
@@ -31,6 +37,11 @@ export const ApprovalSettingsSchema = z.object({
     MANUAL_TIME_ENTRY: ApprovalWorkflowSchema,
     TIME_BANK: ApprovalWorkflowSchema,
     EXPENSE: ApprovalWorkflowSchema,
+    ON_CALL_INTERVENTION: ApprovalWorkflowSchema.default({
+      mode: "HIERARCHY",
+      criteriaOrder: ["DIRECT_MANAGER", "TEAM_RESPONSIBLE", "DEPARTMENT_RESPONSIBLE", "COST_CENTER_RESPONSIBLE"],
+      approverList: [],
+    }),
   }),
 });
 
@@ -63,6 +74,11 @@ export const DEFAULT_APPROVAL_SETTINGS: ApprovalSettings = {
     },
     EXPENSE: {
       mode: "LIST",
+      criteriaOrder: defaultCriteriaOrder,
+      approverList: [],
+    },
+    ON_CALL_INTERVENTION: {
+      mode: "HIERARCHY",
       criteriaOrder: defaultCriteriaOrder,
       approverList: [],
     },

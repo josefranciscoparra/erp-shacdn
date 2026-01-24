@@ -42,6 +42,10 @@ const workflowLabels: Record<WorkflowKey, { title: string; description: string }
     title: "Gastos",
     description: "Define quien aprueba los gastos enviados por empleados.",
   },
+  ON_CALL_INTERVENTION: {
+    title: "Intervenciones de guardia",
+    description: "Define quien valida intervenciones realizadas durante guardias.",
+  },
 };
 
 const criterionLabels: Record<ApprovalCriterion, string> = {
@@ -442,6 +446,11 @@ export function ApprovalSettingsTab() {
         ...workflows.EXPENSE,
         criteriaOrder: workflows.EXPENSE.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
         approverList: workflows.EXPENSE.approverList.filter((id) => !groupUserIds.has(id)),
+      },
+      ON_CALL_INTERVENTION: {
+        ...workflows.ON_CALL_INTERVENTION,
+        criteriaOrder: workflows.ON_CALL_INTERVENTION.criteriaOrder.filter((criterion) => criterion !== "GROUP_HR"),
+        approverList: workflows.ON_CALL_INTERVENTION.approverList.filter((id) => !groupUserIds.has(id)),
       },
     }),
     [groupUserIds],
