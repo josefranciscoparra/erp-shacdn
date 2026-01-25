@@ -1923,6 +1923,7 @@ model TimeBankMovement {
   @@index([requestId])
   @@index([overworkAuthorizationId])
   @@index([status])
+  @@unique([workdayId, origin])
   @@map("time_bank_movements")
 }
 

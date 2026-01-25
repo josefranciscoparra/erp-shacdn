@@ -12,10 +12,17 @@ import type {
   OvertimeCandidateType,
   OvertimeCalcStatus,
 } from "@prisma/client";
-import { addDays, endOfWeek, startOfDay, startOfWeek } from "date-fns";
+import { addDays } from "date-fns";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
+import {
+  formatUtcDateKey,
+  getLocalDayAnchor,
+  getLocalDayStartUtc,
+  getLocalDayStartUtcFromDateKey,
+  resolveTimeZone,
+} from "@/lib/timezone-utils";
 import { ensureAlertAssignments } from "@/services/alerts/alert-assignments";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 
@@ -219,7 +226,7 @@ async function removeAutoMovementForWorkday(
   date: Date,
   workdayId?: string | null,
 ) {
-  const dayStart = startOfDay(date);
+  const dayStart = date;
   const dayEnd = addDays(dayStart, 1);
 
   await client.timeBankMovement.deleteMany({
@@ -245,7 +252,7 @@ async function upsertAutoDailyMovement(params: {
   client: PrismaClientLike;
   orgId: string;
   employeeId: string;
-  workdayId: string | null;
+  workdayId: string;
   date: Date;
   minutes: number;
   policy: OvertimePolicy;
@@ -253,12 +260,12 @@ async function upsertAutoDailyMovement(params: {
 }): Promise<TimeBankMovement | null> {
   const { client, orgId, employeeId, workdayId, date, minutes, policy, candidateType } = params;
 
-  const existing = await client.timeBankMovement.findFirst({
+  const existing = await client.timeBankMovement.findUnique({
     where: {
-      orgId,
-      employeeId,
-      origin: "AUTO_DAILY",
-      ...(workdayId ? { workdayId } : {}),
+      workdayId_origin: {
+        workdayId,
+        origin: "AUTO_DAILY",
+      },
     },
   });
 
@@ -297,35 +304,35 @@ async function upsertAutoDailyMovement(params: {
       } as unknown as Prisma.InputJsonValue)
     : ({ candidateType } as unknown as Prisma.InputJsonValue);
 
-  if (existing) {
-    if (existing.minutes === appliedMinutes) {
-      return existing;
-    }
-
-    return client.timeBankMovement.update({
-      where: { id: existing.id },
-      data: {
-        minutes: appliedMinutes,
-        date: startOfDay(date),
-        type: movementType,
-        status: "SETTLED",
-        description: clamped ? "Diferencia diaria automática (recortada por límite)" : "Diferencia diaria automática",
-        metadata: movementMetadata,
-      },
-    });
+  if (existing && existing.minutes === appliedMinutes) {
+    return existing;
   }
 
-  return client.timeBankMovement.create({
-    data: {
+  return client.timeBankMovement.upsert({
+    where: {
+      workdayId_origin: {
+        workdayId,
+        origin: "AUTO_DAILY",
+      },
+    },
+    create: {
       orgId,
       employeeId,
       workdayId,
-      date: startOfDay(date),
+      date,
       minutes: appliedMinutes,
       type: movementType,
       origin: "AUTO_DAILY",
       status: "SETTLED",
       requiresApproval: false,
+      description: clamped ? "Diferencia diaria automática (recortada por límite)" : "Diferencia diaria automática",
+      metadata: movementMetadata,
+    },
+    update: {
+      minutes: appliedMinutes,
+      date,
+      type: movementType,
+      status: "SETTLED",
       description: clamped ? "Diferencia diaria automática (recortada por límite)" : "Diferencia diaria automática",
       metadata: movementMetadata,
     },
@@ -366,7 +373,7 @@ async function upsertOverworkMovement(params: {
       where: { id: existing.id },
       data: {
         minutes,
-        date: startOfDay(date),
+        date,
         type: movementType,
         origin: "OVERTIME_AUTHORIZATION",
         status: "SETTLED",
@@ -382,7 +389,7 @@ async function upsertOverworkMovement(params: {
       employeeId,
       workdayId,
       overworkAuthorizationId,
-      date: startOfDay(date),
+      date,
       minutes,
       type: movementType,
       origin: "OVERTIME_AUTHORIZATION",
@@ -449,12 +456,16 @@ function buildLimitFlags(candidateMinutesFinal: number, policy: OvertimePolicy) 
 }
 
 export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPayload) {
-  const parsedDate = new Date(payload.date);
-  if (Number.isNaN(parsedDate.getTime())) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: payload.orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const dayStart = getLocalDayStartUtcFromDateKey(payload.date, timeZone);
+  if (!dayStart) {
     console.error(`[OvertimeProcessor] Fecha inválida recibida en job de overtime: ${payload.date}`);
     return;
   }
-  const dayStart = startOfDay(parsedDate);
 
   const summary = await prisma.workdaySummary.findUnique({
     where: {
@@ -495,14 +506,14 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
         userId: true,
         firstName: true,
         lastName: true,
-        departmentId: true,
-        costCenterId: true,
         employmentContracts: {
           where: { active: true },
           take: 1,
           orderBy: { startDate: "desc" },
           select: {
             weeklyHours: true,
+            departmentId: true,
+            costCenterId: true,
           },
         },
       },
@@ -511,8 +522,7 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
 
   const policy = normalizePolicy(settings);
 
-  const scheduleDate = new Date(dayStart);
-  scheduleDate.setHours(12, 0, 0, 0);
+  const scheduleDate = getLocalDayAnchor(dayStart, timeZone);
   let effectiveSchedule = null;
   try {
     effectiveSchedule = await getEffectiveSchedule(payload.employeeId, scheduleDate);
@@ -599,9 +609,8 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
     return;
   }
 
-  const weeklyHours = employee?.employmentContracts[0]?.weeklyHours
-    ? Number(employee.employmentContracts[0].weeklyHours)
-    : policy.fullTimeWeeklyHours;
+  const contract = employee?.employmentContracts[0] ?? null;
+  const weeklyHours = contract?.weeklyHours ? Number(contract.weeklyHours) : policy.fullTimeWeeklyHours;
   const isPartTime = weeklyHours < policy.fullTimeWeeklyHours;
 
   const candidateRaw = isNonWorkingDay ? workedMinutes : deviationRaw;
@@ -762,9 +771,9 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
               title: "Horas extra pendientes",
               description: `${employee.firstName} ${employee.lastName} registró horas extra pendientes de aprobación.`,
               date: dayStart,
-              departmentId: employee.departmentId,
-              costCenterId: employee.costCenterId,
-              originalCostCenterId: employee.costCenterId,
+              departmentId: contract?.departmentId ?? null,
+              costCenterId: contract?.costCenterId ?? null,
+              originalCostCenterId: contract?.costCenterId ?? null,
               status: "ACTIVE",
               deviationMinutes: candidateMinutesFinal,
             },
@@ -922,8 +931,17 @@ export async function processWorkdayOvertimeJob(payload: WorkdayOvertimeJobPaylo
 }
 
 export async function processWeeklyOvertimeReconciliation(payload: WeeklyOvertimeJobPayload) {
-  const weekStart = startOfWeek(new Date(payload.weekStart), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const organization = await prisma.organization.findUnique({
+    where: { id: payload.orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const weekStart = getLocalDayStartUtcFromDateKey(payload.weekStart, timeZone);
+  if (!weekStart) {
+    console.error(`[OvertimeProcessor] Fecha inválida recibida en job semanal: ${payload.weekStart}`);
+    return;
+  }
+  const weekEnd = addDays(weekStart, 6);
 
   const settings = await prisma.timeBankSettings.findUnique({ where: { orgId: payload.orgId } });
   const policy = normalizePolicy(settings);
@@ -1020,7 +1038,7 @@ export async function processWeeklyOvertimeReconciliation(payload: WeeklyOvertim
       data: {
         orgId: payload.orgId,
         employeeId,
-        date: startOfDay(weekEnd),
+        date: weekEnd,
         minutes: appliedMinutes,
         type: appliedMinutes >= 0 ? "CORRECTION" : "DEFICIT",
         origin: "CORRECTION",
@@ -1045,7 +1063,13 @@ export async function processWeeklyOvertimeReconciliation(payload: WeeklyOvertim
 
 export async function processOvertimeWorkdaySweep(payload: { orgId: string; lookbackDays: number }) {
   const lookback = Math.max(1, Math.min(14, Math.round(payload.lookbackDays)));
-  const since = startOfDay(addDays(new Date(), lookback * -1));
+  const organization = await prisma.organization.findUnique({
+    where: { id: payload.orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const todayStart = getLocalDayStartUtc(new Date(), timeZone);
+  const since = addDays(todayStart, lookback * -1);
   const batchSize = 200;
   const maxJobs = 1000;
   let enqueued = 0;
@@ -1080,7 +1104,7 @@ export async function processOvertimeWorkdaySweep(payload: { orgId: string; look
       await enqueueOvertimeWorkdayJob({
         orgId: payload.orgId,
         employeeId: summary.employeeId,
-        date: summary.date.toISOString().slice(0, 10),
+        date: formatUtcDateKey(summary.date),
       });
       enqueued += 1;
     }
@@ -1099,7 +1123,13 @@ export async function processOvertimeWorkdaySweep(payload: { orgId: string; look
 
 export async function processOverworkAuthorizationExpiry(payload: { orgId: string; expiryDays: number }) {
   const expiryDays = Math.max(1, Math.min(90, Math.round(payload.expiryDays)));
-  const cutoff = startOfDay(addDays(new Date(), expiryDays * -1));
+  const organization = await prisma.organization.findUnique({
+    where: { id: payload.orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const todayStart = getLocalDayStartUtc(new Date(), timeZone);
+  const cutoff = addDays(todayStart, expiryDays * -1);
 
   const pending = await prisma.overworkAuthorization.findMany({
     where: {

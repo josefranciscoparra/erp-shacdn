@@ -24,6 +24,7 @@ import {
   getLocalDayStartUtc,
   getLocalMinutesOfDay,
   isSameLocalDay,
+  formatUtcDateKey,
   resolveTimeZone,
 } from "@/lib/timezone-utils";
 import { enqueueOvertimeWorkdayJob } from "@/server/jobs/overtime-queue";
@@ -785,7 +786,7 @@ export async function updateWorkdaySummary(employeeId: string, orgId: string, da
     await enqueueOvertimeWorkdayJob({
       orgId,
       employeeId,
-      date: format(dayStart, "yyyy-MM-dd"),
+      date: formatUtcDateKey(dayStart),
     });
     return null;
   }
@@ -928,7 +929,7 @@ export async function updateWorkdaySummary(employeeId: string, orgId: string, da
   await enqueueOvertimeWorkdayJob({
     orgId,
     employeeId,
-    date: format(dayStart, "yyyy-MM-dd"),
+    date: formatUtcDateKey(dayStart),
   });
 
   return summary;
@@ -2662,7 +2663,7 @@ export async function recalculateWorkdaySummary(date: Date) {
     await enqueueOvertimeWorkdayJob({
       orgId,
       employeeId,
-      date: format(dayStart, "yyyy-MM-dd"),
+      date: formatUtcDateKey(dayStart),
     });
 
     return {
@@ -2775,7 +2776,7 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
       await enqueueOvertimeWorkdayJob({
         orgId,
         employeeId,
-        date: format(dayStart, "yyyy-MM-dd"),
+        date: formatUtcDateKey(dayStart),
       });
 
       console.log(

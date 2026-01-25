@@ -1,7 +1,6 @@
 "use server";
 
 import type { OvertimeCompensationType, OverworkAuthorizationStatus, Prisma } from "@prisma/client";
-import { startOfDay } from "date-fns";
 
 import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { safePermission } from "@/lib/auth-guard";
@@ -217,7 +216,7 @@ export async function approveOverworkAuthorization(input: {
             employeeId: request.employeeId,
             workdayId: candidate.workdaySummaryId,
             overworkAuthorizationId: request.id,
-            date: startOfDay(request.date),
+            date: request.date,
             minutes: candidate.candidateMinutesFinal ?? request.minutesApproved,
             type: "EXTRA",
             origin: "OVERTIME_AUTHORIZATION",

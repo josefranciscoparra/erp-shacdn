@@ -50,6 +50,7 @@ interface DayData {
   isWorkingDay?: boolean;
   isHoliday?: boolean;
   holidayName?: string;
+  crossedMidnight?: boolean;
   timeEntries: TimeEntry[];
   // Alertas
   alerts?: {
@@ -125,6 +126,7 @@ export function DayCard({ day }: DayCardProps) {
 
   const visibleEntries = day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
   const isJustifiedAbsence = !!day.holidayName;
+  const isClosedByClockOut = Boolean(day.clockOut) || day.crossedMidnight === true;
   const showCompliance = day.expectedHours > 0;
 
   // Calcular bloques de tiempo para la visualización gráfica (0-24h)
@@ -207,6 +209,14 @@ export function DayCard({ day }: DayCardProps) {
         const diffMs = now.getTime() - currentBlockStart.getTime();
         additionalHours = diffMs / (1000 * 60 * 60);
       }
+    } else if (day.crossedMidnight) {
+      const startVal = getHourValue(currentBlockStart);
+      workBlocks.push({
+        start: startVal,
+        end: 24,
+        type: currentBlockType ?? "work",
+      });
+      currentBlockStart = null;
     }
   }
 
@@ -221,7 +231,7 @@ export function DayCard({ day }: DayCardProps) {
   } else if (day.status === "INCOMPLETE") {
     borderClass = statusColors.INCOMPLETE;
   } else if (day.status === "IN_PROGRESS") {
-    borderClass = statusColors.IN_PROGRESS;
+    borderClass = isClosedByClockOut ? statusColors.COMPLETED : statusColors.IN_PROGRESS;
   } else if (day.status === "ABSENT") {
     borderClass = statusColors.ABSENT;
   }
@@ -235,6 +245,26 @@ export function DayCard({ day }: DayCardProps) {
         : day.status === "ABSENT" && !isJustifiedAbsence
           ? "text-red-600"
           : "text-muted-foreground";
+
+  const expectedLabel =
+    day.expectedHours > 0 ? `${day.expectedHours}h` : day.timeEntries.length > 0 ? "Sin horario" : "0h";
+
+  const statusLabel =
+    day.status === "NON_WORKDAY"
+      ? "No laborable"
+      : day.status === "IN_PROGRESS"
+        ? isClosedByClockOut
+          ? "Cerrado"
+          : "En curso"
+        : day.status === "COMPLETED"
+          ? "Correcto"
+          : day.status === "INCOMPLETE"
+            ? "Incompleto"
+            : day.status === "ABSENT"
+              ? "Ausencia"
+              : day.status;
+
+  const activeEntriesLabel = isClosedByClockOut ? "Fichajes del día" : "Fichajes activos";
 
   // Calcular duración de cada pausa para el detalle
   const breakDurations: { startIndex: number; duration: number }[] = [];
@@ -283,17 +313,7 @@ export function DayCard({ day }: DayCardProps) {
             ) : (
               <span className={cn("flex items-center text-xs font-medium", statusColorText)}>
                 {/* Texto de estado amigable */}
-                {day.status === "NON_WORKDAY"
-                  ? "No laborable"
-                  : day.status === "IN_PROGRESS"
-                    ? "En curso"
-                    : day.status === "COMPLETED"
-                      ? "Correcto"
-                      : day.status === "INCOMPLETE"
-                        ? "Incompleto"
-                        : day.status === "ABSENT"
-                          ? "Ausencia"
-                          : day.status}
+                {statusLabel}
               </span>
             )}
           </div>
@@ -340,7 +360,7 @@ export function DayCard({ day }: DayCardProps) {
           <div className="flex flex-col items-end gap-0.5">
             <div className="flex items-baseline gap-1">
               <span className="text-sm font-bold tabular-nums">{displayedActualHours.toFixed(2)}h</span>
-              <span className="text-muted-foreground text-[10px]">/ {day.expectedHours}h</span>
+              <span className="text-muted-foreground text-[10px]">/ {expectedLabel}</span>
             </div>
             {showCompliance && (
               <div className="flex items-center gap-1">
@@ -373,7 +393,7 @@ export function DayCard({ day }: DayCardProps) {
               {/* Fichajes Activos */}
               <div className="space-y-3">
                 <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                  Fichajes Activos
+                  {activeEntriesLabel}
                 </h4>
                 <div className="space-y-0">
                   {visibleEntries.filter((e) => !e.isCancelled).length === 0 ? (

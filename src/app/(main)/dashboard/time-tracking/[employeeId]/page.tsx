@@ -65,6 +65,7 @@ interface DayDetailData {
   isWorkingDay: boolean;
   isHoliday: boolean;
   holidayName?: string;
+  crossedMidnight?: boolean;
   timeEntries: {
     id: string;
     entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";

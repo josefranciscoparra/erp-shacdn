@@ -14,12 +14,13 @@ import {
   type TimeBankSettings,
   type WorkdaySummary,
 } from "@prisma/client";
-import { endOfDay, startOfDay } from "date-fns";
+import { addDays } from "date-fns";
 
 import { canUserApprove, resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { safePermission } from "@/lib/auth-guard";
 import { getLocalDayRange, normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
+import { getLocalDayStartUtc, resolveTimeZone } from "@/lib/timezone-utils";
 
 import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
@@ -236,8 +237,8 @@ export async function removeAutoTimeBankMovement(
   date: Date,
   workdayId?: string | null,
 ) {
-  const dayStart = startOfDay(date);
-  const dayEnd = endOfDay(date);
+  const dayStart = date;
+  const dayEnd = addDays(dayStart, 1);
 
   const whereClause: Prisma.TimeBankMovementWhereInput = {
     orgId,
@@ -250,7 +251,7 @@ export async function removeAutoTimeBankMovement(
   } else {
     whereClause.date = {
       gte: dayStart,
-      lte: dayEnd,
+      lt: dayEnd,
     };
   }
 
@@ -285,12 +286,12 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
   const settings = await getTimeBankSettingsForOrg(workday.orgId);
   const normalizedMinutes = normalizeDeviationValue(deviation, settings);
 
-  const existingMovement = await prisma.timeBankMovement.findFirst({
+  const existingMovement = await prisma.timeBankMovement.findUnique({
     where: {
-      orgId: workday.orgId,
-      employeeId: workday.employeeId,
-      workdayId: workday.id,
-      origin: TimeBankMovementOrigin.AUTO_DAILY,
+      workdayId_origin: {
+        workdayId: workday.id,
+        origin: TimeBankMovementOrigin.AUTO_DAILY,
+      },
     },
   });
 
@@ -305,7 +306,7 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
   }
 
   const movementType = normalizedMinutes >= 0 ? TimeBankMovementType.EXTRA : TimeBankMovementType.DEFICIT;
-  const dayDate = startOfDay(workday.date);
+  const dayDate = workday.date;
   const balanceMinutes = await getEmployeeBalanceMinutes(
     prisma,
     workday.orgId,
@@ -338,26 +339,18 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
     ? "Diferencia diaria automática (recortada por límite)"
     : "Diferencia diaria automática";
 
-  if (existingMovement) {
-    if (existingMovement.minutes === appliedMinutes) {
-      return existingMovement;
-    }
-
-    return prisma.timeBankMovement.update({
-      where: { id: existingMovement.id },
-      data: {
-        minutes: appliedMinutes,
-        date: dayDate,
-        type: movementType,
-        status: TimeBankMovementStatus.SETTLED,
-        description: movementDescription,
-        metadata: movementMetadata,
-      },
-    });
+  if (existingMovement && existingMovement.minutes === appliedMinutes) {
+    return existingMovement;
   }
 
-  return prisma.timeBankMovement.create({
-    data: {
+  return prisma.timeBankMovement.upsert({
+    where: {
+      workdayId_origin: {
+        workdayId: workday.id,
+        origin: TimeBankMovementOrigin.AUTO_DAILY,
+      },
+    },
+    create: {
       orgId: workday.orgId,
       employeeId: workday.employeeId,
       workdayId: workday.id,
@@ -367,6 +360,14 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
       origin: TimeBankMovementOrigin.AUTO_DAILY,
       status: TimeBankMovementStatus.SETTLED,
       requiresApproval: false,
+      description: movementDescription,
+      metadata: movementMetadata,
+    },
+    update: {
+      minutes: appliedMinutes,
+      date: dayDate,
+      type: movementType,
+      status: TimeBankMovementStatus.SETTLED,
       description: movementDescription,
       metadata: movementMetadata,
     },
@@ -389,6 +390,14 @@ export interface TimeBankSummaryResponse {
 }
 
 export async function getEmployeeTimeBankSummary(employeeId: string, orgId: string): Promise<TimeBankSummaryResponse> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const todayStart = getLocalDayStartUtc(new Date(), timeZone);
+  const todayEnd = addDays(todayStart, 1);
+
   const [settings, aggregate, grouped, lastMovements, todayMovement, pendingRequests] = await Promise.all([
     getTimeBankSettingsForOrg(orgId),
     prisma.timeBankMovement.aggregate({
@@ -424,8 +433,8 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
         employeeId,
         origin: TimeBankMovementOrigin.AUTO_DAILY,
         date: {
-          gte: startOfDay(new Date()),
-          lte: endOfDay(new Date()),
+          gte: todayStart,
+          lt: todayEnd,
         },
       },
     }),

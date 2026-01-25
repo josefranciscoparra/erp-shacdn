@@ -12,21 +12,30 @@ import {
   endOfYear,
   eachDayOfInterval,
   format,
+  addDays,
+  differenceInMinutes,
 } from "date-fns";
 
 import { safePermission } from "@/lib/auth-guard";
-import { getLocalDayRange } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
+import { getLocalDateParts, getLocalDayEndUtc, getLocalDayStartUtc, resolveTimeZone } from "@/lib/timezone-utils";
 import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 import { minutesToTime } from "@/services/schedules/schedule-helpers";
 import type { EffectiveSchedule } from "@/types/schedule";
 
-function getLocalDateKey(date: Date): string {
-  const localDate = new Date(date);
-  const year = localDate.getFullYear();
-  const month = String(localDate.getMonth() + 1).padStart(2, "0");
-  const day = String(localDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function getLocalDateKey(date: Date, timeZone?: string): string {
+  if (!timeZone) {
+    const localDate = new Date(date);
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, "0");
+    const day = String(localDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const parts = getLocalDateParts(date, timeZone);
+  const month = String(parts.month).padStart(2, "0");
+  const day = String(parts.day).padStart(2, "0");
+  return `${parts.year}-${month}-${day}`;
 }
 
 // Tipos de filtros
@@ -1964,6 +1973,11 @@ export async function getCostCentersForFilter() {
 export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date, dateTo?: Date) {
   try {
     const { orgId } = await checkAdminPermissions();
+    const organization = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { timezone: true },
+    });
+    const timeZone = resolveTimeZone(organization?.timezone);
 
     // Obtener información del contrato activo
     const employee = await prisma.employee.findUnique({
@@ -1988,8 +2002,8 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     }
 
     // Generar el rango de fechas completo
-    const startDate = dateFrom ?? startOfDay(new Date());
-    const endDate = dateTo ?? endOfDay(new Date());
+    const startDate = dateFrom ? getLocalDayStartUtc(dateFrom, timeZone) : getLocalDayStartUtc(new Date(), timeZone);
+    const endDate = dateTo ? getLocalDayEndUtc(dateTo, timeZone) : getLocalDayEndUtc(new Date(), timeZone);
     const allDaysInRange = eachDayOfInterval({ start: startDate, end: endDate });
 
     const where: any = {
@@ -2000,10 +2014,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     if (dateFrom || dateTo) {
       where.date = {};
       if (dateFrom) {
-        where.date.gte = startOfDay(dateFrom);
+        where.date.gte = getLocalDayStartUtc(dateFrom, timeZone);
       }
       if (dateTo) {
-        where.date.lte = endOfDay(dateTo);
+        where.date.lte = getLocalDayEndUtc(dateTo, timeZone);
       }
     }
 
@@ -2019,7 +2033,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     type SummaryType = (typeof summaries)[number];
     const summariesByDate = new Map<string, SummaryType>();
     summaries.forEach((summary) => {
-      const dateKey = getLocalDateKey(summary.date);
+      const dateKey = getLocalDateKey(summary.date, timeZone);
       summariesByDate.set(dateKey, summary);
     });
 
@@ -2032,10 +2046,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     if (dateFrom || dateTo) {
       timeEntriesWhere.timestamp = {};
       if (dateFrom) {
-        timeEntriesWhere.timestamp.gte = getLocalDayRange(dateFrom).start;
+        timeEntriesWhere.timestamp.gte = getLocalDayStartUtc(dateFrom, timeZone);
       }
       if (dateTo) {
-        timeEntriesWhere.timestamp.lte = getLocalDayRange(dateTo).end;
+        timeEntriesWhere.timestamp.lte = getLocalDayEndUtc(dateTo, timeZone);
       }
     }
 
@@ -2068,7 +2082,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     // IMPORTANTE: Normalizar timestamps a UTC antes de agrupar
     const entriesByDay = new Map<string, typeof allTimeEntries>();
     allTimeEntries.forEach((entry) => {
-      const dayKey = getLocalDateKey(entry.timestamp);
+      const dayKey = getLocalDateKey(entry.timestamp, timeZone);
       if (!entriesByDay.has(dayKey)) {
         entriesByDay.set(dayKey, []);
       }
@@ -2083,8 +2097,13 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     type EffectiveScheduleItem = (typeof effectiveSchedules)[number];
     const scheduleMap = new Map<string, EffectiveScheduleItem>();
     effectiveSchedules.forEach((schedule) => {
-      scheduleMap.set(getLocalDateKey(schedule.date), schedule);
+      scheduleMap.set(getLocalDateKey(schedule.date, timeZone), schedule);
     });
+
+    const isActiveWorkEntryType = (entryType: string) =>
+      entryType === "CLOCK_IN" || entryType === "BREAK_END" || entryType === "PROJECT_SWITCH";
+    const isCrossingEntryType = (entryType: string) =>
+      entryType === "CLOCK_OUT" || entryType === "BREAK_START" || entryType === "BREAK_END";
 
     return {
       employee: {
@@ -2096,9 +2115,31 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       days: allDaysInRange
         .reverse() // Ordenar de más reciente a más antiguo
         .map((dayDate) => {
-          const dayKey = getLocalDateKey(dayDate);
+          const dayKey = getLocalDateKey(dayDate, timeZone);
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
+          const nextDayKey = getLocalDateKey(addDays(dayDate, 1), timeZone);
+          const nextDayEntries = entriesByDay.get(nextDayKey) ?? [];
+          const activeDayEntries = [...dayEntries]
+            .filter((entry) => !entry.isCancelled)
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          const activeNextEntries = [...nextDayEntries]
+            .filter((entry) => !entry.isCancelled)
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          const lastEntry = activeDayEntries[activeDayEntries.length - 1] ?? null;
+          const hasClockOut = activeDayEntries.some((entry) => entry.entryType === "CLOCK_OUT");
+          const firstNextEntry = activeNextEntries[0] ?? null;
+          const dayStart = getLocalDayStartUtc(dayDate, timeZone);
+          const nextDayStart = addDays(dayStart, 1);
+          const hasMidnightCrossing =
+            Boolean(lastEntry) &&
+            Boolean(firstNextEntry) &&
+            !hasClockOut &&
+            isActiveWorkEntryType(lastEntry.entryType) &&
+            isCrossingEntryType(firstNextEntry.entryType);
+          const carryoverMinutes = hasMidnightCrossing
+            ? Math.max(0, differenceInMinutes(nextDayStart, new Date(lastEntry.timestamp)))
+            : 0;
 
           // Obtener datos del motor de horarios
           const schedule = scheduleMap.get(dayKey);
@@ -2120,7 +2161,8 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
           // Si existe summary, usarlo; si no, crear uno virtual
           if (summary) {
-            const workedHours = Number(summary.totalWorkedMinutes) / 60;
+            const totalWorkedMinutes = Number(summary.totalWorkedMinutes) + carryoverMinutes;
+            const workedHours = totalWorkedMinutes / 60;
             const compliance = hoursExpected > 0 ? Math.round((workedHours / hoursExpected) * 100) : 0;
 
             // Recalcular estado dinámicamente para corregir inconsistencias visuales
@@ -2154,7 +2196,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               date: dayDate,
               clockIn: summary.clockIn,
               clockOut: summary.clockOut,
-              totalWorkedMinutes: Number(summary.totalWorkedMinutes),
+              totalWorkedMinutes,
               totalBreakMinutes: Number(summary.totalBreakMinutes),
               status: displayStatus,
               expectedHours: hoursExpected,
@@ -2163,6 +2205,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               isWorkingDay,
               isHoliday,
               holidayName,
+              crossedMidnight: carryoverMinutes > 0,
               timeEntries: dayEntries.map((entry) => ({
                 id: entry.id,
                 entryType: entry.entryType,

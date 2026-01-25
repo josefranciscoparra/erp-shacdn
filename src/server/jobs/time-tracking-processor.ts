@@ -1,5 +1,5 @@
 import type { AutoCloseReason, WorkdayDataQuality, WorkdayResolutionStatus } from "@prisma/client";
-import { addDays, addMinutes, format, startOfDay } from "date-fns";
+import { addDays, addMinutes, format } from "date-fns";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
@@ -376,6 +376,7 @@ export async function processOpenPunchRollover(payload: { orgId: string; lookbac
       continue;
     }
 
+    const dayStart = getLocalDayStartUtc(open.timestamp, timeZone);
     const flags = normalizeResolutionFlags(summary.resolutionFlags);
     const nextFlags = {
       ...flags,
@@ -395,7 +396,7 @@ export async function processOpenPunchRollover(payload: { orgId: string; lookbac
       where: {
         employeeId_date_type: {
           employeeId: open.employeeId,
-          date: startOfDay(open.timestamp),
+          date: dayStart,
           type: "MISSING_CLOCK_OUT",
         },
       },
@@ -406,7 +407,7 @@ export async function processOpenPunchRollover(payload: { orgId: string; lookbac
         severity: "WARNING",
         title: "Fichaje sin salida",
         description: "Se detectó un fichaje sin salida del día anterior.",
-        date: startOfDay(open.timestamp),
+        date: dayStart,
         status: "ACTIVE",
         workdaySummaryId: summary.id,
       },
@@ -471,7 +472,7 @@ export async function processOpenPunchRollover(payload: { orgId: string; lookbac
     await enqueueOvertimeWorkdayJob({
       orgId: open.orgId,
       employeeId: open.employeeId,
-      date: format(startOfDay(open.timestamp), "yyyy-MM-dd"),
+      date: dayStart.toISOString().slice(0, 10),
     });
   }
 }
@@ -528,6 +529,7 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
       continue;
     }
 
+    const dayStart = getLocalDayStartUtc(open.timestamp, timeZone);
     const durationMinutes = (now.getTime() - open.timestamp.getTime()) / (1000 * 60);
     const overrides = await resolveProtectedOverrides(open.orgId, open.employeeId, timeZone, now);
     const maxOpenHours = overrides.maxOpenHours ?? policy.autoCloseMaxOpenHours;
@@ -553,11 +555,10 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
           closeTime = target;
         }
       } else {
-        const scheduleDate = startOfDay(open.timestamp);
-        scheduleDate.setHours(12, 0, 0, 0);
+        const scheduleDate = addMinutes(dayStart, 12 * 60);
         const schedule = await getEffectiveSchedule(open.employeeId, scheduleDate).catch(() => null);
         const lastSlot = schedule ? getLastExpectedWorkSlot(schedule.timeSlots) : null;
-        const scheduleEnd = lastSlot ? resolveScheduleEnd(startOfDay(open.timestamp), lastSlot) : null;
+        const scheduleEnd = lastSlot ? resolveScheduleEnd(dayStart, lastSlot) : null;
         const waitMinutes = overrides.toleranceMinutes ?? policy.autoCloseToleranceMinutes;
         const triggerTime = scheduleEnd ? addMinutes(scheduleEnd, waitMinutes) : null;
         const shouldClose = triggerTime && now.getTime() >= triggerTime.getTime();
@@ -634,7 +635,9 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
     }
 
     await updateWorkdaySummary(open.employeeId, open.orgId, closeTime);
-    if (startOfDay(open.timestamp).getTime() !== startOfDay(closeTime).getTime()) {
+    if (
+      getLocalDayStartUtc(open.timestamp, timeZone).getTime() !== getLocalDayStartUtc(closeTime, timeZone).getTime()
+    ) {
       await updateWorkdaySummary(open.employeeId, open.orgId, open.timestamp);
     }
 
@@ -643,7 +646,7 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
         orgId_employeeId_date: {
           orgId: open.orgId,
           employeeId: open.employeeId,
-          date: startOfDay(open.timestamp),
+          date: dayStart,
         },
       },
     });
@@ -671,7 +674,7 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
         where: {
           employeeId_date_type: {
             employeeId: open.employeeId,
-            date: startOfDay(open.timestamp),
+            date: dayStart,
             type: "AUTO_CLOSED_SAFETY",
           },
         },
@@ -682,7 +685,7 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
           severity: "WARNING",
           title: "Fichaje autocerrado",
           description: "Se autocerró un fichaje por seguridad. Requiere revisión.",
-          date: startOfDay(open.timestamp),
+          date: dayStart,
           status: "ACTIVE",
           workdaySummaryId: summary.id,
         },
@@ -744,14 +747,20 @@ export async function processOpenPunchSafetyClose(payload: { orgId: string }) {
     await enqueueOvertimeWorkdayJob({
       orgId: open.orgId,
       employeeId: open.employeeId,
-      date: format(startOfDay(open.timestamp), "yyyy-MM-dd"),
+      date: dayStart.toISOString().slice(0, 10),
     });
   }
 }
 
 export async function processOnCallAvailabilitySettlement(payload: { orgId: string; lookbackDays: number }) {
   const now = new Date();
-  const windowStart = addDays(startOfDay(now), -payload.lookbackDays);
+  const organization = await prisma.organization.findUnique({
+    where: { id: payload.orgId },
+    select: { timezone: true },
+  });
+  const timeZone = resolveTimeZone(organization?.timezone);
+  const todayStart = getLocalDayStartUtc(now, timeZone);
+  const windowStart = addDays(todayStart, -payload.lookbackDays);
 
   const schedules = await prisma.onCallSchedule.findMany({
     where: {
