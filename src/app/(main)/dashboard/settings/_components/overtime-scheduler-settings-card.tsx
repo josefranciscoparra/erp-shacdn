@@ -136,16 +136,16 @@ export function OvertimeSchedulerSettingsCard() {
             <AlarmClock className="h-5 w-5" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold">Cierre semanal de horas extra</h3>
+            <h3 className="font-semibold">Consolidación semanal de horas extra</h3>
             <p className="text-muted-foreground text-sm">
-              Define cuándo se procesa automáticamente el cierre semanal para todas las empresas.
+              Configura cuándo se consolidan automáticamente las horas extra para su revisión y aprobación.
             </p>
           </div>
         </div>
 
         <div className="grid gap-6 @xl/main:grid-cols-2">
           <div className="space-y-2">
-            <Label>Día de cierre (según horario local)</Label>
+            <Label>Día de consolidación</Label>
             <Select
               value={String(config.overtimeReconciliationWeekday)}
               onValueChange={(value) =>
@@ -169,7 +169,7 @@ export function OvertimeSchedulerSettingsCard() {
           </div>
 
           <div className="space-y-2">
-            <Label>Hora de cierre</Label>
+            <Label>Hora de consolidación</Label>
             <Select
               value={String(config.overtimeReconciliationHour)}
               onValueChange={(value) =>
@@ -191,13 +191,13 @@ export function OvertimeSchedulerSettingsCard() {
               </SelectContent>
             </Select>
             <p className="text-muted-foreground text-xs">
-              Se aplica según el huso horario de cada empresa ({weekdayLabel} a las{" "}
-              {formatHourLabel(config.overtimeReconciliationHour)}).
+              Las horas extra se consolidan cada {weekdayLabel} a las{" "}
+              {formatHourLabel(config.overtimeReconciliationHour)} (hora local de cada empresa).
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Ventana de ejecución (minutos)</Label>
+            <Label>Duración del proceso (minutos)</Label>
             <Input
               type="number"
               min="1"
@@ -212,10 +212,11 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
+            <p className="text-muted-foreground text-xs">Tiempo máximo que puede durar el proceso de consolidación.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Revisión diaria</Label>
+            <Label>Hora de revisión automática</Label>
             <Select
               value={String(config.overtimeDailySweepHour)}
               onValueChange={(value) =>
@@ -236,11 +237,13 @@ export function OvertimeSchedulerSettingsCard() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs">Revisa automáticamente ajustes pendientes cada madrugada.</p>
+            <p className="text-muted-foreground text-xs">
+              Cada día, el sistema revisa si hay horas extra pendientes de procesar.
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Ventana de revisión (minutos)</Label>
+            <Label>Duración de la revisión (minutos)</Label>
             <Input
               type="number"
               min="5"
@@ -255,10 +258,11 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
+            <p className="text-muted-foreground text-xs">Tiempo máximo que puede durar la revisión diaria.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Días a revisar</Label>
+            <Label>Días anteriores a revisar</Label>
             <Input
               type="number"
               min="1"
@@ -273,11 +277,13 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">Útil para recuperar días con ajustes pendientes.</p>
+            <p className="text-muted-foreground text-xs">
+              Cuántos días atrás se revisan para detectar horas extra no procesadas.
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Caducidad de autorizaciones pendientes</Label>
+            <Label>Expiración de solicitudes (días)</Label>
             <Input
               type="number"
               min="1"
@@ -293,12 +299,12 @@ export function OvertimeSchedulerSettingsCard() {
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Las solicitudes pendientes se cierran automáticamente al superar este plazo.
+              Las solicitudes sin respuesta se cerrarán automáticamente pasado este tiempo.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Intervalo de comprobación (minutos)</Label>
+            <Label>Frecuencia de verificación (minutos)</Label>
             <Input
               type="number"
               min="1"
@@ -313,7 +319,9 @@ export function OvertimeSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">Los cambios pueden tardar unos minutos en aplicarse.</p>
+            <p className="text-muted-foreground text-xs">
+              Cada cuántos minutos el sistema verifica si hay empresas pendientes de consolidar.
+            </p>
           </div>
         </div>
 
@@ -321,10 +329,10 @@ export function OvertimeSchedulerSettingsCard() {
           <div className="flex items-start gap-2 text-sm">
             <Info className="text-muted-foreground h-4 w-4" />
             <div className="space-y-1">
-              <p className="font-medium">Nota</p>
+              <p className="font-medium">Información</p>
               <p className="text-muted-foreground text-xs">
-                Esta configuración aplica a todas las empresas. Cada empresa puede activar o no el cierre semanal en su
-                pestaña de Horas extra.
+                Esta configuración aplica a todas las empresas del sistema. Cada empresa puede activar o desactivar la
+                consolidación semanal desde su propia configuración de Horas extra.
               </p>
             </div>
           </div>

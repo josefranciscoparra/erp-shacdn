@@ -187,16 +187,17 @@ export function OvertimeTab() {
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold">Horas extra</h3>
+              <h3 className="font-semibold">Gestión de Horas Extraordinarias</h3>
               <p className="text-muted-foreground text-sm">
-                Establece cómo se calculan, aprueban y compensan las horas trabajadas fuera del horario habitual.
+                Configura la política de cálculo, flujos de aprobación y métodos de compensación para el tiempo de
+                trabajo adicional.
               </p>
             </div>
           </div>
 
           <div className="grid gap-6 @xl/main:grid-cols-2">
             <div className="space-y-2">
-              <Label>Cálculo</Label>
+              <Label>Modalidad de Cálculo</Label>
               <Select
                 value={config.overtimeCalculationMode}
                 onValueChange={(value) =>
@@ -207,18 +208,18 @@ export function OvertimeTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DAILY">Diario — cada día se evalúa independientemente</SelectItem>
-                  <SelectItem value="WEEKLY">Semanal — se acumulan las horas de toda la semana</SelectItem>
-                  <SelectItem value="DAILY_WEEKLY">Diario con cierre semanal</SelectItem>
+                  <SelectItem value="DAILY">Diario — Cálculo basado en jornada laboral</SelectItem>
+                  <SelectItem value="WEEKLY">Semanal — Cálculo basado en total semanal</SelectItem>
+                  <SelectItem value="DAILY_WEEKLY">Híbrido — Control diario con regularización semanal</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                Define cuándo se considera que un empleado ha realizado horas extra.
+                Determina la base temporal para el cómputo de horas extraordinarias.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Aprobación</Label>
+              <Label>Flujo de Aprobación</Label>
               <Select
                 value={config.overtimeApprovalMode}
                 onValueChange={(value) =>
@@ -229,15 +230,15 @@ export function OvertimeTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">Automático — sin necesidad de aprobación</SelectItem>
-                  <SelectItem value="POST">Posterior — aprobar después de realizarlas</SelectItem>
-                  <SelectItem value="PRE">Previa — solicitar autorización antes</SelectItem>
+                  <SelectItem value="NONE">Automático — Registro directo sin revisión</SelectItem>
+                  <SelectItem value="POST">A posteriori — Requiere validación del supervisor</SelectItem>
+                  <SelectItem value="PRE">A priori — Requiere autorización previa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Compensación</Label>
+              <Label>Método de Compensación Predeterminado</Label>
               <Select
                 value={config.overtimeCompensationType}
                 onValueChange={(value) =>
@@ -248,16 +249,16 @@ export function OvertimeTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TIME">Bolsa de horas — acumular tiempo libre</SelectItem>
-                  <SelectItem value="PAY">Nómina — pagar como complemento</SelectItem>
-                  <SelectItem value="MIXED">A elección del empleado</SelectItem>
-                  <SelectItem value="NONE">Solo registro — sin compensación</SelectItem>
+                  <SelectItem value="TIME">Tiempo de descanso (Bolsa de horas)</SelectItem>
+                  <SelectItem value="PAY">Retribución económica</SelectItem>
+                  <SelectItem value="MIXED">Flexible (Elección del empleado)</SelectItem>
+                  <SelectItem value="NONE">Solo registro (Sin compensación)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Trabajo en festivos</Label>
+              <Label>Política de Días No Laborables</Label>
               <Select
                 value={config.overtimeNonWorkingDayPolicy}
                 onValueChange={(value) =>
@@ -268,22 +269,22 @@ export function OvertimeTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALLOW">Permitir sin autorización</SelectItem>
-                  <SelectItem value="REQUIRE_APPROVAL">Requiere autorización</SelectItem>
+                  <SelectItem value="ALLOW">Permitir registro libre</SelectItem>
+                  <SelectItem value="REQUIRE_APPROVAL">Bloquear sin autorización previa</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                Controla si trabajar en días no laborables requiere autorización previa.
+                Regula el acceso y registro de jornada en días festivos o de descanso.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Cierre semanal</Label>
+              <Label>Consolidación Semanal</Label>
               <div className="flex items-center justify-between rounded-md border px-3 py-2">
                 <div>
-                  <p className="text-sm font-medium">Procesar automáticamente</p>
+                  <p className="text-sm font-medium">Ejecutar cierre automático</p>
                   <p className="text-muted-foreground text-xs">
-                    Se ejecuta de madrugada según el horario local de cada empresa.
+                    Procesa y consolida las horas pendientes al finalizar el ciclo semanal.
                   </p>
                 </div>
                 <Switch
@@ -302,12 +303,12 @@ export function OvertimeTab() {
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Info className="h-4 w-4" />
-              Tolerancias y límites
+              Umbrales y Límites Legales
             </div>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               <div className="space-y-2">
-                <Label>Tolerancia (min)</Label>
+                <Label>Margen de cortesía (minutos)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -323,12 +324,12 @@ export function OvertimeTab() {
                   }}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Los primeros minutos trabajados de más no se consideran hora extra.
+                  Tiempo adicional que no computará como hora extra hasta superar este umbral.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Horas semanales de referencia</Label>
+                <Label>Jornada Base Semanal (Horas)</Label>
                 <Input
                   type="number"
                   min="1"
@@ -344,12 +345,12 @@ export function OvertimeTab() {
                   }}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Referencia para distinguir horas complementarias en contratos a tiempo parcial.
+                  Base de cálculo para determinar horas complementarias vs. extraordinarias.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Límite diario (horas)</Label>
+                <Label>Tope diario (horas)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -367,7 +368,7 @@ export function OvertimeTab() {
               </div>
 
               <div className="space-y-2">
-                <Label>Límite semanal (horas)</Label>
+                <Label>Tope semanal (horas)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -385,7 +386,7 @@ export function OvertimeTab() {
               </div>
 
               <div className="space-y-2">
-                <Label>Límite mensual (horas)</Label>
+                <Label>Tope mensual (horas)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -403,7 +404,7 @@ export function OvertimeTab() {
               </div>
 
               <div className="space-y-2">
-                <Label>Límite anual (horas)</Label>
+                <Label>Tope anual (horas)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -420,7 +421,7 @@ export function OvertimeTab() {
                 />
               </div>
             </div>
-            <p className="text-muted-foreground text-xs">Déjalo en 0 para no establecer límite.</p>
+            <p className="text-muted-foreground text-xs">Establece en 0 para desactivar cualquier límite.</p>
           </div>
 
           <div className="flex justify-end">

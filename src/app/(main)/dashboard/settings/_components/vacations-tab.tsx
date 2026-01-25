@@ -213,15 +213,15 @@ export function VacationsTab() {
             <div>
               <h3 className="font-semibold">Política de vacaciones</h3>
               <p className="text-muted-foreground text-sm">
-                Define cómo se gestionan las vacaciones no usadas al cambiar de año
+                Configura qué ocurre con los días no disfrutados al finalizar el año
               </p>
             </div>
           </div>
 
           <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800">
             <div className="mb-3">
-              <h4 className="text-sm font-semibold">Vacaciones anuales</h4>
-              <p className="text-muted-foreground text-xs">Días base por organización</p>
+              <h4 className="text-sm font-semibold">Días anuales</h4>
+              <p className="text-muted-foreground text-xs">Días que corresponden a cada empleado por defecto</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="annual-pto-days">Días de vacaciones anuales</Label>
@@ -247,7 +247,7 @@ export function VacationsTab() {
             </div>
             <div className="grid gap-4 @xl/main:grid-cols-2">
               <div className="space-y-2">
-                <Label>Granularidad</Label>
+                <Label>Precisión</Label>
                 <Select
                   value={vacationRoundingUnit.toString()}
                   onValueChange={(value) => setVacationRoundingUnit(Number(value))}
@@ -284,21 +284,21 @@ export function VacationsTab() {
 
           <div className="grid gap-4 @xl/main:grid-cols-2">
             <div className="space-y-2">
-              <Label>Modo de acumulación</Label>
+              <Label>Días no usados</Label>
               <Select value={mode} onValueChange={(value) => setMode(value as CarryoverMode)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">Sin acumulación</SelectItem>
-                  <SelectItem value="UNTIL_DATE">Acumular hasta fecha límite</SelectItem>
-                  <SelectItem value="UNLIMITED">Acumulación indefinida</SelectItem>
+                  <SelectItem value="NONE">Caducan el 31 de diciembre</SelectItem>
+                  <SelectItem value="UNTIL_DATE">Se pueden usar hasta una fecha</SelectItem>
+                  <SelectItem value="UNLIMITED">Se acumulan sin límite</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-3">
-              <Label>Fecha límite para solicitar</Label>
+              <Label>Último día para solicitarlos</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Select
                   value={requestDeadlineMonth.toString()}
@@ -334,7 +334,7 @@ export function VacationsTab() {
                 </Select>
               </div>
 
-              <Label>Fecha límite para disfrutar</Label>
+              <Label>Último día para disfrutarlos</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Select
                   value={usageDeadlineMonth.toString()}
@@ -376,10 +376,8 @@ export function VacationsTab() {
             <div className="mb-4 flex items-center gap-2">
               <CalendarClock className="text-muted-foreground h-4 w-4" />
               <div>
-                <h4 className="text-sm font-semibold">Bolsas adicionales</h4>
-                <p className="text-muted-foreground text-xs">
-                  Define los días anuales para asuntos propios y compensación
-                </p>
+                <h4 className="text-sm font-semibold">Otros tipos de días</h4>
+                <p className="text-muted-foreground text-xs">Días adicionales que se asignan cada año</p>
               </div>
             </div>
 
@@ -424,7 +422,7 @@ export function VacationsTab() {
                 <Info className="text-muted-foreground h-4 w-4" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium">Resumen de política</p>
+                <p className="text-sm font-medium">Así funcionará</p>
                 <p className="text-muted-foreground text-xs">{policyDescription}</p>
               </div>
             </div>

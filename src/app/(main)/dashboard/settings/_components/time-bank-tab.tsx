@@ -125,22 +125,25 @@ export function TimeBankTab() {
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             <div>
-              <h3 className="font-semibold">Bolsa de horas</h3>
+              <h3 className="font-semibold">Configuración de Bolsa de Horas</h3>
               <p className="text-muted-foreground text-sm">
-                Configura cómo se acumulan las diferencias horarias y los límites de saldo.
+                Define las reglas para el cálculo automático del saldo de horas, estableciendo márgenes de cortesía y
+                límites de acumulación para tu equipo.
               </p>
             </div>
           </div>
 
           {/* Sección: Márgenes de Gracia */}
           <div className="space-y-4">
-            <h4 className="text-sm font-medium">Tolerancia</h4>
-            <p className="text-muted-foreground text-xs">Pequeñas diferencias de tiempo que no afectan al saldo.</p>
+            <h4 className="text-sm font-medium">Márgenes de Cortesía</h4>
+            <p className="text-muted-foreground text-xs">
+              Establece un margen de tiempo en el que las pequeñas desviaciones no impactarán en el saldo del empleado.
+            </p>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               {/* Margen de exceso */}
               <div className="space-y-2">
-                <Label htmlFor="excessGrace">Tiempo de más (min)</Label>
+                <Label htmlFor="excessGrace">Margen de exceso (minutos)</Label>
                 <Input
                   id="excessGrace"
                   type="number"
@@ -155,13 +158,13 @@ export function TimeBankTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  Hasta {config.excessGraceMinutes} min de más no se suman al saldo.
+                  Tiempo trabajado de más que no se sumará a la bolsa si no supera este umbral.
                 </p>
               </div>
 
               {/* Margen de déficit */}
               <div className="space-y-2">
-                <Label htmlFor="deficitGrace">Tiempo de menos (min)</Label>
+                <Label htmlFor="deficitGrace">Margen de déficit (minutos)</Label>
                 <Input
                   id="deficitGrace"
                   type="number"
@@ -176,7 +179,7 @@ export function TimeBankTab() {
                   }
                 />
                 <p className="text-muted-foreground text-xs">
-                  Hasta {config.deficitGraceMinutes} min de menos no se restan del saldo.
+                  Ausencia de tiempo que no descontará de la bolsa si no supera este umbral.
                 </p>
               </div>
             </div>
@@ -184,11 +187,11 @@ export function TimeBankTab() {
 
           {/* Sección: Redondeo */}
           <div className="space-y-4 border-t pt-4">
-            <h4 className="text-sm font-medium">Redondeo</h4>
+            <h4 className="text-sm font-medium">Reglas de Redondeo</h4>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="rounding">Redondeo</Label>
+                <Label htmlFor="rounding">Incremento de redondeo</Label>
                 <Select
                   value={String(config.roundingIncrementMinutes)}
                   onValueChange={(value) =>
@@ -206,20 +209,22 @@ export function TimeBankTab() {
                     <SelectItem value="15">15 minutos</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">Las diferencias se ajustan al múltiplo más cercano.</p>
+                <p className="text-muted-foreground text-xs">
+                  Ajusta automáticamente los registros de tiempo al intervalo seleccionado (ej. bloques de 5 min).
+                </p>
               </div>
             </div>
           </div>
 
           {/* Sección: Límites */}
           <div className="space-y-4 border-t pt-4">
-            <h4 className="text-sm font-medium">Límites</h4>
+            <h4 className="text-sm font-medium">Límites de Saldo</h4>
             <p className="text-muted-foreground text-xs">Déjalo en 0 para no establecer límite.</p>
 
             <div className="grid gap-6 @xl/main:grid-cols-2">
               {/* Límite positivo */}
               <div className="space-y-2">
-                <Label htmlFor="maxPositive">Saldo máximo a favor (horas)</Label>
+                <Label htmlFor="maxPositive">Tope de horas acumulables</Label>
                 <Input
                   id="maxPositive"
                   type="number"
@@ -233,12 +238,14 @@ export function TimeBankTab() {
                     }))
                   }
                 />
-                <p className="text-muted-foreground text-xs">Horas máximas que un empleado puede acumular.</p>
+                <p className="text-muted-foreground text-xs">
+                  Cantidad máxima de horas extra que un empleado puede almacenar en su bolsa.
+                </p>
               </div>
 
               {/* Límite negativo */}
               <div className="space-y-2">
-                <Label htmlFor="maxNegative">Saldo máximo en contra (horas)</Label>
+                <Label htmlFor="maxNegative">Límite de deuda horaria</Label>
                 <Input
                   id="maxNegative"
                   type="number"
@@ -252,7 +259,7 @@ export function TimeBankTab() {
                     }))
                   }
                 />
-                <p className="text-muted-foreground text-xs">Horas máximas que un empleado puede deber.</p>
+                <p className="text-muted-foreground text-xs">Máximo de horas negativas permitidas por empleado.</p>
               </div>
             </div>
           </div>
@@ -271,17 +278,13 @@ export function TimeBankTab() {
         <div className="flex gap-3">
           <Info className="text-primary mt-0.5 h-5 w-5 flex-shrink-0" />
           <div className="space-y-2">
-            <p className="text-sm font-medium">¿Cómo funciona la bolsa de horas?</p>
+            <p className="text-sm font-medium">¿Cómo funciona el cálculo?</p>
             <div className="text-muted-foreground space-y-2 text-xs">
-              <p>La bolsa registra automáticamente las diferencias entre el horario esperado y el trabajado.</p>
               <p>
-                <strong>Ejemplo:</strong> Con tolerancia de 15 min y redondeo de 5 min:
+                El sistema calcula automáticamente la diferencia entre el horario teórico y el fichaje real. Si la
+                diferencia está dentro del &quot;Margen de Cortesía&quot;, se ignora. Si lo supera, se aplica el
+                redondeo y se suma o resta a la bolsa del empleado.
               </p>
-              <ul className="list-inside list-disc space-y-1 pl-2">
-                <li>+12 min → se redondea a +10 min → dentro de tolerancia → no se suma</li>
-                <li>+23 min → se redondea a +25 min → supera tolerancia → se suman 25 min</li>
-              </ul>
-              <p>Cuando el saldo alcanza un límite, el sistema deja de acumular automáticamente.</p>
             </div>
           </div>
         </div>

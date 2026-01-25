@@ -117,16 +117,16 @@ export function TimeTrackingSchedulerSettingsCard() {
             <Clock className="h-5 w-5" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold">Barrido nocturno de fichajes abiertos</h3>
+            <h3 className="font-semibold">Cierre automático de jornadas incompletas</h3>
             <p className="text-muted-foreground text-sm">
-              Define el rango horario y la frecuencia con la que el worker revisa fichajes sin salida.
+              Configura cuándo el sistema cierra automáticamente los fichajes que quedaron sin registrar salida.
             </p>
           </div>
         </div>
 
         <div className="grid gap-6 @xl/main:grid-cols-2">
           <div className="space-y-2">
-            <Label>Hora de inicio del barrido</Label>
+            <Label>Hora de inicio</Label>
             <Input
               type="time"
               step={60}
@@ -142,11 +142,11 @@ export function TimeTrackingSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">Se aplica según el huso horario de cada empresa.</p>
+            <p className="text-muted-foreground text-xs">El proceso se ejecuta según la hora local de cada empresa.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Hora de fin del barrido</Label>
+            <Label>Hora de fin</Label>
             <Input
               type="time"
               step={60}
@@ -163,12 +163,13 @@ export function TimeTrackingSchedulerSettingsCard() {
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Si la hora fin es menor que la de inicio, se entiende que cruza medianoche.
+              El proceso se ejecutará entre estas dos horas. Si la hora de fin es anterior, se entiende que cruza
+              medianoche.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Días de retroceso</Label>
+            <Label>Días anteriores a revisar</Label>
             <Input
               type="number"
               min="1"
@@ -183,11 +184,13 @@ export function TimeTrackingSchedulerSettingsCard() {
                 }));
               }}
             />
-            <p className="text-muted-foreground text-xs">Número de días pasados que se revisan en el barrido.</p>
+            <p className="text-muted-foreground text-xs">
+              Cuántos días atrás se revisan para detectar jornadas sin cerrar.
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Intervalo de comprobación (minutos)</Label>
+            <Label>Frecuencia de verificación (minutos)</Label>
             <Input
               type="number"
               min="1"
@@ -203,16 +206,16 @@ export function TimeTrackingSchedulerSettingsCard() {
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Dentro de la ventana, se ejecuta cada X minutos. Si un job se retrasa, no se pierde la ventana.
+              Cada cuántos minutos el sistema verifica si hay empresas con jornadas pendientes de cerrar.
             </p>
           </div>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Control por entorno</p>
+            <p className="text-sm font-medium">Configuración avanzada</p>
             <p className="text-muted-foreground text-xs">
-              El barrido puede desactivarse con la variable TIME_TRACKING_SWEEP_ENABLED=false.
+              Este proceso puede desactivarse a nivel de servidor si es necesario.
             </p>
           </div>
           <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px]">

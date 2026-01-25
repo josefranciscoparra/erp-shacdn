@@ -97,7 +97,7 @@ export function SettingsContainer({
 
       const systemItems = [
         {
-          label: "Configuración global",
+          label: "Procesos automáticos",
           value: "global-settings",
           icon: <Globe className="h-4 w-4" />,
           show: isSuperAdmin,
@@ -109,7 +109,7 @@ export function SettingsContainer({
           show: isSuperAdmin,
         },
         {
-          label: "Storage",
+          label: "Almacenamiento",
           value: "storage",
           icon: <Database className="h-4 w-4" />,
           show: isSuperAdmin,
@@ -121,7 +121,7 @@ export function SettingsContainer({
           show: isSuperAdmin,
         },
         {
-          label: "Admin Zone",
+          label: "Herramientas técnicas",
           value: "admin",
           icon: <UserCog className="h-4 w-4" />,
           show: isSuperAdmin,
@@ -188,13 +188,13 @@ export function SettingsContainer({
         show: true,
       },
       {
-        label: "Geolocalización",
+        label: "Ubicación GPS",
         value: "geolocation",
         icon: <MapPin className="h-4 w-4" />,
         show: true, // Core siempre disponible
       },
       {
-        label: "Fichajes",
+        label: "Registro de jornada",
         value: "validations",
         icon: <Fingerprint className="h-4 w-4" />,
         show: true, // Core
@@ -215,7 +215,7 @@ export function SettingsContainer({
         show: availability.expenses,
       },
       {
-        label: "Canal Ético",
+        label: "Canal de denuncias",
         value: "whistleblowing",
         icon: <Megaphone className="h-4 w-4" />,
         show: availability.whistleblowing,
