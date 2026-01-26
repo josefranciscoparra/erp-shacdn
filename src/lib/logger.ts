@@ -66,7 +66,6 @@ export class SecurityLogger {
       const orgId = session?.user?.orgId;
 
       if (!orgId) {
-        // TODO: Manejar logs de sistema/login sin orgId si el schema lo permite (actualmente orgId es obligatorio)
         // Por ahora solo logueamos si hay usuario autenticado con organización
         return;
       }

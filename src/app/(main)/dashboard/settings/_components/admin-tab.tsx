@@ -24,9 +24,12 @@ import {
   deleteEmployeePermanently,
   getAuditLogs,
   getEmployeeStats,
+  getGlobalSecurityLogs,
   getInactiveEmployees,
 } from "@/server/actions/admin-users";
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
+
+import { SecurityDailySummarySettingsCard } from "./security-daily-summary-settings-card";
 
 type InactiveEmployee = {
   id: string;
@@ -52,10 +55,21 @@ type Stats = {
   inactive: number;
 };
 
+type GlobalSecurityLog = AuditLog & {
+  organization?: {
+    id: string;
+    name: string | null;
+  } | null;
+};
+
 const actionLabels: Record<string, { label: string; color: string }> = {
   DELETE_EMPLOYEE_PERMANENT: { label: "Eliminación permanente", color: "destructive" },
   DEACTIVATE_EMPLOYEE: { label: "Baja de empleado", color: "secondary" },
   DEACTIVATE_USER: { label: "Baja de usuario", color: "secondary" },
+  LOGIN_FAILED: { label: "Login fallido", color: "destructive" },
+  ACCOUNT_LOCKED: { label: "Cuenta bloqueada", color: "destructive" },
+  ACCOUNT_UNLOCKED: { label: "Cuenta desbloqueada", color: "secondary" },
+  GLOBAL_SECURITY_DAILY_SUMMARY_UPDATED: { label: "Resumen diario actualizado", color: "secondary" },
 };
 
 const PAGE_SIZE = 10;
@@ -66,8 +80,12 @@ export function AdminTab() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditPage, setAuditPage] = useState(0);
+  const [globalSecurityLogs, setGlobalSecurityLogs] = useState<GlobalSecurityLog[]>([]);
+  const [globalSecurityTotal, setGlobalSecurityTotal] = useState(0);
+  const [globalSecurityPage, setGlobalSecurityPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [loadingGlobalSecurity, setLoadingGlobalSecurity] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [employeeToDelete, setEmployeeToDelete] = useState<InactiveEmployee | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -84,6 +102,21 @@ export function AdminTab() {
       console.error("Error loading audit logs:", error);
     } finally {
       setLoadingLogs(false);
+    }
+  };
+
+  const loadGlobalSecurityLogs = async (page: number) => {
+    setLoadingGlobalSecurity(true);
+    try {
+      const logsResult = await getGlobalSecurityLogs(PAGE_SIZE, page * PAGE_SIZE);
+      if (logsResult.success && logsResult.logs) {
+        setGlobalSecurityLogs(logsResult.logs);
+        setGlobalSecurityTotal(logsResult.total ?? 0);
+      }
+    } catch (error) {
+      console.error("Error loading global security logs:", error);
+    } finally {
+      setLoadingGlobalSecurity(false);
     }
   };
 
@@ -109,6 +142,7 @@ export function AdminTab() {
       // Solo cargar audit logs si es SUPER_ADMIN
       if (userIsSuperAdmin) {
         await loadAuditLogs(0);
+        await loadGlobalSecurityLogs(0);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -170,6 +204,25 @@ export function AdminTab() {
   };
 
   const totalPages = Math.ceil(auditTotal / PAGE_SIZE);
+
+  const handlePrevGlobalPage = () => {
+    if (globalSecurityPage > 0) {
+      const newPage = globalSecurityPage - 1;
+      setGlobalSecurityPage(newPage);
+      loadGlobalSecurityLogs(newPage);
+    }
+  };
+
+  const handleNextGlobalPage = () => {
+    const totalGlobalPages = Math.ceil(globalSecurityTotal / PAGE_SIZE);
+    if (globalSecurityPage < totalGlobalPages - 1) {
+      const newPage = globalSecurityPage + 1;
+      setGlobalSecurityPage(newPage);
+      loadGlobalSecurityLogs(newPage);
+    }
+  };
+
+  const totalGlobalPages = Math.ceil(globalSecurityTotal / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -317,104 +370,232 @@ export function AdminTab() {
 
       {/* Histórico de acciones - Solo SUPER_ADMIN */}
       {isSuperAdmin && (
-        <Card className="rounded-lg border p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              <div>
-                <h3 className="font-semibold">Histórico de acciones administrativas</h3>
-                <p className="text-muted-foreground text-sm">
-                  Registro de todas las acciones críticas realizadas en el sistema
-                </p>
-              </div>
-            </div>
-
-            {loadingLogs ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : auditLogs.length === 0 ? (
-              <div className="text-muted-foreground flex flex-col items-center justify-center py-8">
-                <History className="mb-2 h-12 w-12 opacity-50" />
-                <p className="text-center">No hay acciones registradas</p>
-                <p className="text-center text-sm">Las acciones administrativas aparecerán aquí</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-hidden rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Acción</TableHead>
-                        <TableHead>Descripción</TableHead>
-                        <TableHead>Realizado por</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {auditLogs.map((log) => {
-                        const actionInfo = actionLabels[log.action] ?? {
-                          label: log.action,
-                          color: "outline",
-                        };
-                        return (
-                          <TableRow key={log.id}>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p>{new Date(log.createdAt).toLocaleDateString("es-ES")}</p>
-                                <p className="text-muted-foreground">
-                                  {new Date(log.createdAt).toLocaleTimeString("es-ES", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={actionInfo.color as "destructive" | "secondary" | "outline"}>
-                                {actionInfo.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <p className="max-w-md truncate text-sm">{log.description}</p>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="font-medium">{log.performedByName}</p>
-                                <p className="text-muted-foreground">{log.performedByEmail}</p>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Paginación */}
-                <div className="flex items-center justify-between">
+        <>
+          <Card className="rounded-lg border p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                <div>
+                  <h3 className="font-semibold">Histórico de acciones administrativas</h3>
                   <p className="text-muted-foreground text-sm">
-                    Mostrando {auditPage * PAGE_SIZE + 1}-{Math.min((auditPage + 1) * PAGE_SIZE, auditTotal)} de{" "}
-                    {auditTotal} registros
+                    Registro de todas las acciones críticas realizadas en el sistema
                   </p>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={auditPage === 0}>
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
-                    </Button>
-                    <span className="text-muted-foreground text-sm">
-                      Página {auditPage + 1} de {totalPages}
-                    </span>
-                    <Button variant="outline" size="sm" onClick={handleNextPage} disabled={auditPage >= totalPages - 1}>
-                      Siguiente
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
-              </>
-            )}
-          </div>
-        </Card>
+              </div>
+
+              {loadingLogs ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="text-muted-foreground flex flex-col items-center justify-center py-8">
+                  <History className="mb-2 h-12 w-12 opacity-50" />
+                  <p className="text-center">No hay acciones registradas</p>
+                  <p className="text-center text-sm">Las acciones administrativas aparecerán aquí</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead>Acción</TableHead>
+                          <TableHead>Descripción</TableHead>
+                          <TableHead>Realizado por</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {auditLogs.map((log) => {
+                          const actionInfo = actionLabels[log.action] ?? {
+                            label: log.action,
+                            color: "outline",
+                          };
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p>{new Date(log.createdAt).toLocaleDateString("es-ES")}</p>
+                                  <p className="text-muted-foreground">
+                                    {new Date(log.createdAt).toLocaleTimeString("es-ES", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={actionInfo.color as "destructive" | "secondary" | "outline"}>
+                                  {actionInfo.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <p className="max-w-md truncate text-sm">{log.description}</p>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="font-medium">{log.performedByName}</p>
+                                  <p className="text-muted-foreground">{log.performedByEmail}</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Paginación */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-sm">
+                      Mostrando {auditPage * PAGE_SIZE + 1}-{Math.min((auditPage + 1) * PAGE_SIZE, auditTotal)} de{" "}
+                      {auditTotal} registros
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={auditPage === 0}>
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
+                      </Button>
+                      <span className="text-muted-foreground text-sm">
+                        Página {auditPage + 1} de {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={auditPage >= totalPages - 1}
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </Card>
+
+          <SecurityDailySummarySettingsCard />
+
+          <Card className="rounded-lg border p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                <div>
+                  <h3 className="font-semibold">Seguridad global</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Intentos de login y bloqueos en todas las organizaciones
+                  </p>
+                </div>
+              </div>
+
+              {loadingGlobalSecurity ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : globalSecurityLogs.length === 0 ? (
+                <div className="text-muted-foreground flex flex-col items-center justify-center py-8">
+                  <AlertTriangle className="mb-2 h-12 w-12 opacity-50" />
+                  <p className="text-center">No hay eventos de seguridad</p>
+                  <p className="text-center text-sm">Los eventos globales aparecerán aquí</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead>Organización</TableHead>
+                          <TableHead>Acción</TableHead>
+                          <TableHead>Descripción</TableHead>
+                          <TableHead>Realizado por</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {globalSecurityLogs.map((log) => {
+                          const actionInfo = actionLabels[log.action] ?? {
+                            label: log.action,
+                            color: "outline",
+                          };
+                          let orgLabel = "Sin org";
+                          if (log.organization && log.organization.name) {
+                            orgLabel = log.organization.name;
+                          } else if (log.orgId) {
+                            orgLabel = log.orgId;
+                          }
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p>{new Date(log.createdAt).toLocaleDateString("es-ES")}</p>
+                                  <p className="text-muted-foreground">
+                                    {new Date(log.createdAt).toLocaleTimeString("es-ES", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm">{orgLabel}</span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={actionInfo.color as "destructive" | "secondary" | "outline"}>
+                                  {actionInfo.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <p className="max-w-md truncate text-sm">{log.description}</p>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="font-medium">{log.performedByName}</p>
+                                  <p className="text-muted-foreground">{log.performedByEmail}</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-sm">
+                      Mostrando {globalSecurityPage * PAGE_SIZE + 1}-
+                      {Math.min((globalSecurityPage + 1) * PAGE_SIZE, globalSecurityTotal)} de {globalSecurityTotal}{" "}
+                      registros
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrevGlobalPage}
+                        disabled={globalSecurityPage === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
+                      </Button>
+                      <span className="text-muted-foreground text-sm">
+                        Página {globalSecurityPage + 1} de {totalGlobalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextGlobalPage}
+                        disabled={globalSecurityPage >= totalGlobalPages - 1}
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </Card>
+        </>
       )}
 
       {/* Diálogo de confirmación */}

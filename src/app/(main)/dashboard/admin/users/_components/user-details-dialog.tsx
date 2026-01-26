@@ -44,6 +44,10 @@ export function UserDetailsDialog({ user, open, onOpenChange, currentUserRole }:
 
   // Validar permisos para ver contraseñas
   const canViewPasswords = currentUserRole && ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(currentUserRole);
+  const lockedUntilRaw = user.passwordLockedUntil;
+  const lockedUntil = lockedUntilRaw ? new Date(lockedUntilRaw) : null;
+  const isLocked = lockedUntil ? lockedUntil > new Date() : false;
+  const failedAttempts = user.failedPasswordAttempts ?? 0;
 
   // Encontrar contraseña temporal activa
   const activePassword =
@@ -126,6 +130,25 @@ export function UserDetailsDialog({ user, open, onOpenChange, currentUserRole }:
                   <div className="space-y-1">
                     <p className="text-muted-foreground text-xs">Contraseñas temporales activas</p>
                     <p className="text-sm font-medium">{user._count.temporaryPasswords}</p>
+                  </div>
+                </div>
+              )}
+
+              {(isLocked || failedAttempts > 0) && (
+                <div className="flex items-start gap-3">
+                  <Clock className="text-muted-foreground mt-0.5 h-4 w-4" />
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs">Seguridad</p>
+                    {isLocked ? (
+                      <Badge variant="destructive">
+                        Bloqueado hasta{" "}
+                        {lockedUntil ? format(lockedUntil, "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : "--"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                        Intentos fallidos: {failedAttempts}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}

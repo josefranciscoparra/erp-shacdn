@@ -7,7 +7,14 @@ export type EmailRecipient = {
   name?: string;
 };
 
-export type EmailTemplateId = "AUTH_INVITE" | "AUTH_RESET_PASSWORD" | "AUTH_CHANGE_NOTIFICATION" | "TEST_HELLO";
+export type EmailTemplateId =
+  | "AUTH_INVITE"
+  | "AUTH_RESET_PASSWORD"
+  | "AUTH_CHANGE_NOTIFICATION"
+  | "AUTH_ACCOUNT_LOCKED"
+  | "AUTH_ACCOUNT_LOCKED_ADMIN"
+  | "SECURITY_DAILY_SUMMARY"
+  | "TEST_HELLO";
 
 export interface BaseEmailPayload {
   to: EmailRecipient | EmailRecipient[];

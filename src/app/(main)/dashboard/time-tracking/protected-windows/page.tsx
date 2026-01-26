@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import { useReactTable, getCoreRowModel, getPaginationRowModel, type ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal, ShieldAlert } from "lucide-react";
 
@@ -33,7 +35,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getEmployeesForFilter } from "@/server/actions/admin-time-tracking";
 import { deleteProtectedWindow, getProtectedWindows } from "@/server/actions/protected-windows";
 
 import { ProtectedWindowDialog } from "./_components/protected-window-dialog";
@@ -62,7 +63,6 @@ function formatMinutes(minutes: number) {
 
 export default function ProtectedWindowsPage() {
   const [windows, setWindows] = useState<ProtectedWindowRow[]>([]);
-  const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([]);
   const [activeTab, setActiveTab] = useState("active");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWindow, setEditingWindow] = useState<ProtectedWindowRow | null>(null);
@@ -72,11 +72,10 @@ export default function ProtectedWindowsPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [windowsData, employeesData] = await Promise.all([getProtectedWindows(), getEmployeesForFilter()]);
+      const windowsData = await getProtectedWindows();
       setWindows(windowsData);
-      setEmployees(employeesData);
     } catch (error) {
-      console.error("Error al cargar ventanas protegidas:", error);
+      console.error("Error al cargar excepciones de autocierre:", error);
       setWindows([]);
     } finally {
       setIsLoading(false);
@@ -127,24 +126,29 @@ export default function ProtectedWindowsPage() {
         accessorKey: "timeRange",
         header: "Horario",
         cell: ({ row }) => (
-          <span className="text-sm">
-            {formatMinutes(row.original.startMinutes)} - {formatMinutes(row.original.endMinutes)}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm">
+              {formatMinutes(row.original.startMinutes)} - {formatMinutes(row.original.endMinutes)}
+            </span>
+            {row.original.endMinutes <= row.original.startMinutes ? (
+              <span className="text-muted-foreground text-xs">Cruza medianoche</span>
+            ) : null}
+          </div>
         ),
       },
       {
         accessorKey: "overrides",
-        header: "Overrides",
+        header: "Ajustes",
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
             {row.original.overrideToleranceMinutes ? (
-              <Badge variant="secondary">Tolerancia +{row.original.overrideToleranceMinutes}m</Badge>
+              <Badge variant="secondary">Latencia +{row.original.overrideToleranceMinutes}m</Badge>
             ) : null}
             {row.original.overrideMaxOpenHours ? (
               <Badge variant="secondary">Max {row.original.overrideMaxOpenHours}h</Badge>
             ) : null}
             {!row.original.overrideToleranceMinutes && !row.original.overrideMaxOpenHours ? (
-              <span className="text-muted-foreground text-xs">Sin overrides</span>
+              <span className="text-muted-foreground text-xs">Sin ajustes</span>
             ) : null}
           </div>
         ),
@@ -201,7 +205,7 @@ export default function ProtectedWindowsPage() {
       setDeleteTarget(null);
       await loadData();
     } catch (error) {
-      console.error("Error al eliminar ventana protegida:", error);
+      console.error("Error al eliminar excepción:", error);
     }
   };
 
@@ -211,27 +215,45 @@ export default function ProtectedWindowsPage() {
       fallback={
         <div className="@container/main flex flex-col gap-6">
           <SectionHeader
-            title="Ventanas protegidas"
+            title="Excepciones de autocierre"
             description="Configura ventanas especiales para guardias y cierres operativos."
           />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
             title="Acceso denegado"
-            description="No tienes permisos para gestionar ventanas protegidas."
+            description="No tienes permisos para gestionar las excepciones de autocierre."
           />
         </div>
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
-          title="Ventanas protegidas"
-          description="Define ventanas donde el sistema relaja los umbrales de fichaje."
-          actionLabel="Nueva ventana"
+          title="Excepciones de autocierre"
+          description="Define ventanas (guardias/cierres) donde el sistema relaja los límites del autocierre."
+          actionLabel="Nueva excepción"
           onAction={() => {
             setEditingWindow(null);
             setDialogOpen(true);
           }}
         />
+
+        <Card className="rounded-lg border p-4">
+          <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">¿Qué cambia durante una ventana?</p>
+              <p className="text-muted-foreground text-sm">
+                Estas reglas solo aplican mientras la hora actual esté dentro del rango configurado.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Sobrescribe: <span className="font-medium">Latencia de cierre</span> y/o{" "}
+                <span className="font-medium">Tiempo máximo de sesión</span>.
+              </p>
+            </div>
+            <Button asChild variant="secondary">
+              <Link href="/dashboard/settings?tab=validations">Ver configuración base</Link>
+            </Button>
+          </div>
+        </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
@@ -266,9 +288,9 @@ export default function ProtectedWindowsPage() {
               <DataTable
                 table={table}
                 columns={columns}
-                emptyStateTitle={isLoading ? "Cargando..." : "Sin ventanas protegidas"}
+                emptyStateTitle={isLoading ? "Cargando..." : "Sin excepciones"}
                 emptyStateDescription={
-                  isLoading ? "Cargando configuración..." : "Crea una ventana protegida para guardias o cierres."
+                  isLoading ? "Cargando configuración..." : "Crea una excepción para guardias o cierres operativos."
                 }
               />
             </Card>
@@ -280,7 +302,6 @@ export default function ProtectedWindowsPage() {
       <ProtectedWindowDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        employees={employees}
         initialData={editingWindow}
         onSaved={loadData}
       />
@@ -288,7 +309,7 @@ export default function ProtectedWindowsPage() {
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar ventana protegida</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar excepción</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Seguro que quieres eliminar &quot;{deleteTarget?.name ?? ""}&quot;? Esta acción no se puede deshacer.
             </AlertDialogDescription>

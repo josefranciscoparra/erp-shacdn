@@ -86,12 +86,12 @@ function validateManualSlots(slots: ManualSlot[]) {
   }
 
   if (slots[0]?.slotType !== "WORK") {
-    throw new Error("El primer tramo debe ser de trabajo");
+    throw new Error("El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.");
   }
 
   const lastSlot = slots[slots.length - 1];
   if (lastSlot?.slotType !== "WORK") {
-    throw new Error("El último tramo debe ser de trabajo");
+    throw new Error("El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.");
   }
 
   for (let i = 0; i < slots.length; i += 1) {

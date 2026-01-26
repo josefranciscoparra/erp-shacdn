@@ -278,6 +278,16 @@ model GlobalSettings {
   timeTrackingSweepWindowMinutes                Int      @default(20)
   timeTrackingSweepLookbackDays                 Int      @default(1)
   timeTrackingDispatchIntervalMinutes           Int      @default(10)
+  securityDailySummaryEnabled                   Boolean  @default(false)
+  securityDailySummaryHour                      Int      @default(22)
+  securityDailySummaryMinute                    Int      @default(0)
+  securityDailySummaryWindowMinutes             Int      @default(30)
+  securityDailySummaryLookbackHours             Int      @default(24)
+  securityDailySummaryDispatchIntervalMinutes   Int      @default(10)
+  securityDailySummaryTimezone                  String   @default("Europe/Madrid")
+  securityDailySummaryRecipients                String[] @default([])
+  securityDailySummaryOrgIds                    String[] @default([])
+  securityDailySummarySendEmpty                 Boolean  @default(true)
   createdAt                                     DateTime @default(now())
   updatedAt                                     DateTime @updatedAt
 
@@ -4233,8 +4243,8 @@ model AuditLog {
   performedByRole  String
 
   // Organización (para filtrar por tenant)
-  orgId        String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Metadatos adicionales
   ipAddress String?
@@ -4255,6 +4265,29 @@ enum EmployeeImportJobStatus {
   RUNNING
   DONE
   FAILED
+}
+
+// ==================== LOGIN THROTTLING ====================
+
+enum LoginThrottleScope {
+  IP
+  EMAIL
+  IP_EMAIL
+}
+
+model LoginThrottle {
+  key            String            @id
+  scope          LoginThrottleScope
+  attempts       Int               @default(0)
+  firstAttemptAt DateTime
+  lastAttemptAt  DateTime
+  blockedUntil   DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([scope])
+  @@index([blockedUntil])
+  @@map("login_throttles")
 }
 
 enum EmployeeImportRowStatus {

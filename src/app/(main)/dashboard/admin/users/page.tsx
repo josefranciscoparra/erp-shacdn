@@ -14,6 +14,7 @@ import { ChangeRoleDialog } from "./_components/change-role-dialog";
 import { CreateUserDialog } from "./_components/create-user-dialog";
 import { ResetPasswordDialog } from "./_components/reset-password-dialog";
 import { ToggleActiveDialog } from "./_components/toggle-active-dialog";
+import { UnlockAccountDialog } from "./_components/unlock-account-dialog";
 import { UserDetailsDialog } from "./_components/user-details-dialog";
 import { type UserRow } from "./_components/users-columns";
 import { UsersDataTable } from "./_components/users-data-table";
@@ -36,6 +37,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   const [changeRoleDialogOpen, setChangeRoleDialogOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [toggleActiveDialogOpen, setToggleActiveDialogOpen] = useState(false);
+  const [unlockAccountDialogOpen, setUnlockAccountDialogOpen] = useState(false);
 
   // Usuario seleccionado para acciones
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
@@ -114,6 +116,11 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   const handleToggleActive = (user: UserRow) => {
     setSelectedUser(user);
     setToggleActiveDialogOpen(true);
+  };
+
+  const handleUnlockAccount = (user: UserRow) => {
+    setSelectedUser(user);
+    setUnlockAccountDialogOpen(true);
   };
 
   const handleActionSuccess = () => {
@@ -229,6 +236,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
             onChangeRole={handleChangeRole}
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
+            onUnlockAccount={handleUnlockAccount}
             canCreateUsers={canCreateUsers}
             canManageUsers={canManageUsers}
             canManageUserOrganizations={canManageUserOrganizations}
@@ -288,6 +296,13 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
           user={selectedUser}
           open={toggleActiveDialogOpen}
           onOpenChange={setToggleActiveDialogOpen}
+          onSuccess={handleActionSuccess}
+        />
+
+        <UnlockAccountDialog
+          user={selectedUser}
+          open={unlockAccountDialogOpen}
+          onOpenChange={setUnlockAccountDialogOpen}
           onSuccess={handleActionSuccess}
         />
       </div>

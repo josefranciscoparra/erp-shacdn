@@ -47,7 +47,18 @@ function buildUtcDate(year: number, monthIndex: number, day: number, minutes: nu
 function applyTimezoneOffset(minutes: number, offsetMinutes: number): number {
   const adjusted = minutes + offsetMinutes;
   const normalized = ((adjusted % 1440) + 1440) % 1440;
-  return normalized;
+  while (normalized[0]?.slotType === "BREAK") {
+    normalized.shift();
+  }
+
+  while (normalized[normalized.length - 1]?.slotType === "BREAK") {
+    normalized.pop();
+  }
+
+  return normalized.map((slot, index) => ({
+    ...slot,
+    order: index,
+  }));
 }
 
 function normalizeSlots(rawSlots: ManualTimeEntrySlotInput[]): ManualTimeEntrySlotInput[] {
@@ -72,18 +83,87 @@ function normalizeSlots(rawSlots: ManualTimeEntrySlotInput[]): ManualTimeEntrySl
   }));
 }
 
+function normalizeScheduleSlotsForManualEntry(slots: ManualTimeEntrySlotInput[]): ManualTimeEntrySlotInput[] {
+  const cleaned = slots
+    .filter((slot) => slot && typeof slot === "object")
+    .map((slot) => ({
+      startMinutes: Math.max(0, Math.min(1440, Number(slot.startMinutes))),
+      endMinutes: Math.max(0, Math.min(1440, Number(slot.endMinutes))),
+      slotType: slot.slotType,
+    }))
+    .filter(
+      (slot) =>
+        Number.isFinite(slot.startMinutes) &&
+        Number.isFinite(slot.endMinutes) &&
+        slot.startMinutes < slot.endMinutes &&
+        (slot.slotType === "WORK" || slot.slotType === "BREAK"),
+    );
+
+  const workSlots = cleaned.filter((slot) => slot.slotType === "WORK");
+  if (workSlots.length === 0) {
+    return [];
+  }
+
+  const breakSlots = cleaned.filter((slot) => slot.slotType === "BREAK");
+  const boundaries = new Set<number>();
+
+  for (const slot of workSlots) {
+    boundaries.add(slot.startMinutes);
+    boundaries.add(slot.endMinutes);
+  }
+
+  for (const slot of breakSlots) {
+    boundaries.add(slot.startMinutes);
+    boundaries.add(slot.endMinutes);
+  }
+
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+  const normalized: ManualTimeEntrySlotInput[] = [];
+
+  for (let i = 0; i < sortedBoundaries.length - 1; i += 1) {
+    const start = sortedBoundaries[i];
+    const end = sortedBoundaries[i + 1];
+    if (start >= end) {
+      continue;
+    }
+
+    const hasWork = workSlots.some((slot) => slot.startMinutes < end && slot.endMinutes > start);
+    if (!hasWork) {
+      continue;
+    }
+
+    const hasBreak = breakSlots.some((slot) => slot.startMinutes < end && slot.endMinutes > start);
+    const slotType: TimeSlotType = hasBreak ? "BREAK" : "WORK";
+
+    const previous = normalized[normalized.length - 1];
+    if (previous && previous.slotType === slotType && previous.endMinutes === start) {
+      previous.endMinutes = end;
+      continue;
+    }
+
+    normalized.push({
+      startMinutes: start,
+      endMinutes: end,
+      slotType,
+      order: normalized.length,
+    });
+  }
+
+  return normalized;
+}
+
 function validateSlots(slots: ManualTimeEntrySlotInput[]) {
   if (slots.length === 0) {
     throw new Error("Añade al menos un tramo de trabajo");
   }
 
   if (slots[0]?.slotType !== "WORK") {
-    throw new Error("El primer tramo debe ser de trabajo");
+    throw new Error("El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.");
   }
 
   const lastSlot = slots[slots.length - 1];
   if (lastSlot?.slotType !== "WORK") {
-    throw new Error("El último tramo debe ser de trabajo");
+    throw new Error("El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.");
   }
 
   for (let i = 0; i < slots.length; i += 1) {
@@ -389,9 +469,11 @@ export async function getManualTimeEntryPrefill(dateKey: string) {
       }))
       .sort((a, b) => a.startMinutes - b.startMinutes);
 
+    const normalizedSlots = normalizeScheduleSlotsForManualEntry(slots);
+
     return {
       success: true,
-      slots,
+      slots: normalizedSlots,
       isWorkingDay: schedule.isWorkingDay,
       scheduleSource: schedule.source,
       orgId,

@@ -232,3 +232,45 @@ export async function getAuditLogs(limit = 50, offset = 0) {
     return { success: false, error: "Error al obtener histórico" };
   }
 }
+
+/**
+ * Obtiene logs de seguridad globales (solo SUPER_ADMIN)
+ */
+export async function getGlobalSecurityLogs(limit = 50, offset = 0) {
+  try {
+    const { role } = await getAuthenticatedUser();
+
+    if (role !== "SUPER_ADMIN") {
+      return { success: false, error: "No tienes permisos para ver la seguridad global" };
+    }
+
+    const where = {
+      action: {
+        in: ["LOGIN_FAILED", "ACCOUNT_LOCKED", "ACCOUNT_UNLOCKED"],
+      },
+    };
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+
+    return { success: true, logs, total };
+  } catch (error) {
+    console.error("Error fetching global security logs:", error);
+    return { success: false, error: "Error al obtener logs de seguridad" };
+  }
+}

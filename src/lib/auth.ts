@@ -1,12 +1,17 @@
 import { createHash } from "crypto";
 
 import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
+import { logLoginFailure } from "@/lib/auth-login-logger";
+import { checkLoginRateLimit, clearLoginRateLimitForUser, recordLoginFailureRateLimit } from "@/lib/auth-rate-limit";
+import { sendAccountLockedEmail } from "@/lib/email/email-service";
 import { prisma } from "@/lib/prisma";
+import { sendAccountLockedAdminAlerts } from "@/lib/security-alerts";
 import { normalizeEmail } from "@/lib/validations/email";
+import { MAX_PASSWORD_ATTEMPTS, PASSWORD_LOCK_MINUTES } from "@/lib/validations/password";
 
 type OrgMembershipPayload = {
   orgId: string;
@@ -27,6 +32,43 @@ const supportTokenSchema = z.object({
 
 const SHORT_SESSION_SECONDS = 12 * 60 * 60; // 12 horas para sesiones estándar
 const LONG_SESSION_SECONDS = 30 * 24 * 60 * 60; // 30 días para "Recordarme"
+
+class AccountLockedError extends CredentialsSignin {
+  code = "account_locked";
+}
+
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
+
+function parseRememberFlag(value: unknown): boolean {
+  if (value === true || value === "true") {
+    return true;
+  }
+  return false;
+}
+
+function cleanHeaderValue(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+function getRequestIp(headersList: Headers) {
+  const forwardedFor = cleanHeaderValue(headersList.get("x-forwarded-for"));
+  if (forwardedFor) {
+    const first = forwardedFor.split(",")[0];
+    if (first) {
+      const trimmed = first.trim();
+      if (trimmed !== "") {
+        return trimmed;
+      }
+    }
+  }
+  return cleanHeaderValue(headersList.get("x-real-ip")) ?? cleanHeaderValue(headersList.get("cf-connecting-ip"));
+}
 
 async function getUserOrgScope(userId: string, fallbackOrgId?: string, userRole?: string) {
   // Si es SUPER_ADMIN, obtener TODAS las organizaciones activas
@@ -281,20 +323,51 @@ export const {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        const ipAddress = getRequestIp(request.headers);
+        const userAgent = cleanHeaderValue(request.headers.get("user-agent"));
+        const rawEmail = typeof credentials?.email === "string" ? credentials.email : "";
+        const normalizedEmail = normalizeEmail(rawEmail);
+        const rememberHint = parseRememberFlag(credentials?.remember);
+
         try {
+          const rateLimitCheck = await checkLoginRateLimit({
+            ipAddress,
+            email: normalizedEmail,
+          });
+
+          if (rateLimitCheck.blocked) {
+            await logLoginFailure({
+              reason: "RATE_LIMIT",
+              email: rawEmail === "" ? null : rawEmail,
+              normalizedEmail,
+              lockedUntil: rateLimitCheck.blockedUntil,
+              ipAddress,
+              userAgent,
+              rememberMe: rememberHint,
+            });
+            throw new RateLimitedError();
+          }
+
           // Validar entrada
           const validated = loginSchema.safeParse(credentials);
-          if (!validated.success) {
+          if (!validated.success || !normalizedEmail) {
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "INVALID_INPUT",
+              email: rawEmail === "" ? null : rawEmail,
+              normalizedEmail,
+              ipAddress,
+              userAgent,
+              rememberMe: rememberHint,
+            });
             return null;
           }
 
           const rememberMe = validated.data.remember ?? false;
-          const normalizedEmail = normalizeEmail(validated.data.email);
-
-          if (!normalizedEmail) {
-            return null;
-          }
 
           // Buscar usuario con organización activa
           const user = await prisma.user.findFirst({
@@ -303,7 +376,6 @@ export const {
                 equals: normalizedEmail,
                 mode: "insensitive",
               },
-              active: true,
             },
             include: {
               organization: true,
@@ -317,20 +389,193 @@ export const {
           });
 
           if (!user) {
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "USER_NOT_FOUND",
+              email: rawEmail === "" ? null : rawEmail,
+              normalizedEmail,
+              ipAddress,
+              userAgent,
+              rememberMe,
+            });
+            return null;
+          }
+
+          const userLogPayload = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            orgId: user.orgId,
+          };
+
+          if (!user.active) {
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "USER_INACTIVE",
+              email: user.email,
+              normalizedEmail,
+              user: userLogPayload,
+              ipAddress,
+              userAgent,
+              rememberMe,
+            });
             return null;
           }
 
           // Verificar que la organización esté activa
           if (!user.organization || !user.organization.active) {
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "ORG_INACTIVE",
+              email: user.email,
+              normalizedEmail,
+              user: userLogPayload,
+              ipAddress,
+              userAgent,
+              rememberMe,
+            });
             return null;
+          }
+
+          const now = new Date();
+          if (user.passwordLockedUntil && user.passwordLockedUntil > now) {
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "ACCOUNT_LOCKED",
+              email: user.email,
+              normalizedEmail,
+              user: userLogPayload,
+              attempts: user.failedPasswordAttempts ?? 0,
+              lockedUntil: user.passwordLockedUntil,
+              ipAddress,
+              userAgent,
+              rememberMe,
+            });
+            throw new AccountLockedError();
+          }
+
+          if (user.passwordLockedUntil && user.passwordLockedUntil <= now && (user.failedPasswordAttempts ?? 0) > 0) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedPasswordAttempts: 0,
+                passwordLockedUntil: null,
+              },
+            });
+            user.failedPasswordAttempts = 0;
+            user.passwordLockedUntil = null;
           }
 
           // Verificar contraseña
           const passwordValid = await bcrypt.compare(validated.data.password, user.password);
 
           if (!passwordValid) {
+            const attempts = (user.failedPasswordAttempts ?? 0) + 1;
+            const shouldLock = attempts >= MAX_PASSWORD_ATTEMPTS;
+            const lockedUntil = shouldLock ? new Date(Date.now() + PASSWORD_LOCK_MINUTES * 60 * 1000) : null;
+
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedPasswordAttempts: attempts,
+                passwordLockedUntil: lockedUntil,
+              },
+            });
+
+            await recordLoginFailureRateLimit({
+              ipAddress,
+              email: normalizedEmail,
+            });
+            await logLoginFailure({
+              reason: "PASSWORD_MISMATCH",
+              email: user.email,
+              normalizedEmail,
+              user: userLogPayload,
+              attempts,
+              lockedUntil,
+              ipAddress,
+              userAgent,
+              rememberMe,
+            });
+
+            if (shouldLock) {
+              void sendAccountLockedEmail({
+                to: {
+                  email: user.email,
+                  name: user.name,
+                },
+                orgId: user.orgId,
+                userId: user.id,
+                lockedUntil,
+                attempts,
+              }).catch((error) => {
+                console.error("Error enviando aviso de bloqueo:", error);
+              });
+
+              await prisma.auditLog.create({
+                data: {
+                  action: "ACCOUNT_LOCKED",
+                  category: "SECURITY",
+                  entityId: user.id,
+                  entityType: "User",
+                  entityData: {
+                    email: user.email,
+                    attempts,
+                    lockedUntil: lockedUntil ? lockedUntil.toISOString() : null,
+                  },
+                  description: `Cuenta bloqueada por intentos fallidos (${user.email})`,
+                  performedById: user.id,
+                  performedByEmail: user.email,
+                  performedByName: user.name,
+                  performedByRole: user.role,
+                  orgId: user.orgId,
+                  ipAddress,
+                  userAgent,
+                },
+              });
+
+              void sendAccountLockedAdminAlerts({
+                orgId: user.orgId,
+                lockedUserId: user.id,
+                lockedUserEmail: user.email,
+                lockedUserName: user.name,
+                attempts,
+                lockedUntil,
+                ipAddress,
+                userAgent,
+              });
+              throw new AccountLockedError();
+            }
             return null;
           }
+
+          if ((user.failedPasswordAttempts ?? 0) > 0 || user.passwordLockedUntil) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedPasswordAttempts: 0,
+                passwordLockedUntil: null,
+              },
+            });
+          }
+
+          await clearLoginRateLimitForUser({
+            ipAddress,
+            email: normalizedEmail,
+          });
 
           // Retornar datos del usuario para el token
           return {
@@ -347,6 +592,9 @@ export const {
             rememberMe,
           };
         } catch (error) {
+          if (error instanceof CredentialsSignin) {
+            throw error;
+          }
           console.error("Auth error:", error);
           return null;
         }

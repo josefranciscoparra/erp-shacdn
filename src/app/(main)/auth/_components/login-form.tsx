@@ -64,9 +64,13 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        if (result.status === 429) {
+        if (result.code === "account_locked") {
           toast.error("Cuenta bloqueada temporalmente", {
             description: `Has superado los intentos permitidos. Inténtalo de nuevo en ${PASSWORD_LOCK_MINUTES} minutos.`,
+          });
+        } else if (result.code === "rate_limited") {
+          toast.error("Demasiados intentos", {
+            description: "Hemos bloqueado temporalmente los intentos. Inténtalo más tarde.",
           });
         } else {
           toast.error("Error al iniciar sesión", {

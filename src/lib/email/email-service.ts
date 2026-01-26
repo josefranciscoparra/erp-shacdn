@@ -18,6 +18,10 @@ const DEFAULT_EMAIL_DELAY_MS = 600;
 let lastEmailSentAt = 0;
 let emailSendChain: Promise<void> = Promise.resolve();
 
+const rawEmailSendEnabled = process.env.EMAIL_SEND_ENABLED;
+const EMAIL_SEND_ENABLED =
+  rawEmailSendEnabled === undefined ? true : rawEmailSendEnabled.trim().toLowerCase() !== "false";
+
 function resolveEmailDelayMs() {
   const rawDelay = process.env.EMPLOYEE_INVITE_MIN_DELAY_MS;
   if (!rawDelay) {
@@ -66,6 +70,13 @@ async function withEmailRateLimit<T>(task: () => Promise<T>): Promise<T> {
  * Envía un email y lo registra en la base de datos
  */
 export async function sendEmailRawImmediate(options: SendEmailOptions): Promise<EmailSendResult> {
+  if (!EMAIL_SEND_ENABLED) {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[Email] Envío desactivado (EMAIL_SEND_ENABLED=false).");
+    }
+    return { success: true, queued: false };
+  }
+
   return withEmailRateLimit(async () => {
     const provider = getEmailProvider();
 
@@ -103,6 +114,13 @@ export async function sendEmailRaw(
   options: SendEmailOptions,
   sendMode: EmailSendMode = "queue",
 ): Promise<EmailSendResult> {
+  if (!EMAIL_SEND_ENABLED) {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[Email] Envío desactivado (EMAIL_SEND_ENABLED=false).");
+    }
+    return { success: true, queued: false };
+  }
+
   if (sendMode === "immediate") {
     return sendEmailRawImmediate(options);
   }
@@ -227,6 +245,125 @@ export async function sendSecurityNotificationEmail(opts: {
       orgId: opts.orgId,
     },
     opts.sendMode ?? "queue",
+  );
+}
+
+/**
+ * Envía notificación de cuenta bloqueada por intentos fallidos
+ */
+export async function sendAccountLockedEmail(opts: {
+  to: EmailRecipient;
+  orgId?: string;
+  userId?: string;
+  sendMode?: EmailSendMode;
+  lockedUntil?: Date | string;
+  attempts?: number;
+}): Promise<EmailSendResult> {
+  const { subject, html, text } = await renderEmailTemplate("AUTH_ACCOUNT_LOCKED", {
+    recipientName: opts.to.name,
+    lockedUntil: opts.lockedUntil,
+    attempts: opts.attempts,
+  });
+
+  return sendEmailRaw(
+    {
+      to: opts.to,
+      subject,
+      html,
+      text,
+      templateId: "AUTH_ACCOUNT_LOCKED",
+      userId: opts.userId,
+      orgId: opts.orgId,
+    },
+    opts.sendMode ?? "queue",
+  );
+}
+
+/**
+ * Envía alerta a administradores cuando se bloquea una cuenta
+ */
+export async function sendAccountLockedAdminEmail(opts: {
+  to: EmailRecipient;
+  orgId?: string;
+  userId?: string;
+  sendMode?: EmailSendMode;
+  lockedUserName?: string;
+  lockedUserEmail: string;
+  attempts?: number;
+  lockedUntil?: Date | string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}): Promise<EmailSendResult> {
+  const { subject, html, text } = await renderEmailTemplate("AUTH_ACCOUNT_LOCKED_ADMIN", {
+    recipientName: opts.to.name,
+    lockedUserName: opts.lockedUserName,
+    lockedUserEmail: opts.lockedUserEmail,
+    attempts: opts.attempts,
+    lockedUntil: opts.lockedUntil,
+    ipAddress: opts.ipAddress ?? undefined,
+    userAgent: opts.userAgent ?? undefined,
+  });
+
+  return sendEmailRaw(
+    {
+      to: opts.to,
+      subject,
+      html,
+      text,
+      templateId: "AUTH_ACCOUNT_LOCKED_ADMIN",
+      userId: opts.userId,
+      orgId: opts.orgId,
+    },
+    opts.sendMode ?? "queue",
+  );
+}
+
+/**
+ * Envía resumen diario de seguridad
+ */
+export async function sendSecurityDailySummaryEmail(opts: {
+  to: EmailRecipient;
+  rangeStart: Date | string;
+  rangeEnd: Date | string;
+  totalEvents: number;
+  totalLoginFailed: number;
+  totalAccountLocked: number;
+  totalAccountUnlocked: number;
+  orgSummaries: Array<{
+    orgName: string;
+    loginFailed: number;
+    accountLocked: number;
+    accountUnlocked: number;
+    total: number;
+  }>;
+  orgId?: string;
+  userId?: string;
+  sendMode?: EmailSendMode;
+  metadata?: Record<string, unknown>;
+}): Promise<EmailSendResult> {
+  const { subject, html, text } = await renderEmailTemplate("SECURITY_DAILY_SUMMARY", {
+    recipientName: opts.to.name,
+    rangeStart: opts.rangeStart,
+    rangeEnd: opts.rangeEnd,
+    totalEvents: opts.totalEvents,
+    totalLoginFailed: opts.totalLoginFailed,
+    totalAccountLocked: opts.totalAccountLocked,
+    totalAccountUnlocked: opts.totalAccountUnlocked,
+    orgSummaries: opts.orgSummaries,
+  });
+
+  return sendEmailRaw(
+    {
+      to: opts.to,
+      subject,
+      html,
+      text,
+      templateId: "SECURITY_DAILY_SUMMARY",
+      userId: opts.userId,
+      orgId: opts.orgId,
+      metadata: opts.metadata,
+    },
+    opts.sendMode ?? "immediate",
   );
 }
 

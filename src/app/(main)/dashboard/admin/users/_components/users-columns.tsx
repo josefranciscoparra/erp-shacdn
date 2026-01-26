@@ -23,6 +23,8 @@ export interface UserRow {
   active: boolean;
   mustChangePassword: boolean;
   createdAt: Date;
+  failedPasswordAttempts?: number | null;
+  passwordLockedUntil?: Date | string | null;
   orgId?: string;
   organization?: {
     id: string;
@@ -71,6 +73,7 @@ interface UsersColumnsProps {
   onChangeRole: (user: UserRow) => void;
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
+  onUnlockAccount?: (user: UserRow) => void;
   onManageOrganizations?: (user: UserRow) => void;
   canManageOrganizations?: boolean;
   canManage?: boolean;
@@ -82,6 +85,7 @@ export const createUsersColumns = ({
   onChangeRole,
   onResetPassword,
   onToggleActive,
+  onUnlockAccount,
   onManageOrganizations,
   canManageOrganizations = false,
   canManage = false,
@@ -159,6 +163,38 @@ export const createUsersColumns = ({
     },
   },
   {
+    id: "security",
+    header: "Seguridad",
+    cell: ({ row }) => {
+      const lockedUntilRaw = row.original.passwordLockedUntil;
+      const attempts = row.original.failedPasswordAttempts ?? 0;
+      const lockedUntil = lockedUntilRaw ? new Date(lockedUntilRaw) : null;
+      const isLocked = lockedUntil ? lockedUntil > new Date() : false;
+
+      if (isLocked) {
+        const timeLabel = lockedUntil?.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-300">
+              Bloqueado
+            </Badge>
+            {timeLabel && <span className="text-muted-foreground text-xs">Hasta {timeLabel}</span>}
+          </div>
+        );
+      }
+
+      if (attempts > 0) {
+        return (
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            Intentos: {attempts}
+          </Badge>
+        );
+      }
+
+      return <span className="text-muted-foreground text-xs">Sin incidencias</span>;
+    },
+  },
+  {
     id: "organizations",
     header: "Orgs",
     cell: ({ row }) => {
@@ -176,6 +212,9 @@ export const createUsersColumns = ({
     id: "actions",
     cell: ({ row }) => {
       const user = row.original;
+      const lockedUntilRaw = user.passwordLockedUntil;
+      const lockedUntil = lockedUntilRaw ? new Date(lockedUntilRaw) : null;
+      const isLocked = lockedUntil ? lockedUntil > new Date() : false;
 
       return (
         <DropdownMenu>
@@ -193,6 +232,9 @@ export const createUsersColumns = ({
               <>
                 <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
+                {isLocked && onUnlockAccount && (
+                  <DropdownMenuItem onClick={() => onUnlockAccount(user)}>Desbloquear cuenta</DropdownMenuItem>
+                )}
                 {canManageOrganizations && onManageOrganizations && (
                   <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
                     <Building2 className="mr-2 h-4 w-4" />

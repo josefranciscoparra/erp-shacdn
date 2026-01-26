@@ -67,7 +67,6 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   const [reason, setReason] = useState<string>("");
 
   // Errores
-  const [error, setError] = useState<string | null>(null);
   const [prefillError, setPrefillError] = useState<string | null>(null);
 
   // Estados para advertencias de fichajes existentes
@@ -100,11 +99,16 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     return "Error al crear la solicitud. Intenta de nuevo o contacta con RRHH.";
   };
 
+  const showValidationError = (message: string) => {
+    toast.error("Error de validación", {
+      description: message,
+    });
+  };
+
   const resetForm = useCallback(() => {
     setSelectedDate(initialDate);
     setSlots(buildDefaultSlots());
     setReason("");
-    setError(null);
     setPrefillError(null);
     setConfirmReplacement(false);
     setHasManualChanges(false);
@@ -235,7 +239,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
 
   const parseSlotsForSubmit = () => {
     if (slots.length === 0) {
-      setError("Añade al menos un tramo de trabajo");
+      showValidationError("Añade al menos un tramo de trabajo");
       return null;
     }
 
@@ -255,7 +259,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     });
 
     if (parsed.some((slot) => !slot)) {
-      setError("Revisa las horas de los tramos");
+      showValidationError("Revisa las horas de los tramos");
       return null;
     }
 
@@ -274,13 +278,17 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     });
 
     if (normalized[0]?.slotType !== "WORK") {
-      setError("El primer tramo debe ser de trabajo");
+      showValidationError(
+        "El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.",
+      );
       return null;
     }
 
     const lastSlot = normalized[normalized.length - 1];
     if (lastSlot?.slotType !== "WORK") {
-      setError("El último tramo debe ser de trabajo");
+      showValidationError(
+        "El primer y el último tramo deben ser de trabajo. No puedes empezar ni terminar con una pausa.",
+      );
       return null;
     }
 
@@ -288,13 +296,13 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     for (let i = 0; i < normalized.length; i += 1) {
       const slot = normalized[i];
       if (slot.startMinutes >= slot.endMinutes) {
-        setError("La hora de inicio debe ser anterior a la hora de fin");
+        showValidationError("La hora de inicio debe ser anterior a la hora de fin");
         return null;
       }
 
       const prev = normalized[i - 1];
       if (prev && slot.startMinutes < prev.endMinutes) {
-        setError("Hay solapamientos entre tramos");
+        showValidationError("Hay solapamientos entre tramos");
         return null;
       }
 
@@ -304,7 +312,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     }
 
     if (totalWorkMinutes <= 0) {
-      setError("Añade al menos un tramo de trabajo");
+      showValidationError("Añade al menos un tramo de trabajo");
       return null;
     }
 
@@ -316,22 +324,22 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
     setError(null);
 
     if (approverError) {
-      setError(approverError);
+      showValidationError(approverError);
       return false;
     }
 
     if (!selectedDate) {
-      setError("Selecciona una fecha");
+      showValidationError("Selecciona una fecha");
       return false;
     }
 
     if (isFuture(startOfDay(selectedDate))) {
-      setError("No puedes solicitar fichajes para fechas futuras");
+      showValidationError("No puedes solicitar fichajes para fechas futuras");
       return false;
     }
 
     if (!reason || reason.trim().length < 10) {
-      setError("El motivo debe tener al menos 10 caracteres");
+      showValidationError("El motivo debe tener al menos 10 caracteres");
       return false;
     }
 
@@ -403,7 +411,6 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
       onOpenChange(false);
     } catch (err) {
       const errorMessage = getFriendlyErrorMessage(err);
-      setError(errorMessage);
       toast.error("Error al enviar solicitud", {
         description: errorMessage,
       });
@@ -667,13 +674,6 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
                 </label>
               </div>
             </div>
-          )}
-
-          {/* Error de validación - Mostrado cerca de los botones para mejor visibilidad */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
           )}
 
           {/* Botones - CTA Premium */}

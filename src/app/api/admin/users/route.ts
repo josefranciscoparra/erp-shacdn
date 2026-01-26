@@ -418,6 +418,14 @@ export async function POST(request: NextRequest) {
 
       case "toggle-active":
         return await toggleUserActive(userId, orgId);
+      case "unlock-account":
+        return await unlockUserAccount(userId, orgId, {
+          id: session.user.id,
+          role: session.user.role,
+          orgId: session.user.orgId,
+          email: session.user.email,
+          name: session.user.name,
+        });
 
       default:
         return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
@@ -1019,5 +1027,60 @@ async function toggleUserActive(userId: string, orgId: string) {
   return NextResponse.json({
     message: `Usuario ${newActiveStatus ? "activado" : "desactivado"} exitosamente`,
     active: newActiveStatus,
+  });
+}
+
+async function unlockUserAccount(
+  userId: string,
+  orgId: string,
+  actor: { id: string; role: string; orgId: string; email: string; name: string },
+) {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, orgId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      orgId: true,
+      failedPasswordAttempts: true,
+      passwordLockedUntil: true,
+    },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      failedPasswordAttempts: 0,
+      passwordLockedUntil: null,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "ACCOUNT_UNLOCKED",
+      category: "SECURITY",
+      entityId: user.id,
+      entityType: "User",
+      entityData: {
+        email: user.email,
+        previousAttempts: user.failedPasswordAttempts ?? 0,
+        previousLockedUntil: user.passwordLockedUntil ? user.passwordLockedUntil.toISOString() : null,
+      },
+      description: `Cuenta desbloqueada manualmente para ${user.email}`,
+      performedById: actor.id,
+      performedByEmail: actor.email,
+      performedByName: actor.name,
+      performedByRole: actor.role,
+      orgId: actor.orgId,
+    },
+  });
+
+  return NextResponse.json({
+    message: "Cuenta desbloqueada exitosamente",
   });
 }

@@ -47,6 +47,7 @@ interface UsersDataTableProps {
   onChangeRole: (user: UserRow) => void;
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
+  onUnlockAccount: (user: UserRow) => void;
   canCreateUsers: boolean;
   canManageUsers: boolean;
   canManageUserOrganizations: boolean;
@@ -66,6 +67,7 @@ export function UsersDataTable({
   onChangeRole,
   onResetPassword,
   onToggleActive,
+  onUnlockAccount,
   canCreateUsers,
   canManageUsers,
   canManageUserOrganizations,
@@ -105,6 +107,7 @@ export function UsersDataTable({
         onChangeRole,
         onResetPassword,
         onToggleActive,
+        onUnlockAccount,
         onManageOrganizations: canManageUserOrganizations ? handleManageOrganizations : undefined,
         canManageOrganizations: canManageUserOrganizations,
         canManage: canManageUsers,
@@ -115,6 +118,7 @@ export function UsersDataTable({
       onChangeRole,
       onResetPassword,
       onToggleActive,
+      onUnlockAccount,
       handleManageOrganizations,
       canManageUserOrganizations,
       canManageUsers,
@@ -131,6 +135,12 @@ export function UsersDataTable({
         return data.filter((user) => !user.active);
       case "temp-password":
         return data.filter((user) => user.mustChangePassword);
+      case "locked":
+        return data.filter((user) => {
+          const lockedUntilRaw = user.passwordLockedUntil;
+          if (!lockedUntilRaw) return false;
+          return new Date(lockedUntilRaw) > new Date();
+        });
       case "all":
         return data;
       default:
@@ -171,6 +181,11 @@ export function UsersDataTable({
       active: data.filter((user) => user.active).length,
       inactive: data.filter((user) => !user.active).length,
       tempPassword: data.filter((user) => user.mustChangePassword).length,
+      locked: data.filter((user) => {
+        const lockedUntilRaw = user.passwordLockedUntil;
+        if (!lockedUntilRaw) return false;
+        return new Date(lockedUntilRaw) > new Date();
+      }).length,
       all: data.length,
     }),
     [data],
@@ -203,6 +218,7 @@ export function UsersDataTable({
             <SelectItem value="active">Activos ({counts.active})</SelectItem>
             <SelectItem value="inactive">Inactivos ({counts.inactive})</SelectItem>
             <SelectItem value="temp-password">Con contraseña temporal ({counts.tempPassword})</SelectItem>
+            <SelectItem value="locked">Bloqueados ({counts.locked})</SelectItem>
             <SelectItem value="all">Todos ({counts.all})</SelectItem>
           </SelectContent>
         </Select>
@@ -215,6 +231,9 @@ export function UsersDataTable({
           </TabsTrigger>
           <TabsTrigger value="temp-password">
             Con contraseña temporal <Badge variant="secondary">{counts.tempPassword}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="locked">
+            Bloqueados <Badge variant="destructive">{counts.locked}</Badge>
           </TabsTrigger>
           <TabsTrigger value="all">
             Todos <Badge variant="secondary">{counts.all}</Badge>
@@ -247,7 +266,7 @@ export function UsersDataTable({
       </div>
 
       {/* Contenido común para todas las tabs */}
-      {["active", "inactive", "temp-password", "all"].map((tabValue) => (
+      {["active", "inactive", "temp-password", "locked", "all"].map((tabValue) => (
         <TabsContent key={tabValue} value={tabValue} className="relative flex flex-col gap-4 overflow-auto">
           {/* Toolbar con búsqueda y filtros */}
           <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
@@ -351,12 +370,14 @@ export function UsersDataTable({
                 {tabValue === "active" && "No hay usuarios activos"}
                 {tabValue === "inactive" && "No hay usuarios inactivos"}
                 {tabValue === "temp-password" && "No hay usuarios con contraseña temporal"}
+                {tabValue === "locked" && "No hay usuarios bloqueados"}
                 {tabValue === "all" && "No hay usuarios registrados"}
               </h3>
               <p className="text-xs">
                 {tabValue === "active" && "Los usuarios activos aparecerán aquí"}
                 {tabValue === "inactive" && "Los usuarios desactivados aparecerán aquí"}
                 {tabValue === "temp-password" && "Los usuarios con contraseña temporal aparecerán aquí"}
+                {tabValue === "locked" && "Los usuarios bloqueados aparecerán aquí"}
                 {tabValue === "all" && "Comienza creando tu primer usuario"}
               </p>
             </div>

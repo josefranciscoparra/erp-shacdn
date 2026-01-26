@@ -7,9 +7,12 @@ import * as React from "react";
 
 import { render } from "@react-email/render";
 
+import { AccountLockedAdminEmail } from "../auth/account-locked-admin-email";
+import { AccountLockedEmail } from "../auth/account-locked-email";
 import { ChangeNotificationEmail } from "../auth/change-notification-email";
 import { InviteEmail } from "../auth/invite-email";
 import { ResetPasswordEmail } from "../auth/reset-password-email";
+import { SecurityDailySummaryEmail } from "../security/security-daily-summary-email";
 
 import { EMAIL_DEFAULTS } from "./constants";
 import type { EmailTemplateId, TemplatePropsMap } from "./email-props";
@@ -26,6 +29,9 @@ const EMAIL_SUBJECTS: Record<EmailTemplateId, (props: unknown) => string> = {
   AUTH_INVITE: () => "Te han invitado a TimeNow 👋",
   AUTH_RESET_PASSWORD: () => "Restablece tu contraseña de TimeNow",
   AUTH_CHANGE_NOTIFICATION: () => "Tu contraseña de TimeNow se ha cambiado",
+  AUTH_ACCOUNT_LOCKED: () => "Tu cuenta de TimeNow se ha bloqueado temporalmente",
+  AUTH_ACCOUNT_LOCKED_ADMIN: () => "Alerta de seguridad: cuenta bloqueada",
+  SECURITY_DAILY_SUMMARY: () => "Resumen diario de seguridad",
   TEST_HELLO: () => "Test de correo TimeNow",
 };
 
@@ -77,6 +83,30 @@ export async function renderEmailTemplate<T extends EmailTemplateId>(
       const element = React.createElement(ChangeNotificationEmail, typedProps);
       html = await render(element);
       text = generateChangeNotificationText(typedProps);
+      break;
+    }
+
+    case "AUTH_ACCOUNT_LOCKED": {
+      const typedProps = props as TemplatePropsMap["AUTH_ACCOUNT_LOCKED"];
+      const element = React.createElement(AccountLockedEmail, typedProps);
+      html = await render(element);
+      text = generateAccountLockedText(typedProps);
+      break;
+    }
+
+    case "AUTH_ACCOUNT_LOCKED_ADMIN": {
+      const typedProps = props as TemplatePropsMap["AUTH_ACCOUNT_LOCKED_ADMIN"];
+      const element = React.createElement(AccountLockedAdminEmail, typedProps);
+      html = await render(element);
+      text = generateAccountLockedAdminText(typedProps);
+      break;
+    }
+
+    case "SECURITY_DAILY_SUMMARY": {
+      const typedProps = props as TemplatePropsMap["SECURITY_DAILY_SUMMARY"];
+      const element = React.createElement(SecurityDailySummaryEmail, typedProps);
+      html = await render(element);
+      text = generateSecurityDailySummaryText(typedProps);
       break;
     }
 
@@ -149,5 +179,85 @@ function generateChangeNotificationText(props: TemplatePropsMap["AUTH_CHANGE_NOT
   }
 
   text += `Si no has sido tú, contacta con tu responsable de Recursos Humanos o escríbenos a ${supportEmail}.`;
+  return text;
+}
+
+function generateAccountLockedText(props: TemplatePropsMap["AUTH_ACCOUNT_LOCKED"]): string {
+  const name = props.recipientName ?? "Hola";
+  const productName = props.productName ?? EMAIL_DEFAULTS.productName;
+  const supportEmail = props.supportEmail ?? EMAIL_DEFAULTS.supportEmail;
+
+  let text = `${name}, hemos bloqueado temporalmente tu cuenta en ${productName} por varios intentos fallidos.\n\n`;
+
+  if (typeof props.attempts === "number") {
+    text += `Intentos fallidos registrados: ${props.attempts}\n`;
+  }
+
+  if (props.lockedUntil) {
+    const date = new Date(props.lockedUntil).toLocaleString("es-ES");
+    text += `Bloqueo activo hasta: ${date}\n\n`;
+  } else {
+    text += `El bloqueo es temporal y se levantará automáticamente.\n\n`;
+  }
+
+  text += `Si no has sido tú, contacta con tu responsable de Recursos Humanos o escríbenos a ${supportEmail}.`;
+  return text;
+}
+
+function generateAccountLockedAdminText(props: TemplatePropsMap["AUTH_ACCOUNT_LOCKED_ADMIN"]): string {
+  const name = props.recipientName ?? "Hola";
+  const productName = props.productName ?? EMAIL_DEFAULTS.productName;
+  const supportEmail = props.supportEmail ?? EMAIL_DEFAULTS.supportEmail;
+  const lockedUserLabel = props.lockedUserName ?? props.lockedUserEmail;
+
+  let text = `${name}, se ha bloqueado una cuenta por intentos fallidos en ${productName}.\n\n`;
+  text += `Usuario: ${lockedUserLabel}\n`;
+  text += `Email: ${props.lockedUserEmail}\n`;
+
+  if (typeof props.attempts === "number") {
+    text += `Intentos fallidos: ${props.attempts}\n`;
+  }
+
+  if (props.lockedUntil) {
+    const date = new Date(props.lockedUntil).toLocaleString("es-ES");
+    text += `Bloqueo activo hasta: ${date}\n`;
+  }
+
+  if (props.ipAddress) {
+    text += `IP: ${props.ipAddress}\n`;
+  }
+
+  if (props.userAgent) {
+    text += `Agente: ${props.userAgent}\n`;
+  }
+
+  text += `\nSi necesitas ayuda, contacta con ${supportEmail}.`;
+  return text;
+}
+
+function generateSecurityDailySummaryText(props: TemplatePropsMap["SECURITY_DAILY_SUMMARY"]): string {
+  const name = props.recipientName ?? "Hola";
+  const productName = props.productName ?? EMAIL_DEFAULTS.productName;
+  const startLabel = new Date(props.rangeStart).toLocaleString("es-ES");
+  const endLabel = new Date(props.rangeEnd).toLocaleString("es-ES");
+
+  let text = `${name}, aquí tienes el resumen diario de seguridad de ${productName}.\n\n`;
+  text += `Periodo: ${startLabel} → ${endLabel}\n\n`;
+  text += `Resumen global:\n`;
+  text += `- Total eventos: ${props.totalEvents}\n`;
+  text += `- Login fallidos: ${props.totalLoginFailed}\n`;
+  text += `- Cuentas bloqueadas: ${props.totalAccountLocked}\n`;
+  text += `- Cuentas desbloqueadas: ${props.totalAccountUnlocked}\n\n`;
+
+  if (props.orgSummaries.length === 0) {
+    text += `No hubo eventos en este periodo.\n`;
+    return text;
+  }
+
+  text += `Por organización:\n`;
+  for (const summary of props.orgSummaries) {
+    text += `- ${summary.orgName}: total ${summary.total}, login fallidos ${summary.loginFailed}, bloqueadas ${summary.accountLocked}, desbloqueadas ${summary.accountUnlocked}\n`;
+  }
+
   return text;
 }

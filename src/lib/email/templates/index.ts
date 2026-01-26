@@ -15,12 +15,18 @@ export type {
   InviteEmailProps,
   ResetPasswordEmailProps,
   ChangeNotificationEmailProps,
+  AccountLockedEmailProps,
+  AccountLockedAdminEmailProps,
+  SecurityDailySummaryEmailProps,
 } from "./shared/email-props";
 
 // Export templates directamente
+export { AccountLockedAdminEmail } from "./auth/account-locked-admin-email";
+export { AccountLockedEmail } from "./auth/account-locked-email";
 export { InviteEmail } from "./auth/invite-email";
 export { ResetPasswordEmail } from "./auth/reset-password-email";
 export { ChangeNotificationEmail } from "./auth/change-notification-email";
+export { SecurityDailySummaryEmail } from "./security/security-daily-summary-email";
 
 // Tipo para compatibilidad
 type TemplateResult = {
@@ -47,6 +53,19 @@ export function renderTemplate(templateId: EmailTemplateId, vars: Record<string,
       return renderAuthResetLegacy(vars as { name?: string; resetLink: string });
     case "AUTH_CHANGE_NOTIFICATION":
       return renderAuthChangeNotificationLegacy(vars as { name?: string });
+    case "AUTH_ACCOUNT_LOCKED":
+      return renderAuthAccountLockedLegacy(vars as { name?: string });
+    case "AUTH_ACCOUNT_LOCKED_ADMIN":
+      return renderAuthAccountLockedAdminLegacy(vars as { name?: string });
+    case "SECURITY_DAILY_SUMMARY":
+      return renderSecurityDailySummaryLegacy(
+        vars as {
+          name?: string;
+          rangeStart?: string;
+          rangeEnd?: string;
+          totalEvents?: number;
+        },
+      );
     case "TEST_HELLO":
     default:
       return renderTestHelloLegacy(vars as { name?: string });
@@ -95,6 +114,54 @@ function renderAuthChangeNotificationLegacy(vars: { name?: string }): TemplateRe
       <p>Si no has sido tú, contacta con tu responsable de Recursos Humanos.</p>
     `,
     text: `${name}, tu contraseña de TimeNow ha sido cambiada. Si no has sido tú, contacta con RRHH.`,
+  };
+}
+
+function renderAuthAccountLockedLegacy(vars: { name?: string }): TemplateResult {
+  const name = vars.name ?? "Hola";
+  return {
+    subject: "Tu cuenta de TimeNow se ha bloqueado temporalmente",
+    html: `
+      <p>${name},</p>
+      <p>Hemos detectado varios intentos fallidos y hemos bloqueado tu cuenta temporalmente por seguridad.</p>
+      <p>Si no has sido tú, contacta con tu responsable de Recursos Humanos.</p>
+    `,
+    text: `${name}, hemos bloqueado temporalmente tu cuenta por varios intentos fallidos. Si no has sido tú, contacta con RRHH.`,
+  };
+}
+
+function renderAuthAccountLockedAdminLegacy(vars: { name?: string }): TemplateResult {
+  const name = vars.name ?? "Hola";
+  return {
+    subject: "Alerta de seguridad: cuenta bloqueada",
+    html: `
+      <p>${name},</p>
+      <p>Se ha bloqueado una cuenta por intentos fallidos.</p>
+      <p>Revisa el panel de seguridad para más detalles.</p>
+    `,
+    text: `${name}, se ha bloqueado una cuenta por intentos fallidos. Revisa el panel de seguridad para más detalles.`,
+  };
+}
+
+function renderSecurityDailySummaryLegacy(vars: {
+  name?: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+  totalEvents?: number;
+}): TemplateResult {
+  const name = vars.name ?? "Hola";
+  const startLabel = vars.rangeStart ?? "-";
+  const endLabel = vars.rangeEnd ?? "-";
+  const totalEvents = typeof vars.totalEvents === "number" ? vars.totalEvents : 0;
+  return {
+    subject: "Resumen diario de seguridad",
+    html: `
+      <p>${name},</p>
+      <p>Resumen diario de seguridad.</p>
+      <p>Periodo: ${startLabel} → ${endLabel}</p>
+      <p>Total eventos: ${totalEvents}</p>
+    `,
+    text: `${name}, resumen diario de seguridad. Periodo: ${startLabel} → ${endLabel}. Total eventos: ${totalEvents}.`,
   };
 }
 

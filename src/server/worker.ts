@@ -5,6 +5,7 @@ import { registerEmployeeImportSimulationWorker } from "@/server/jobs/employee-i
 import { registerEmployeeImportWorker } from "@/server/jobs/employee-import-worker";
 import { registerOvertimeWorker } from "@/server/jobs/overtime-worker";
 import { registerPayslipWorker } from "@/server/jobs/payslip-worker";
+import { registerSecurityDailySummaryWorker } from "@/server/jobs/security-daily-summary-worker";
 import { registerSignatureBatchWorker } from "@/server/jobs/signature-batch-worker";
 import { registerTimeTrackingWorker } from "@/server/jobs/time-tracking-worker";
 
@@ -18,6 +19,7 @@ async function startWorker() {
   await registerSignatureBatchWorker(boss);
   await registerOvertimeWorker(boss);
   await registerTimeTrackingWorker(boss);
+  await registerSecurityDailySummaryWorker(boss);
   console.log("[Worker] Job runner iniciado");
 }
 
