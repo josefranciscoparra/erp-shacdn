@@ -7,6 +7,7 @@ import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_GLOBAL_TIME_TRACKING_SCHEDULER = {
+  timeTrackingSweepEnabled: true,
   timeTrackingSweepHour: 4,
   timeTrackingSweepStartMinute: 0,
   timeTrackingSweepEndHour: 4,
@@ -46,6 +47,7 @@ async function requireSuperAdmin(): Promise<SuperAdminContext> {
 }
 
 export interface GlobalTimeTrackingSchedulerSettings {
+  timeTrackingSweepEnabled: boolean;
   timeTrackingSweepHour: number;
   timeTrackingSweepStartMinute: number;
   timeTrackingSweepEndHour: number;
@@ -56,6 +58,7 @@ export interface GlobalTimeTrackingSchedulerSettings {
 
 function normalizeGlobalSettings(
   settings: {
+    timeTrackingSweepEnabled: boolean;
     timeTrackingSweepHour: number;
     timeTrackingSweepStartMinute: number;
     timeTrackingSweepEndHour: number;
@@ -70,6 +73,10 @@ function normalizeGlobalSettings(
       ? settings.timeTrackingSweepWindowMinutes
       : DEFAULT_GLOBAL_TIME_TRACKING_SCHEDULER.timeTrackingSweepWindowMinutes;
   return {
+    timeTrackingSweepEnabled:
+      typeof settings?.timeTrackingSweepEnabled === "boolean"
+        ? settings.timeTrackingSweepEnabled
+        : DEFAULT_GLOBAL_TIME_TRACKING_SCHEDULER.timeTrackingSweepEnabled,
     timeTrackingSweepHour:
       typeof settings?.timeTrackingSweepHour === "number"
         ? settings.timeTrackingSweepHour
@@ -101,6 +108,7 @@ async function fetchGlobalSettings() {
   return prisma.globalSettings.findUnique({
     where: { id: "global" },
     select: {
+      timeTrackingSweepEnabled: true,
       timeTrackingSweepHour: true,
       timeTrackingSweepStartMinute: true,
       timeTrackingSweepEndHour: true,
@@ -163,6 +171,7 @@ export async function updateGlobalTimeTrackingSchedulerSettings(
   await prisma.globalSettings.upsert({
     where: { id: "global" },
     update: {
+      timeTrackingSweepEnabled: data.timeTrackingSweepEnabled,
       timeTrackingSweepHour: data.timeTrackingSweepHour,
       timeTrackingSweepStartMinute: data.timeTrackingSweepStartMinute,
       timeTrackingSweepEndHour: data.timeTrackingSweepEndHour,
@@ -173,6 +182,7 @@ export async function updateGlobalTimeTrackingSchedulerSettings(
     },
     create: {
       id: "global",
+      timeTrackingSweepEnabled: data.timeTrackingSweepEnabled,
       timeTrackingSweepHour: data.timeTrackingSweepHour,
       timeTrackingSweepStartMinute: data.timeTrackingSweepStartMinute,
       timeTrackingSweepEndHour: data.timeTrackingSweepEndHour,

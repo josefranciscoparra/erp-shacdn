@@ -267,6 +267,7 @@ model GlobalSettings {
   overtimeReconciliationHour                    Int      @default(2) // 0-23
   overtimeReconciliationWindowMinutes           Int      @default(15)
   overtimeReconciliationDispatchIntervalMinutes Int      @default(10)
+  overtimeReconciliationEnabled                 Boolean  @default(true)
   overtimeDailySweepHour                        Int      @default(4) // 0-23
   overtimeDailySweepWindowMinutes               Int      @default(20)
   overtimeDailySweepLookbackDays                Int      @default(2)
@@ -278,6 +279,7 @@ model GlobalSettings {
   timeTrackingSweepWindowMinutes                Int      @default(20)
   timeTrackingSweepLookbackDays                 Int      @default(1)
   timeTrackingDispatchIntervalMinutes           Int      @default(10)
+  timeTrackingSweepEnabled                      Boolean  @default(true)
   securityDailySummaryEnabled                   Boolean  @default(false)
   securityDailySummaryHour                      Int      @default(22)
   securityDailySummaryMinute                    Int      @default(0)

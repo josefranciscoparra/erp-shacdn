@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   getGlobalOvertimeSchedulerSettings,
   updateGlobalOvertimeSchedulerSettings,
 } from "@/server/actions/global-overtime-scheduler";
 
 type SchedulerConfig = {
+  overtimeReconciliationEnabled: boolean;
   overtimeReconciliationWeekday: number;
   overtimeReconciliationHour: number;
   overtimeReconciliationWindowMinutes: number;
@@ -44,6 +46,7 @@ function formatHourLabel(value: number) {
 
 export function OvertimeSchedulerSettingsCard() {
   const [config, setConfig] = useState<SchedulerConfig>({
+    overtimeReconciliationEnabled: true,
     overtimeReconciliationWeekday: 1,
     overtimeReconciliationHour: 4,
     overtimeReconciliationWindowMinutes: 20,
@@ -141,6 +144,24 @@ export function OvertimeSchedulerSettingsCard() {
               Configura cuándo se consolidan automáticamente las horas extra para su revisión y aprobación.
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Activar procesos automáticos</p>
+            <p className="text-muted-foreground text-xs">
+              Si está desactivado, no se ejecutará ninguna reconciliación automática.
+            </p>
+          </div>
+          <Switch
+            checked={config.overtimeReconciliationEnabled}
+            onCheckedChange={(checked) =>
+              setConfig((prev) => ({
+                ...prev,
+                overtimeReconciliationEnabled: checked,
+              }))
+            }
+          />
         </div>
 
         <div className="grid gap-6 @xl/main:grid-cols-2">

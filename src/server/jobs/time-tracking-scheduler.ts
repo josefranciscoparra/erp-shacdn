@@ -13,6 +13,7 @@ const DEFAULT_TIMEZONE = "Europe/Madrid";
 const DEFAULT_SWEEP_HOUR = 4;
 const DEFAULT_DISPATCH_INTERVAL_MINUTES = 10;
 const DEFAULT_LOOKBACK_DAYS = 1;
+const DEFAULT_ENABLED = true;
 
 const weekdayMap: Record<string, number> = {
   Mon: 1,
@@ -23,13 +24,6 @@ const weekdayMap: Record<string, number> = {
   Sat: 6,
   Sun: 7,
 };
-
-function resolveBooleanEnv(name: string, defaultValue: boolean) {
-  const raw = process.env[name];
-  if (!raw) return defaultValue;
-  const normalized = raw.toLowerCase().trim();
-  return ["1", "true", "yes", "y", "on"].includes(normalized);
-}
 
 function resolveTimeZone(timezone?: string | null) {
   if (!timezone) return DEFAULT_TIMEZONE;
@@ -95,6 +89,7 @@ async function getGlobalSchedulerSettings() {
   const settings = await prisma.globalSettings.findUnique({
     where: { id: "global" },
     select: {
+      timeTrackingSweepEnabled: true,
       timeTrackingSweepHour: true,
       timeTrackingSweepStartMinute: true,
       timeTrackingSweepEndHour: true,
@@ -108,6 +103,8 @@ async function getGlobalSchedulerSettings() {
   const fallbackWindowMinutes =
     typeof settings?.timeTrackingSweepWindowMinutes === "number" ? settings.timeTrackingSweepWindowMinutes : 20;
   return {
+    timeTrackingSweepEnabled:
+      typeof settings?.timeTrackingSweepEnabled === "boolean" ? settings.timeTrackingSweepEnabled : DEFAULT_ENABLED,
     timeTrackingSweepHour:
       typeof settings?.timeTrackingSweepHour === "number" ? settings.timeTrackingSweepHour : DEFAULT_SWEEP_HOUR,
     timeTrackingSweepStartMinute:
@@ -132,16 +129,15 @@ async function getGlobalSchedulerSettings() {
 }
 
 async function dispatchTimeTrackingSweep(referenceTime: Date = new Date()) {
-  const schedulerEnabled = resolveBooleanEnv("TIME_TRACKING_SWEEP_ENABLED", true);
-  if (!schedulerEnabled) return;
-
   const {
+    timeTrackingSweepEnabled,
     timeTrackingSweepHour,
     timeTrackingSweepStartMinute,
     timeTrackingSweepEndHour,
     timeTrackingSweepEndMinute,
     timeTrackingSweepLookbackDays,
   } = await getGlobalSchedulerSettings();
+  if (!timeTrackingSweepEnabled) return;
 
   const organizations = await prisma.organization.findMany({
     where: { active: true },
@@ -191,12 +187,6 @@ export async function registerTimeTrackingScheduler(boss: PgBoss) {
       await dispatchTimeTrackingSweep(referenceTime);
     }
   });
-
-  const schedulerEnabled = resolveBooleanEnv("TIME_TRACKING_SWEEP_ENABLED", true);
-  if (!schedulerEnabled) {
-    console.log("[TimeTrackingScheduler] Barrido desactivado por entorno");
-    return;
-  }
 
   const settings = await getGlobalSchedulerSettings();
   const interval = clampInterval(settings.timeTrackingDispatchIntervalMinutes);

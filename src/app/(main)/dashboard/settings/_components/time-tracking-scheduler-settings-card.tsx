@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   getGlobalTimeTrackingSchedulerSettings,
   updateGlobalTimeTrackingSchedulerSettings,
@@ -17,6 +18,7 @@ import {
 import { minutesToTime, timeToMinutes } from "@/services/schedules/schedule-helpers";
 
 type SchedulerConfig = {
+  timeTrackingSweepEnabled: boolean;
   timeTrackingSweepHour: number;
   timeTrackingSweepStartMinute: number;
   timeTrackingSweepEndHour: number;
@@ -32,6 +34,7 @@ function minutesToTimeSafe(value: number) {
 
 export function TimeTrackingSchedulerSettingsCard() {
   const [config, setConfig] = useState<SchedulerConfig>({
+    timeTrackingSweepEnabled: true,
     timeTrackingSweepHour: 4,
     timeTrackingSweepStartMinute: 0,
     timeTrackingSweepEndHour: 4,
@@ -124,6 +127,24 @@ export function TimeTrackingSchedulerSettingsCard() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Activar cierre automático</p>
+            <p className="text-muted-foreground text-xs">
+              Si está desactivado, no se cerrarán jornadas automáticamente.
+            </p>
+          </div>
+          <Switch
+            checked={config.timeTrackingSweepEnabled}
+            onCheckedChange={(checked) =>
+              setConfig((prev) => ({
+                ...prev,
+                timeTrackingSweepEnabled: checked,
+              }))
+            }
+          />
+        </div>
+
         <div className="grid gap-6 @xl/main:grid-cols-2">
           <div className="space-y-2">
             <Label>Hora de inicio</Label>
@@ -211,13 +232,7 @@ export function TimeTrackingSchedulerSettingsCard() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Configuración avanzada</p>
-            <p className="text-muted-foreground text-xs">
-              Este proceso puede desactivarse a nivel de servidor si es necesario.
-            </p>
-          </div>
+        <div className="flex justify-end">
           <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px]">
             {isSaving ? "Guardando..." : "Guardar cambios"}
           </Button>

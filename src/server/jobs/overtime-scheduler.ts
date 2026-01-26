@@ -15,6 +15,7 @@ const DEFAULT_HOUR = 4; // 04:00
 const DEFAULT_WINDOW_MINUTES = 20;
 const DEFAULT_DISPATCH_INTERVAL_MINUTES = 10;
 const DEFAULT_AUTH_EXPIRY_DAYS = 7;
+const DEFAULT_ENABLED = true;
 
 const weekdayMap: Record<string, number> = {
   Mon: 1,
@@ -25,13 +26,6 @@ const weekdayMap: Record<string, number> = {
   Sat: 6,
   Sun: 7,
 };
-
-function resolveBooleanEnv(name: string, defaultValue: boolean) {
-  const raw = process.env[name];
-  if (!raw) return defaultValue;
-  const normalized = raw.toLowerCase().trim();
-  return ["1", "true", "yes", "y", "on"].includes(normalized);
-}
 
 function resolveTimeZone(timezone?: string | null) {
   if (!timezone) return DEFAULT_TIMEZONE;
@@ -103,6 +97,7 @@ async function getGlobalSchedulerSettings() {
   const settings = await prisma.globalSettings.findUnique({
     where: { id: "global" },
     select: {
+      overtimeReconciliationEnabled: true,
       overtimeReconciliationWeekday: true,
       overtimeReconciliationHour: true,
       overtimeReconciliationWindowMinutes: true,
@@ -115,6 +110,10 @@ async function getGlobalSchedulerSettings() {
   });
 
   return {
+    overtimeReconciliationEnabled:
+      typeof settings?.overtimeReconciliationEnabled === "boolean"
+        ? settings.overtimeReconciliationEnabled
+        : DEFAULT_ENABLED,
     overtimeReconciliationWeekday:
       typeof settings?.overtimeReconciliationWeekday === "number"
         ? settings.overtimeReconciliationWeekday
@@ -150,10 +149,8 @@ function clampInterval(value: number) {
 }
 
 async function dispatchWeeklyOvertimeReconciliation() {
-  const schedulerEnabled = resolveBooleanEnv("OVERTIME_RECONCILIATION_ENABLED", true);
-  if (!schedulerEnabled) return;
-
   const {
+    overtimeReconciliationEnabled,
     overtimeReconciliationWeekday,
     overtimeReconciliationHour,
     overtimeReconciliationWindowMinutes,
@@ -162,6 +159,7 @@ async function dispatchWeeklyOvertimeReconciliation() {
     overtimeDailySweepLookbackDays,
     overtimeAuthorizationExpiryDays,
   } = await getGlobalSchedulerSettings();
+  if (!overtimeReconciliationEnabled) return;
 
   const organizations = await prisma.organization.findMany({
     where: { active: true },
@@ -227,12 +225,6 @@ export async function registerOvertimeScheduler(boss: PgBoss) {
   await boss.work(OVERTIME_WEEKLY_DISPATCH_JOB, { teamSize: 1 }, async () => {
     await dispatchWeeklyOvertimeReconciliation();
   });
-
-  const schedulerEnabled = resolveBooleanEnv("OVERTIME_RECONCILIATION_ENABLED", true);
-  if (!schedulerEnabled) {
-    console.log("[OvertimeScheduler] Reconciliación semanal desactivada por entorno");
-    return;
-  }
 
   const settings = await getGlobalSchedulerSettings();
   const interval = clampInterval(settings.overtimeReconciliationDispatchIntervalMinutes);

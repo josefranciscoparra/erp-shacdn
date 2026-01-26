@@ -7,6 +7,7 @@ import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_GLOBAL_OVERTIME_SCHEDULER = {
+  overtimeReconciliationEnabled: true,
   overtimeReconciliationWeekday: 1,
   overtimeReconciliationHour: 4,
   overtimeReconciliationWindowMinutes: 20,
@@ -47,6 +48,7 @@ async function requireSuperAdmin(): Promise<SuperAdminContext> {
 }
 
 export interface GlobalOvertimeSchedulerSettings {
+  overtimeReconciliationEnabled: boolean;
   overtimeReconciliationWeekday: number;
   overtimeReconciliationHour: number;
   overtimeReconciliationWindowMinutes: number;
@@ -59,6 +61,7 @@ export interface GlobalOvertimeSchedulerSettings {
 
 function normalizeGlobalSettings(
   settings: {
+    overtimeReconciliationEnabled: boolean;
     overtimeReconciliationWeekday: number;
     overtimeReconciliationHour: number;
     overtimeReconciliationWindowMinutes: number;
@@ -70,6 +73,10 @@ function normalizeGlobalSettings(
   } | null,
 ): GlobalOvertimeSchedulerSettings {
   return {
+    overtimeReconciliationEnabled:
+      typeof settings?.overtimeReconciliationEnabled === "boolean"
+        ? settings.overtimeReconciliationEnabled
+        : DEFAULT_GLOBAL_OVERTIME_SCHEDULER.overtimeReconciliationEnabled,
     overtimeReconciliationWeekday:
       typeof settings?.overtimeReconciliationWeekday === "number"
         ? settings.overtimeReconciliationWeekday
@@ -109,6 +116,7 @@ async function fetchGlobalSettings() {
   return prisma.globalSettings.findUnique({
     where: { id: "global" },
     select: {
+      overtimeReconciliationEnabled: true,
       overtimeReconciliationWeekday: true,
       overtimeReconciliationHour: true,
       overtimeReconciliationWindowMinutes: true,
@@ -174,6 +182,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
   const previous = await prisma.globalSettings.findUnique({
     where: { id: "global" },
     select: {
+      overtimeReconciliationEnabled: true,
       overtimeReconciliationWeekday: true,
       overtimeReconciliationHour: true,
       overtimeReconciliationWindowMinutes: true,
@@ -188,6 +197,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
   await prisma.globalSettings.upsert({
     where: { id: "global" },
     update: {
+      overtimeReconciliationEnabled: data.overtimeReconciliationEnabled,
       overtimeReconciliationWeekday: data.overtimeReconciliationWeekday,
       overtimeReconciliationHour: data.overtimeReconciliationHour,
       overtimeReconciliationWindowMinutes: data.overtimeReconciliationWindowMinutes,
@@ -199,6 +209,7 @@ export async function updateGlobalOvertimeSchedulerSettings(
     },
     create: {
       id: "global",
+      overtimeReconciliationEnabled: data.overtimeReconciliationEnabled,
       overtimeReconciliationWeekday: data.overtimeReconciliationWeekday,
       overtimeReconciliationHour: data.overtimeReconciliationHour,
       overtimeReconciliationWindowMinutes: data.overtimeReconciliationWindowMinutes,
