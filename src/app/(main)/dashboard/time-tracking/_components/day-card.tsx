@@ -317,6 +317,15 @@ export function DayCard({ day }: DayCardProps) {
               </span>
             )}
           </div>
+          {day.crossedMidnight === true && (
+            <Badge
+              variant="outline"
+              className="mt-1 h-5 gap-1 border-amber-200 bg-amber-50 px-1.5 text-[10px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              <AlertTriangle className="size-3" />
+              Termina al día siguiente
+            </Badge>
+          )}
         </div>
 
         {/* 2. Visual Timeline (Barra de 24h) */}

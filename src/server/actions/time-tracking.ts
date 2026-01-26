@@ -662,7 +662,12 @@ async function processAutomaticBreaks(
 
 // Helper para actualizar el resumen del día
 // MEJORADO: Maneja fichajes que cruzan medianoche (turnos de noche)
-export async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
+export async function updateWorkdaySummary(
+  employeeId: string,
+  orgId: string,
+  date: Date,
+  options?: { skipPreviousDayUpdate?: boolean },
+) {
   const timeZone = await getOrganizationTimeZone(orgId);
   const dayStart = getLocalDayStartUtc(date, timeZone);
   const dayEnd = getLocalDayEndUtc(date, timeZone);
@@ -711,6 +716,7 @@ export async function updateWorkdaySummary(employeeId: string, orgId: string, da
   // Buscar CLOCK_IN del día anterior que NO tenga CLOCK_OUT correspondiente
   // Esto ocurre en turnos de noche: entrada 23:00, salida 07:00 del día siguiente
   let midnightCrossingMinutes = 0;
+  let carryoverPreviousDayMinutes = 0;
   let hasMidnightCrossing = false;
 
   const previousDay = subDays(date, 1);
@@ -757,6 +763,10 @@ export async function updateWorkdaySummary(employeeId: string, orgId: string, da
       // Si NO fichó salida ayer, hay cruce de medianoche
       if (!hadClockOutYesterday) {
         hasMidnightCrossing = true;
+        carryoverPreviousDayMinutes = Math.max(
+          0,
+          (dayStart.getTime() - lastEntryYesterday.timestamp.getTime()) / (1000 * 60),
+        );
 
         // Buscar el primer evento del día actual
         const firstEntryToday = entries.length > 0 ? entries[0] : null;
@@ -925,6 +935,58 @@ export async function updateWorkdaySummary(employeeId: string, orgId: string, da
       overtimeCalcUpdatedAt: new Date(),
     },
   });
+
+  if (hasMidnightCrossing && carryoverPreviousDayMinutes > 0 && !options?.skipPreviousDayUpdate) {
+    await updateWorkdaySummary(employeeId, orgId, previousDay, { skipPreviousDayUpdate: true });
+
+    const previousSummary = await prisma.workdaySummary.findUnique({
+      where: {
+        orgId_employeeId_date: {
+          orgId,
+          employeeId,
+          date: previousDayStart,
+        },
+      },
+    });
+
+    if (previousSummary) {
+      const existingFlags =
+        previousSummary.resolutionFlags && typeof previousSummary.resolutionFlags === "object"
+          ? previousSummary.resolutionFlags
+          : {};
+      const previousCarryover =
+        typeof existingFlags.crossedMidnightCarryoverMinutes === "number"
+          ? existingFlags.crossedMidnightCarryoverMinutes
+          : 0;
+      const previousWorked = Number(previousSummary.totalWorkedMinutes ?? 0);
+      const baseWorked = Math.max(0, previousWorked - previousCarryover);
+      const newWorked = baseWorked + carryoverPreviousDayMinutes;
+      const expectedMinutes = previousSummary.expectedMinutes !== null ? Number(previousSummary.expectedMinutes) : null;
+      const deviationMinutes = expectedMinutes !== null ? newWorked - expectedMinutes : null;
+
+      await prisma.workdaySummary.update({
+        where: { id: previousSummary.id },
+        data: {
+          totalWorkedMinutes: newWorked,
+          deviationMinutes,
+          resolutionFlags: {
+            ...existingFlags,
+            crossedMidnight: true,
+            crossedMidnightCarryoverMinutes: carryoverPreviousDayMinutes,
+            crossedMidnightToDate: formatUtcDateKey(dayStart),
+          },
+          overtimeCalcStatus: "DIRTY",
+          overtimeCalcUpdatedAt: new Date(),
+        },
+      });
+
+      await enqueueOvertimeWorkdayJob({
+        orgId,
+        employeeId,
+        date: formatUtcDateKey(previousDayStart),
+      });
+    }
+  }
 
   await enqueueOvertimeWorkdayJob({
     orgId,

@@ -2118,16 +2118,24 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           const dayKey = getLocalDateKey(dayDate, timeZone);
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
+          const previousDayKey = getLocalDateKey(addDays(dayDate, -1), timeZone);
+          const previousDayEntries = entriesByDay.get(previousDayKey) ?? [];
           const nextDayKey = getLocalDateKey(addDays(dayDate, 1), timeZone);
           const nextDayEntries = entriesByDay.get(nextDayKey) ?? [];
           const activeDayEntries = [...dayEntries]
             .filter((entry) => !entry.isCancelled)
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          const activePreviousEntries = [...previousDayEntries]
+            .filter((entry) => !entry.isCancelled)
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           const activeNextEntries = [...nextDayEntries]
             .filter((entry) => !entry.isCancelled)
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          const firstEntry = activeDayEntries[0] ?? null;
+          const lastPreviousEntry = activePreviousEntries[activePreviousEntries.length - 1] ?? null;
           const lastEntry = activeDayEntries[activeDayEntries.length - 1] ?? null;
           const hasClockOut = activeDayEntries.some((entry) => entry.entryType === "CLOCK_OUT");
+          const hasClockOutPrevious = activePreviousEntries.some((entry) => entry.entryType === "CLOCK_OUT");
           const firstNextEntry = activeNextEntries[0] ?? null;
           const dayStart = getLocalDayStartUtc(dayDate, timeZone);
           const nextDayStart = addDays(dayStart, 1);
@@ -2137,9 +2145,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             !hasClockOut &&
             isActiveWorkEntryType(lastEntry.entryType) &&
             isCrossingEntryType(firstNextEntry.entryType);
+          const hasMidnightCrossingFromPrevious =
+            Boolean(lastPreviousEntry) &&
+            Boolean(firstEntry) &&
+            !hasClockOutPrevious &&
+            isActiveWorkEntryType(lastPreviousEntry.entryType) &&
+            isCrossingEntryType(firstEntry.entryType);
           const carryoverMinutes = hasMidnightCrossing
             ? Math.max(0, differenceInMinutes(nextDayStart, new Date(lastEntry.timestamp)))
             : 0;
+          const crossedMidnight = carryoverMinutes > 0 || hasMidnightCrossingFromPrevious;
 
           // Obtener datos del motor de horarios
           const schedule = scheduleMap.get(dayKey);
@@ -2205,7 +2220,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               isWorkingDay,
               isHoliday,
               holidayName,
-              crossedMidnight: carryoverMinutes > 0,
+              crossedMidnight,
               timeEntries: dayEntries.map((entry) => ({
                 id: entry.id,
                 entryType: entry.entryType,

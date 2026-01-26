@@ -256,6 +256,7 @@ export default function EmployeeTimeTrackingPage() {
                   : day.status === "INCOMPLETE"
                     ? "Incompleto"
                     : "Ausente",
+            "Termina al día siguiente": day.crossedMidnight ? "Sí" : "No",
             Observaciones: "",
           });
 
@@ -283,6 +284,7 @@ export default function EmployeeTimeTrackingPage() {
               "Horas Trabajadas": "",
               Cumplimiento: "",
               Estado: estado,
+              "Termina al día siguiente": "",
               Observaciones: entry.notes ?? "",
             });
           });
@@ -297,6 +299,7 @@ export default function EmployeeTimeTrackingPage() {
               "Horas Trabajadas": "",
               Cumplimiento: "",
               Estado: "",
+              "Termina al día siguiente": "",
               Observaciones: "INVALIDADOS POR RECTIFICACIÓN",
             });
 
@@ -312,6 +315,7 @@ export default function EmployeeTimeTrackingPage() {
                 "Horas Trabajadas": "",
                 Cumplimiento: "",
                 Estado: estado,
+                "Termina al día siguiente": "",
                 Observaciones: entry.cancellationNotes ?? "",
               });
             });
@@ -326,6 +330,7 @@ export default function EmployeeTimeTrackingPage() {
             "Horas Trabajadas": "",
             Cumplimiento: "",
             Estado: "",
+            "Termina al día siguiente": "",
             Observaciones: "",
           });
         });
