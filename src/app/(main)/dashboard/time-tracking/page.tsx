@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ShieldAlert, Users, Clock, Coffee } from "lucide-react";
 
@@ -8,6 +8,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { EmployeeSearchInput } from "@/components/hr/employee-search-input";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,8 @@ export default function TimeTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const [totalRows, setTotalRows] = useState(0);
+  const [searchValue, setSearchValue] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [stats, setStats] = useState({
     totalEmployees: 0,
     workingCount: 0,
@@ -43,7 +46,7 @@ export default function TimeTrackingPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await getEmployeesForTimeTracking(pagination.pageIndex, pagination.pageSize);
+      const data = await getEmployeesForTimeTracking(pagination.pageIndex, pagination.pageSize, appliedSearch);
       setEmployees(data.data);
       setTotalRows(data.total);
       setStats(data.stats);
@@ -54,9 +57,20 @@ export default function TimeTrackingPage() {
     }
   };
 
+  const handleSearch = useCallback(
+    (value: string) => {
+      if (value === appliedSearch) {
+        return;
+      }
+      setAppliedSearch(value);
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    },
+    [appliedSearch],
+  );
+
   useEffect(() => {
     loadData();
-  }, [pagination.pageIndex, pagination.pageSize]);
+  }, [pagination.pageIndex, pagination.pageSize, appliedSearch]);
 
   return (
     <PermissionGuard
@@ -128,9 +142,20 @@ export default function TimeTrackingPage() {
 
         {/* DataTable */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-muted-foreground text-sm font-medium">Vista</span>
-            <DataTableViewOptions table={table} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:max-w-[320px]">
+              <EmployeeSearchInput
+                value={searchValue}
+                onValueChange={setSearchValue}
+                onSearch={handleSearch}
+                placeholder="Buscar por nombre o email..."
+                minChars={2}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-muted-foreground text-sm font-medium">Vista</span>
+              <DataTableViewOptions table={table} />
+            </div>
           </div>
 
           {isLoading ? (

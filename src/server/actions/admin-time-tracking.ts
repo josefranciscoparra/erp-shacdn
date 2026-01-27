@@ -802,7 +802,7 @@ export async function getEmployeeEntryTime(employeeId: string, targetDate: Date)
 }
 
 // Obtener lista de empleados para time tracking
-export async function getEmployeesForTimeTracking(pageIndex = 0, pageSize = 10) {
+export async function getEmployeesForTimeTracking(pageIndex = 0, pageSize = 10, search?: string) {
   try {
     const { orgId } = await checkAdminPermissions();
 
@@ -811,19 +811,42 @@ export async function getEmployeesForTimeTracking(pageIndex = 0, pageSize = 10) 
 
     const safePageIndex = Math.max(0, pageIndex);
     const safePageSize = Math.max(1, pageSize);
+    const normalizedSearch = search?.trim();
+    const searchValue = normalizedSearch && normalizedSearch.length >= 2 ? normalizedSearch : undefined;
 
-    const [totalEmployees, employees] = await Promise.all([
-      prisma.employee.count({
-        where: {
-          orgId,
-          active: true,
-        },
-      }),
+    const baseWhere = {
+      orgId,
+      active: true,
+    };
+
+    const searchFilter = searchValue
+      ? {
+          OR: [
+            { firstName: { contains: searchValue, mode: "insensitive" as const } },
+            { lastName: { contains: searchValue, mode: "insensitive" as const } },
+            { secondLastName: { contains: searchValue, mode: "insensitive" as const } },
+            { email: { contains: searchValue, mode: "insensitive" as const } },
+            { user: { is: { name: { contains: searchValue, mode: "insensitive" as const } } } },
+            { user: { is: { email: { contains: searchValue, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {};
+
+    const whereClause = {
+      ...baseWhere,
+      ...searchFilter,
+    };
+
+    const totalEmployeesPromise = prisma.employee.count({
+      where: baseWhere,
+    });
+    const totalFilteredPromise = searchValue ? prisma.employee.count({ where: whereClause }) : totalEmployeesPromise;
+
+    const [totalEmployees, totalFiltered, employees] = await Promise.all([
+      totalEmployeesPromise,
+      totalFilteredPromise,
       prisma.employee.findMany({
-        where: {
-          orgId,
-          active: true,
-        },
+        where: whereClause,
         include: {
           user: {
             select: {
@@ -963,7 +986,7 @@ export async function getEmployeesForTimeTracking(pageIndex = 0, pageSize = 10) 
           todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
         };
       }),
-      total: totalEmployees,
+      total: totalFiltered,
       stats: {
         totalEmployees,
         workingCount,
