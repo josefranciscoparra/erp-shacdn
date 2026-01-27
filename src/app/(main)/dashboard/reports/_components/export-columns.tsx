@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 import { cancelDataExport, getDataExportDownloadUrl, type DataExportListItem } from "@/server/actions/data-exports";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "secondary" | "default" | "destructive" | "outline" }> = {
@@ -95,13 +96,37 @@ export function createExportColumns(onRefresh: () => void): ColumnDef<DataExport
       cell: ({ row }) => {
         const status = STATUS_LABELS[row.original.status];
         const progress = row.original.progress;
+        const isRunning = row.original.status === "RUNNING";
+        const isPending = row.original.status === "PENDING";
+
+        // Estado PENDING (En cola) -> Badge Outline (fondo claro) -> Spinner Primary
+        if (isPending) {
+          return (
+            <Badge variant="outline" className="gap-2 py-1 pr-3 pl-1.5 font-normal">
+              <Spinner size="sm" variant="primary" className="h-3.5 w-3.5 border-2" />
+              <span>Preparando...</span>
+            </Badge>
+          );
+        }
+
+        // Estado RUNNING (En proceso) -> Badge Default (fondo oscuro) -> Spinner Ghost (blanco)
+        if (isRunning) {
+          return (
+            <div className="flex flex-col gap-1.5">
+              <Badge variant="default" className="w-fit gap-2 py-1 pr-3 pl-1.5 font-normal">
+                <Spinner size="sm" variant="ghost" className="h-3.5 w-3.5 border-2" />
+                <span>En proceso</span>
+              </Badge>
+              <span className="text-muted-foreground pl-1 text-xs font-medium">Progreso: {progress}%</span>
+            </div>
+          );
+        }
+
+        // Resto de estados (Completado, Fallido, etc.)
         return (
-          <div className="flex flex-col gap-1">
-            <Badge variant={status?.variant || "outline"}>{status?.label || row.original.status}</Badge>
-            {row.original.status === "RUNNING" ? (
-              <span className="text-muted-foreground text-xs">Progreso: {progress}%</span>
-            ) : null}
-          </div>
+          <Badge variant={status?.variant || "outline"} className="w-fit">
+            {status?.label || row.original.status}
+          </Badge>
         );
       },
     },

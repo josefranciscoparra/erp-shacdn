@@ -4598,6 +4598,8 @@ model DataExport {
   fileSize       Int?
   fileMimeType   String?
 
+  notifyWhenReady Boolean @default(false)
+
   startedAt   DateTime?
   completedAt DateTime?
   failedAt    DateTime?

@@ -377,10 +377,8 @@ Sistema completo de captura y visualización de ubicación GPS en fichajes, con 
 
 ### Configuración
 
-*
-
-**IMPORTANTE - Serialización de Decimals:**
-Los campos `Decimal` de Prisma NO se pueden pasar directamente del servidor al cliente en Next.js 15. SIEMPRE usar `serializeTimeEntry()` que convierte a números:
+- **IMPORTANTE - Serialización de Decimals:**
+  Los campos `Decimal` de Prisma NO se pueden pasar directamente del servidor al cliente en Next.js 15. SIEMPRE usar `serializeTimeEntry()` que convierte a números:
 
 ```typescript
 function serializeTimeEntry(entry: any) {
@@ -404,8 +402,6 @@ export async function clockIn(geoData: { latitude: number; longitude: number; ac
 // ✅ CORRECTO
 export async function clockIn(latitude?: number, longitude?: number, accuracy?: number);
 ```
-
-
 
 ### Dependencias
 
@@ -550,4 +546,3 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 - Ubicación: `/src/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule.tsx`
 - Problema: Acoplado, no reutilizable
 - Acción: Migrar a V2
-

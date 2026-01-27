@@ -2,18 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import { FileText, RefreshCcw } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { AttendanceExportDialog } from "@/components/exports/attendance-export-dialog";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { getDataExports, type DataExportCounts, type DataExportListItem } from "@/server/actions/data-exports";
@@ -125,11 +128,13 @@ export default function ReportsPage() {
           description="Exportaciones generadas en segundo plano para análisis y descarga."
           action={
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={loadData}>
-                <RefreshCcw className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={loadData} disabled={isLoading}>
+                {isLoading ? <Spinner size="sm" className="mr-2" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
                 Actualizar
               </Button>
-              <AttendanceExportDialog onCreated={() => loadData()} triggerLabel="Nueva exportación" />
+              <Button asChild>
+                <Link href="/dashboard/reports/new">Nuevo informe</Link>
+              </Button>
             </div>
           }
         />
@@ -162,8 +167,29 @@ export default function ReportsPage() {
 
           <TabsContent value={activeTab} className="flex flex-col gap-4">
             {isLoading ? (
-              <div className="text-muted-foreground flex h-60 items-center justify-center text-sm">
-                Cargando informes...
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-8 w-[200px]" />
+                  <Skeleton className="h-8 w-[100px]" />
+                </div>
+                <div className="rounded-lg border">
+                  <div className="border-b p-4">
+                    <div className="flex gap-4">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                    </div>
+                  </div>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex gap-4 border-b p-4 last:border-0">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/4" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : exports.length === 0 ? (
               <EmptyState

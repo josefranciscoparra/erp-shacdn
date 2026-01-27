@@ -201,6 +201,7 @@ export async function requestTimeTrackingMonthlyExport(
   year: number,
   scope: "COMPANY" | "DEPARTMENT",
   departmentId?: string,
+  notifyWhenReady?: boolean,
 ): Promise<{
   success: boolean;
   exportId?: string;
@@ -245,6 +246,8 @@ export async function requestTimeTrackingMonthlyExport(
       departmentName = department.name;
     }
 
+    const notify = notifyWhenReady === true;
+
     const filters: Record<string, unknown> = {
       month,
       year,
@@ -269,6 +272,12 @@ export async function requestTimeTrackingMonthlyExport(
     });
 
     if (existing) {
+      if (notify && !existing.notifyWhenReady && existing.status !== DataExportStatus.COMPLETED) {
+        await prisma.dataExport.update({
+          where: { id: existing.id },
+          data: { notifyWhenReady: true },
+        });
+      }
       return { success: true, exportId: existing.id, status: existing.status, reused: true };
     }
 
@@ -281,6 +290,7 @@ export async function requestTimeTrackingMonthlyExport(
         filters,
         filtersHash,
         expiresAt: buildExpiresAt(),
+        notifyWhenReady: notify,
       },
     });
 

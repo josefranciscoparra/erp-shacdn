@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import { ShieldAlert, Users, Clock, Coffee } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { AttendanceExportDialog } from "@/components/exports/attendance-export-dialog";
 import { EmployeeSearchInput } from "@/components/hr/employee-search-input";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { getEmployeesForTimeTracking } from "@/server/actions/admin-time-tracking";
@@ -91,7 +93,11 @@ export default function TimeTrackingPage() {
         <SectionHeader
           title="Control Horario"
           description="Gestión de fichajes por empleado"
-          action={<AttendanceExportDialog triggerLabel="Exportar fichajes" />}
+          action={
+            <Button asChild>
+              <Link href="/dashboard/reports/new?category=time-tracking">Nuevo informe</Link>
+            </Button>
+          }
         />
 
         {/* Stats Cards */}

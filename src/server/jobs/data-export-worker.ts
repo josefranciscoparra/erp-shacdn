@@ -2,7 +2,7 @@ import { createWriteStream, promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
-import { DataExportStatus, DataExportType } from "@prisma/client";
+import { DataExportStatus, DataExportType, PtoNotificationType } from "@prisma/client";
 import type { PgBoss } from "pg-boss";
 
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,21 @@ import { DATA_EXPORT_CLEANUP_JOB, DATA_EXPORT_JOB, type DataExportJobPayload } f
 import { registerDataExportScheduler } from "@/server/jobs/data-export-scheduler";
 
 const EXPORT_PAGE_SIZE = 1000;
+const MONTH_LABELS = [
+  "",
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 function resolveWorkerConcurrency() {
   const concurrencyRaw = process.env.DATA_EXPORT_WORKER_CONCURRENCY ?? process.env.JOB_WORKER_CONCURRENCY;
@@ -61,6 +76,19 @@ function buildExportFileName(type: DataExportType, year: number, month: number) 
   const monthLabel = pad2(month);
   const base = type === DataExportType.TIME_TRACKING_MONTHLY ? "fichajes" : "export";
   return `${base}-${year}-${monthLabel}.csv`;
+}
+
+function buildExportNotificationTitle(type: DataExportType) {
+  if (type === DataExportType.TIME_TRACKING_MONTHLY) {
+    return "Informe de fichajes listo";
+  }
+  return "Informe listo";
+}
+
+function buildExportNotificationMessage(filters: { month: number; year: number; scope: string }) {
+  const monthLabel = MONTH_LABELS[filters.month] ?? "";
+  const scopeLabel = filters.scope === "DEPARTMENT" ? "departamento" : "empresa";
+  return `Tu exportación de ${monthLabel} ${filters.year} (${scopeLabel}) ya está disponible para descargar.`;
 }
 
 function buildStorageKey(orgId: string, exportId: string, fileName: string) {
@@ -138,6 +166,60 @@ async function finalizeExportSuccess(
       fileSize: payload.size,
       fileMimeType: "text/csv",
       errorMessage: null,
+    },
+  });
+}
+
+async function notifyExportReady(exportId: string) {
+  const exportRecord = await prisma.dataExport.findUnique({
+    where: { id: exportId },
+    select: {
+      id: true,
+      orgId: true,
+      requestedById: true,
+      type: true,
+      filters: true,
+      notifyWhenReady: true,
+    },
+  });
+
+  if (!exportRecord || !exportRecord.notifyWhenReady) {
+    return;
+  }
+
+  let parsedFilters: { month: number; year: number; scope: string } | null = null;
+  if (exportRecord.type === DataExportType.TIME_TRACKING_MONTHLY) {
+    try {
+      parsedFilters = parseMonthlyFilters(exportRecord.filters);
+    } catch {
+      parsedFilters = null;
+    }
+  }
+
+  const title = buildExportNotificationTitle(exportRecord.type);
+  const message = parsedFilters ? buildExportNotificationMessage(parsedFilters) : "Tu informe ya está disponible.";
+  const referenceId = `data-export:${exportRecord.id}`;
+
+  await prisma.ptoNotification.upsert({
+    where: {
+      userId_type_referenceId: {
+        userId: exportRecord.requestedById,
+        type: PtoNotificationType.SYSTEM_ANNOUNCEMENT,
+        referenceId,
+      },
+    },
+    create: {
+      userId: exportRecord.requestedById,
+      orgId: exportRecord.orgId,
+      type: PtoNotificationType.SYSTEM_ANNOUNCEMENT,
+      title,
+      message,
+      referenceId,
+      isRead: false,
+    },
+    update: {
+      title,
+      message,
     },
   });
 }
@@ -363,6 +445,8 @@ async function generateTimeTrackingMonthlyExport(exportId: string) {
     fileName,
     size: result.size,
   });
+
+  await notifyExportReady(exportRecord.id);
 
   await fs.unlink(tempPath).catch(() => null);
 }

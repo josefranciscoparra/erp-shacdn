@@ -6,6 +6,7 @@ import { Calendar, DownloadCloud, Loader2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function AttendanceExportDialog({ triggerLabel = "Exportar", onCreated }:
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [departmentId, setDepartmentId] = useState<string>("");
+  const [notifyWhenReady, setNotifyWhenReady] = useState(false);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +86,13 @@ export function AttendanceExportDialog({ triggerLabel = "Exportar", onCreated }:
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    const result = await requestTimeTrackingMonthlyExport(month, year, scope, departmentId ? departmentId : undefined);
+    const result = await requestTimeTrackingMonthlyExport(
+      month,
+      year,
+      scope,
+      departmentId ? departmentId : undefined,
+      notifyWhenReady,
+    );
     setSubmitting(false);
 
     if (!result.success) {
@@ -203,6 +211,20 @@ export function AttendanceExportDialog({ triggerLabel = "Exportar", onCreated }:
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-md border p-3">
+            <Checkbox
+              id="export-notify"
+              checked={notifyWhenReady}
+              onCheckedChange={(value) => setNotifyWhenReady(Boolean(value))}
+            />
+            <Label htmlFor="export-notify" className="flex flex-col gap-1">
+              <span>Avísame cuando esté listo</span>
+              <span className="text-muted-foreground text-xs">
+                Recibirás una notificación en la campana cuando el informe esté disponible.
+              </span>
+            </Label>
           </div>
         </div>
 
