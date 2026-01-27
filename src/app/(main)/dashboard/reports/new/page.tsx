@@ -199,12 +199,19 @@ export default function NewReportPage() {
     let isActive = true;
     const loadDepartments = async () => {
       setLoadingDepartments(true);
-      const result = await getDepartments();
-      if (!isActive) return;
-      if (result.success && result.departments) {
-        setDepartments(result.departments.map((dept) => ({ id: dept.id, name: dept.name })));
+      try {
+        const result = await getDepartments();
+        if (!isActive) return;
+        if (result.success && result.departments) {
+          setDepartments(result.departments.map((dept) => ({ id: dept.id, name: dept.name })));
+        }
+      } catch (error) {
+        console.error("Error cargando departamentos:", error);
+      } finally {
+        if (isActive) {
+          setLoadingDepartments(false);
+        }
       }
-      setLoadingDepartments(false);
     };
     loadDepartments();
     return () => {
@@ -282,35 +289,44 @@ export default function NewReportPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedType) return;
-    setSubmitting(true);
-    if (selectedType.categoryId === "time-tracking") {
-      const result = await requestTimeTrackingMonthlyExport(
-        month,
-        year,
-        selectedType.scope,
-        departmentId ? departmentId : undefined,
-        notifyWhenReady,
-      );
-
-      if (!result.success) {
-        toast.error(result.error ?? "No se pudo crear el informe");
-        setSubmitting(false);
-        return;
-      }
-
-      if (result.reused && result.status === "COMPLETED") {
-        toast.success("El informe ya estaba disponible. Puedes descargarlo en Informes.");
-      } else if (result.reused) {
-        toast.success("Ya existe una exportación en curso. Te avisaremos cuando esté lista.");
-      } else {
-        toast.success("Solicitud registrada. El informe se generará en segundo plano.");
-      }
-
-      router.push("/dashboard/reports");
+    if (!selectedType) {
+      setSubmitting(false);
       return;
     }
-    setSubmitting(false);
+    setSubmitting(true);
+    try {
+      if (selectedType.categoryId === "time-tracking") {
+        const result = await requestTimeTrackingMonthlyExport(
+          month,
+          year,
+          selectedType.scope,
+          departmentId ? departmentId : undefined,
+          notifyWhenReady,
+        );
+
+        if (!result.success) {
+          toast.error(result.error ?? "No se pudo crear el informe");
+          setSubmitting(false);
+          return;
+        }
+
+        if (result.reused && result.status === "COMPLETED") {
+          toast.success("El informe ya estaba disponible. Puedes descargarlo en Informes.");
+        } else if (result.reused) {
+          toast.success("Ya existe una exportación en curso. Te avisaremos cuando esté lista.");
+        } else {
+          toast.success("Solicitud registrada. El informe se generará en segundo plano.");
+        }
+
+        router.push("/dashboard/reports");
+        return;
+      }
+    } catch (error) {
+      console.error("Error generando informe:", error);
+      toast.error("No se pudo crear el informe. Inténtalo de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const variants = {
@@ -350,7 +366,7 @@ export default function NewReportPage() {
       >
         {/* Top Navigation Bar */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
@@ -361,32 +377,32 @@ export default function NewReportPage() {
                   goBack();
                 }
               }}
-              className="h-9 w-9 rounded-full"
+              className="h-8 w-8 rounded-full"
               title={step === "category" ? "Volver a informes" : "Atrás"}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="space-y-1">
-              <h1 className="text-[20px] leading-tight font-semibold">Nuevo informe</h1>
-              <p className="text-muted-foreground text-sm">Genera reportes personalizados.</p>
+            <div className="space-y-0.5">
+              <h1 className="text-base leading-tight font-semibold">Nuevo informe</h1>
+              <p className="text-muted-foreground text-xs">Genera reportes personalizados.</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleExit}
-            className="h-9 w-9 rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700"
+            className="h-8 w-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900"
             title="Cerrar"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Stepper */}
-        <div className="relative mb-4 flex w-full items-center justify-between px-2 md:px-10">
-          <div className="bg-secondary absolute top-1/2 left-0 h-0.5 w-full -translate-y-1/2" />
+        <div className="relative mb-2 flex w-full items-center justify-between px-4 md:px-12">
+          <div className="bg-secondary absolute top-1/2 left-0 h-px w-full -translate-y-1/2" />
           <div
-            className="bg-primary absolute top-1/2 left-0 h-0.5 -translate-y-1/2 transition-all duration-500 ease-in-out"
+            className="bg-primary absolute top-1/2 left-0 h-px -translate-y-1/2 transition-all duration-500 ease-in-out"
             style={{
               width: `${(activeStepIndex / (STEPS.length - 1)) * 100}%`,
             }}
@@ -396,28 +412,28 @@ export default function NewReportPage() {
             const isCompleted = index < activeStepIndex;
 
             return (
-              <div key={item.id} className="relative z-10 flex flex-col items-center gap-2">
+              <div key={item.id} className="relative z-10 flex flex-col items-center gap-1.5">
                 <motion.div
                   initial={false}
                   animate={{
                     backgroundColor: isActive || isCompleted ? "var(--primary)" : "var(--background)",
                     borderColor: isActive || isCompleted ? "var(--primary)" : "var(--muted-foreground)",
-                    scale: isActive ? 1.1 : 1,
+                    scale: isActive ? 1.05 : 1,
                   }}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors duration-300",
+                    "flex h-7 w-7 items-center justify-center rounded-full border-2 transition-colors duration-300",
                     isCompleted || isActive ? "text-primary-foreground" : "text-muted-foreground",
                   )}
                 >
                   {isCompleted ? (
-                    <Check className="h-4 w-4" strokeWidth={3} />
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   ) : (
-                    <span className="text-sm font-bold">{index + 1}</span>
+                    <span className="text-xs font-bold">{index + 1}</span>
                   )}
                 </motion.div>
                 <span
                   className={cn(
-                    "absolute -bottom-8 text-xs font-medium whitespace-nowrap transition-colors duration-300",
+                    "absolute -bottom-6 text-[11px] font-medium whitespace-nowrap transition-colors duration-300",
                     isActive ? "text-primary" : "text-muted-foreground",
                   )}
                 >
@@ -427,7 +443,7 @@ export default function NewReportPage() {
             );
           })}
         </div>
-        <div className="h-4" />
+        <div className="h-3" />
 
         <AnimatePresence mode="wait" custom={direction}>
           {step === "category" ? (
@@ -441,9 +457,9 @@ export default function NewReportPage() {
               transition={{ duration: 0.25, ease: "easeInOut" }}
               className="flex flex-col gap-6"
             >
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold">Selecciona una categoría</h2>
-                <p className="text-muted-foreground">¿Qué tipo de datos necesitas analizar hoy?</p>
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight">Selecciona una categoría</h2>
+                <p className="text-muted-foreground text-sm">¿Qué tipo de datos necesitas analizar hoy?</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {REPORT_CATEGORIES.map((category) => {
@@ -457,7 +473,7 @@ export default function NewReportPage() {
                       onClick={() => handleCategorySelect(category)}
                       disabled={!category.enabled}
                       className={cn(
-                        "group focus-visible:ring-primary relative flex flex-col items-start gap-4 rounded-xl border p-6 text-left shadow-sm transition-all outline-none focus-visible:ring-2",
+                        "group focus-visible:ring-primary relative flex flex-col items-start gap-3 rounded-lg border p-5 text-left shadow-sm transition-all outline-none focus-visible:ring-2",
                         category.enabled
                           ? "bg-card cursor-pointer hover:shadow-md"
                           : "bg-muted/30 cursor-not-allowed opacity-50",
@@ -465,20 +481,20 @@ export default function NewReportPage() {
                     >
                       <div
                         className={cn(
-                          "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                          "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
                           category.enabled
                             ? "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
                             : "bg-muted text-muted-foreground",
                         )}
                       >
-                        <Icon className="h-6 w-6" />
+                        <Icon className="h-5 w-5" />
                       </div>
-                      <div className="space-y-1">
-                        <h3 className="leading-none font-semibold tracking-tight">{category.title}</h3>
-                        <p className="text-muted-foreground text-sm">{category.description}</p>
+                      <div className="space-y-0.5">
+                        <h3 className="text-sm leading-none font-semibold tracking-tight">{category.title}</h3>
+                        <p className="text-muted-foreground text-xs leading-relaxed">{category.description}</p>
                       </div>
                       {!category.enabled && (
-                        <Badge variant="outline" className="absolute top-4 right-4">
+                        <Badge variant="outline" className="absolute top-3 right-3 text-xs">
                           Próximamente
                         </Badge>
                       )}
@@ -500,14 +516,14 @@ export default function NewReportPage() {
               transition={{ duration: 0.25, ease: "easeInOut" }}
               className="flex flex-col gap-6"
             >
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight">
                   {selectedCategory ? `Informes de ${selectedCategory.title}` : "Selecciona un tipo"}
                 </h2>
-                <p className="text-muted-foreground">Elige el formato específico del reporte.</p>
+                <p className="text-muted-foreground text-sm">Elige el formato específico del reporte.</p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {availableTypes.map((type) => (
                   <motion.button
                     key={type.id}
@@ -517,19 +533,23 @@ export default function NewReportPage() {
                     onClick={() => handleTypeSelect(type)}
                     disabled={!type.enabled}
                     className={cn(
-                      "group focus-visible:ring-primary relative flex items-start gap-4 rounded-xl border p-5 text-left shadow-sm transition-all outline-none focus-visible:ring-2",
+                      "group focus-visible:ring-primary relative flex items-start gap-3 rounded-lg border p-4 text-left shadow-sm transition-all outline-none focus-visible:ring-2",
                       type.enabled
                         ? "bg-card cursor-pointer hover:shadow-md"
                         : "bg-muted/30 cursor-not-allowed opacity-50",
                     )}
                   >
-                    <div className="flex-1 space-y-1">
-                      <h3 className="font-semibold">{type.title}</h3>
-                      <p className="text-muted-foreground text-sm">{type.description}</p>
+                    <div className="flex-1 space-y-0.5">
+                      <h3 className="text-sm font-semibold">{type.title}</h3>
+                      <p className="text-muted-foreground text-xs leading-relaxed">{type.description}</p>
                     </div>
-                    {!type.enabled && <Badge variant="outline">Próximamente</Badge>}
+                    {!type.enabled && (
+                      <Badge variant="outline" className="text-xs">
+                        Próximamente
+                      </Badge>
+                    )}
                     {type.enabled && (
-                      <ArrowRight className="text-muted-foreground h-5 w-5 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
+                      <ArrowRight className="text-muted-foreground h-4 w-4 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
                     )}
                   </motion.button>
                 ))}
@@ -546,17 +566,21 @@ export default function NewReportPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="mx-auto flex w-full max-w-2xl flex-col gap-6"
+              className="mx-auto flex w-full max-w-xl flex-col gap-5"
             >
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuración</CardTitle>
-                  <CardDescription>Ajusta el periodo y los filtros antes de generar el informe.</CardDescription>
+              <Card className="gap-0">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base">Configuración</CardTitle>
+                  <CardDescription className="text-sm">
+                    Ajusta el periodo y los filtros antes de generar el informe.
+                  </CardDescription>
                 </CardHeader>
-                <div className="space-y-6 p-6 pt-0">
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="report-month">Mes</Label>
+                <div className="space-y-4 px-6 pb-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="report-month" className="text-sm">
+                        Mes
+                      </Label>
                       <Select value={`${month}`} onValueChange={(value) => setMonth(Number(value))}>
                         <SelectTrigger id="report-month">
                           <SelectValue placeholder="Selecciona mes" />
@@ -570,8 +594,10 @@ export default function NewReportPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="report-year">Año</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="report-year" className="text-sm">
+                        Año
+                      </Label>
                       <Input
                         id="report-year"
                         type="number"
@@ -589,8 +615,10 @@ export default function NewReportPage() {
                   </div>
 
                   {requiresDepartment ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="report-department">Departamento</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="report-department" className="text-sm">
+                        Departamento
+                      </Label>
                       <Select value={departmentId} onValueChange={setDepartmentId} disabled={loadingDepartments}>
                         <SelectTrigger id="report-department">
                           <SelectValue
@@ -608,17 +636,18 @@ export default function NewReportPage() {
                     </div>
                   ) : null}
 
-                  <div className="bg-muted/20 flex items-start space-x-3 rounded-md border p-4">
+                  <div className="bg-muted/30 flex items-start gap-3 rounded-md border p-3">
                     <Checkbox
                       id="report-notify"
                       checked={notifyWhenReady}
                       onCheckedChange={(value) => setNotifyWhenReady(Boolean(value))}
+                      className="mt-0.5"
                     />
-                    <div className="grid gap-1.5 leading-none">
-                      <Label htmlFor="report-notify" className="cursor-pointer font-medium">
+                    <div className="grid gap-1 leading-none">
+                      <Label htmlFor="report-notify" className="cursor-pointer text-sm font-medium">
                         Avísame cuando esté listo
                       </Label>
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-xs">
                         Recibirás una notificación en la campana cuando el informe esté disponible.
                       </p>
                     </div>
@@ -626,12 +655,8 @@ export default function NewReportPage() {
                 </div>
               </Card>
 
-              <div className="flex justify-end gap-3">
-                <Button
-                  onClick={handleParamsContinue}
-                  disabled={!canContinueFromParams}
-                  className="w-full min-w-[140px] sm:w-auto"
-                >
+              <div className="flex justify-end">
+                <Button onClick={handleParamsContinue} disabled={!canContinueFromParams} className="min-w-[120px]">
                   Continuar
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -648,47 +673,45 @@ export default function NewReportPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="mx-auto flex w-full max-w-2xl flex-col gap-6"
+              className="mx-auto flex w-full max-w-xl flex-col gap-5"
             >
-              <Card className="border-primary/20 shadow-md">
-                <CardHeader className="bg-primary/5 border-b pb-8">
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <div className="bg-primary/10 text-primary mb-2 flex h-12 w-12 items-center justify-center rounded-full">
-                      <FileText className="h-6 w-6" />
+              <Card className="border-primary/20 gap-0">
+                <CardHeader className="bg-primary/5 border-b pb-5">
+                  <div className="flex flex-col items-center gap-1.5 text-center">
+                    <div className="bg-primary/10 text-primary mb-1 flex h-10 w-10 items-center justify-center rounded-full">
+                      <FileText className="h-5 w-5" />
                     </div>
-                    <CardTitle className="text-2xl">Confirmar Informe</CardTitle>
-                    <CardDescription>Revisa los detalles antes de generar el documento.</CardDescription>
+                    <CardTitle className="text-lg">Confirmar Informe</CardTitle>
+                    <CardDescription className="text-sm">
+                      Revisa los detalles antes de generar el documento.
+                    </CardDescription>
                   </div>
                 </CardHeader>
-                <div className="grid gap-6 p-6">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                <div className="p-5">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                     {summary.map((item) => (
-                      <div key={item.label} className="space-y-1">
-                        <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                      <div key={item.label} className="space-y-0.5">
+                        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                           {item.label}
                         </p>
-                        <p className="text-foreground text-base font-medium">{item.value}</p>
+                        <p className="text-foreground text-sm font-medium">{item.value}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               </Card>
 
-              <div className="mt-2 flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={resetToCategory}
                   disabled={submitting}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   Empezar de nuevo
                 </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  size="lg"
-                  className="shadow-primary/20 w-full min-w-[200px] shadow-lg sm:w-auto"
-                >
+                <Button onClick={handleSubmit} disabled={submitting} className="w-full min-w-[160px] sm:w-auto">
                   {submitting ? "Generando..." : "Generar informe"}
                   {!submitting && <Check className="ml-2 h-4 w-4" />}
                 </Button>
