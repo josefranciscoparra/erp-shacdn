@@ -1,4 +1,5 @@
 import { getBoss, stopBoss } from "@/server/jobs/boss";
+import { registerDataExportWorker } from "@/server/jobs/data-export-worker";
 import { registerEmailSendWorker } from "@/server/jobs/email-send-worker";
 import { registerEmployeeImportInviteWorker } from "@/server/jobs/employee-import-invite-worker";
 import { registerEmployeeImportSimulationWorker } from "@/server/jobs/employee-import-simulate-worker";
@@ -15,6 +16,7 @@ async function startWorker() {
   await registerEmployeeImportInviteWorker(boss);
   await registerEmployeeImportSimulationWorker(boss);
   await registerEmailSendWorker(boss);
+  await registerDataExportWorker(boss);
   await registerPayslipWorker(boss);
   await registerSignatureBatchWorker(boss);
   await registerOvertimeWorker(boss);

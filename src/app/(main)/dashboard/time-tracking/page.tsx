@@ -8,6 +8,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { AttendanceExportDialog } from "@/components/exports/attendance-export-dialog";
 import { EmployeeSearchInput } from "@/components/hr/employee-search-input";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -87,7 +88,11 @@ export default function TimeTrackingPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Control Horario" description="Gestión de fichajes por empleado" />
+        <SectionHeader
+          title="Control Horario"
+          description="Gestión de fichajes por empleado"
+          action={<AttendanceExportDialog triggerLabel="Exportar fichajes" />}
+        />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">

@@ -397,6 +397,13 @@ export function useSidebarItems(): NavGroup[] {
             },
           ],
         },
+        {
+          title: "Informes y KPIs",
+          url: "/dashboard/reports",
+          icon: ClipboardList,
+          permission: "view_reports",
+          isNew: true,
+        },
         ...(payrollEnabled
           ? [
               {

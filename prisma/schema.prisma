@@ -107,6 +107,7 @@ model Organization {
   employmentContracts          EmploymentContract[]
   employeeDocuments            EmployeeDocument[]
   storedFiles                  StoredFile[]
+  dataExports                  DataExport[]
   temporaryPasswords           TemporaryPassword[]
   supportImpersonationTokens   SupportImpersonationToken[]
   calendars                    Calendar[]
@@ -399,6 +400,7 @@ model User {
   timeBankSettingsCreated           TimeBankSettings[]          @relation("TimeBankSettingsCreatedBy")
   timeBankSettingsUpdated           TimeBankSettings[]          @relation("TimeBankSettingsUpdatedBy")
   uploadedPtoDocuments              PtoRequestDocument[] // 🆕 Justificantes de ausencia que ha subido
+  dataExportsRequested              DataExport[]               @relation("DataExportRequester")
 
   // NUEVO: Sistema de nóminas masivas (Mejora 3)
   uploadedPayslipBatches PayslipBatch[] @relation("BatchUploader") // Lotes de nóminas que ha subido
@@ -1219,6 +1221,21 @@ enum RetentionPolicy {
   WHISTLEBLOWING
   SIGNATURE
   GENERIC
+}
+
+// Estados de exportaciones de datos / KPIs
+enum DataExportStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+  EXPIRED
+}
+
+// Tipos de exportación disponibles
+enum DataExportType {
+  TIME_TRACKING_MONTHLY
 }
 
 // Estados del lote de nóminas (Mejora 3 - Fortalecido)
@@ -4553,6 +4570,51 @@ model WhistleblowingActivity {
 
   @@index([reportId])
   @@map("whistleblowing_activities")
+}
+
+// ==================== DATA EXPORTS / KPIs ====================
+// Exportaciones asíncronas generadas por workers (CSV)
+
+model DataExport {
+  id String @id @default(cuid())
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  requestedById String
+  requestedBy   User   @relation("DataExportRequester", fields: [requestedById], references: [id])
+
+  type   DataExportType
+  status DataExportStatus @default(PENDING)
+
+  filters     Json
+  filtersHash String
+
+  progress     Int      @default(0)
+  errorMessage String?
+
+  fileStorageKey String?
+  fileName       String?
+  fileSize       Int?
+  fileMimeType   String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+  canceledAt  DateTime?
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([createdAt])
+  @@index([orgId, status])
+  @@index([orgId, type, filtersHash])
+  @@map("data_exports")
 }
 
 // ==================== EMAIL SYSTEM ====================
