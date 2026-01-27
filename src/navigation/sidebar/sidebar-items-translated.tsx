@@ -225,33 +225,6 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/approvals",
           icon: CheckSquare,
           permission: "approve_requests",
-          subItems: [
-            {
-              title: "Ausencias",
-              url: "/dashboard/approvals/pto",
-              permission: "approve_requests",
-            },
-            {
-              title: "Fichajes manuales",
-              url: "/dashboard/approvals/time-entries",
-              permission: "approve_requests",
-            },
-            {
-              title: "Horas extra",
-              url: "/dashboard/approvals/overtime",
-              permission: "approve_requests",
-            },
-            {
-              title: "Intervenciones",
-              url: "/dashboard/approvals/on-call",
-              permission: "approve_requests",
-            },
-            {
-              title: "Gastos",
-              url: "/dashboard/approvals/expenses",
-              permission: "approve_requests",
-            },
-          ],
         },
         {
           title: "Alertas",

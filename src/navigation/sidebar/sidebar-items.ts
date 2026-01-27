@@ -67,13 +67,6 @@ export const sidebarItems: NavGroup[] = [
         title: "Aprobaciones",
         url: "/dashboard/approvals",
         icon: ClipboardCheck,
-        subItems: [
-          { title: "Ausencias", url: "/dashboard/approvals/pto" },
-          { title: "Fichajes manuales", url: "/dashboard/approvals/time-entries" },
-          { title: "Horas extra", url: "/dashboard/approvals/overtime" },
-          { title: "Intervenciones", url: "/dashboard/approvals/on-call" },
-          { title: "Gastos", url: "/dashboard/approvals/expenses" },
-        ],
       },
       {
         title: "Gestión de Firmas",
