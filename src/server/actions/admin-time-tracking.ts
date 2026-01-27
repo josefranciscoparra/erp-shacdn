@@ -18,7 +18,13 @@ import {
 
 import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { getLocalDateParts, getLocalDayEndUtc, getLocalDayStartUtc, resolveTimeZone } from "@/lib/timezone-utils";
+import {
+  getLocalDateParts,
+  getLocalDayEndUtc,
+  getLocalDayStartUtc,
+  getLocalDayStartUtcFromParts,
+  resolveTimeZone,
+} from "@/lib/timezone-utils";
 import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 import { minutesToTime } from "@/services/schedules/schedule-helpers";
 import type { EffectiveSchedule } from "@/types/schedule";
@@ -36,6 +42,26 @@ function getLocalDateKey(date: Date, timeZone?: string): string {
   const month = String(parts.month).padStart(2, "0");
   const day = String(parts.day).padStart(2, "0");
   return `${parts.year}-${month}-${day}`;
+}
+
+function getLocalDayRange(dateFrom: Date, dateTo: Date, timeZone: string) {
+  const startParts = getLocalDateParts(dateFrom, timeZone);
+  const endParts = getLocalDateParts(dateTo, timeZone);
+
+  const startCursor = new Date(Date.UTC(startParts.year, startParts.month - 1, startParts.day, 12, 0, 0, 0));
+  const endCursor = new Date(Date.UTC(endParts.year, endParts.month - 1, endParts.day, 12, 0, 0, 0));
+
+  const days: Date[] = [];
+
+  for (let cursor = startCursor; cursor <= endCursor; cursor = addDays(cursor, 1)) {
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth() + 1;
+    const day = cursor.getUTCDate();
+    const dayStart = getLocalDayStartUtcFromParts(year, month, day, timeZone);
+    days.push(dayStart);
+  }
+
+  return days;
 }
 
 // Tipos de filtros
@@ -2001,10 +2027,14 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       throw new Error("Empleado no encontrado");
     }
 
+    const activeContract = employee.employmentContracts[0] ?? null;
+    const contractStartUtc = activeContract?.startDate ? getLocalDayStartUtc(activeContract.startDate, timeZone) : null;
+    const contractEndUtc = activeContract?.endDate ? getLocalDayEndUtc(activeContract.endDate, timeZone) : null;
+
     // Generar el rango de fechas completo
     const startDate = dateFrom ? getLocalDayStartUtc(dateFrom, timeZone) : getLocalDayStartUtc(new Date(), timeZone);
     const endDate = dateTo ? getLocalDayEndUtc(dateTo, timeZone) : getLocalDayEndUtc(new Date(), timeZone);
-    const allDaysInRange = eachDayOfInterval({ start: startDate, end: endDate });
+    const allDaysInRange = getLocalDayRange(startDate, endDate, timeZone);
 
     const where: any = {
       orgId,
@@ -2116,6 +2146,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
         .reverse() // Ordenar de más reciente a más antiguo
         .map((dayDate) => {
           const dayKey = getLocalDateKey(dayDate, timeZone);
+          const isOutsideContract =
+            !activeContract ||
+            (contractStartUtc ? dayDate < contractStartUtc : false) ||
+            (contractEndUtc ? dayDate > contractEndUtc : false);
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
           const previousDayKey = getLocalDateKey(addDays(dayDate, -1), timeZone);
@@ -2154,10 +2188,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           const carryoverMinutes = hasMidnightCrossing
             ? Math.max(0, differenceInMinutes(nextDayStart, new Date(lastEntry.timestamp)))
             : 0;
-          const crossedMidnight = carryoverMinutes > 0 || hasMidnightCrossingFromPrevious;
+          const crossedMidnightToNext = carryoverMinutes > 0;
+          const crossedMidnightFromPrevious = hasMidnightCrossingFromPrevious;
+          const crossedMidnight = crossedMidnightToNext || crossedMidnightFromPrevious;
 
           // Obtener datos del motor de horarios
-          const schedule = scheduleMap.get(dayKey);
+          const schedule = isOutsideContract ? null : scheduleMap.get(dayKey);
 
           // Mapear datos del motor a la estructura de la vista
           const hoursExpected = schedule ? schedule.expectedMinutes / 60 : 0;
@@ -2190,7 +2226,9 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               } else {
                 // Día con 0 horas esperadas (Festivo, Vacaciones, Fin de semana)
                 // Forzar el estado visual correcto en lugar de mostrar "COMPLETED" erróneamente
-                if (schedule?.source === "ABSENCE" || schedule?.absence) {
+                if (isOutsideContract) {
+                  displayStatus = "NON_WORKDAY";
+                } else if (schedule?.source === "ABSENCE" || schedule?.absence) {
                   displayStatus = "ABSENT";
                 } else if (isHoliday) {
                   displayStatus = "HOLIDAY";
@@ -2220,7 +2258,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               isWorkingDay,
               isHoliday,
               holidayName,
+              isOutsideContract,
               crossedMidnight,
+              crossedMidnightToNext,
+              crossedMidnightFromPrevious,
               timeEntries: dayEntries.map((entry) => ({
                 id: entry.id,
                 entryType: entry.entryType,
@@ -2248,7 +2289,9 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           // Determinar el status correcto según el tipo de día
           let virtualStatus: "ABSENT" | "HOLIDAY" | "NON_WORKDAY";
 
-          if (schedule?.source === "ABSENCE" || schedule?.absence) {
+          if (isOutsideContract) {
+            virtualStatus = "NON_WORKDAY";
+          } else if (schedule?.source === "ABSENCE" || schedule?.absence) {
             virtualStatus = "ABSENT"; // Ausencia justificada
           } else if (schedule?.source === "EXCEPTION" && schedule.exceptionType === "HOLIDAY") {
             virtualStatus = "HOLIDAY";
@@ -2272,6 +2315,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             isWorkingDay,
             isHoliday,
             holidayName,
+            isOutsideContract,
+            crossedMidnight: crossedMidnightToNext || crossedMidnightFromPrevious,
+            crossedMidnightToNext,
+            crossedMidnightFromPrevious,
             timeEntries: dayEntries.map((entry) => ({
               id: entry.id,
               entryType: entry.entryType,

@@ -51,6 +51,9 @@ interface DayData {
   isHoliday?: boolean;
   holidayName?: string;
   crossedMidnight?: boolean;
+  crossedMidnightToNext?: boolean;
+  crossedMidnightFromPrevious?: boolean;
+  isOutsideContract?: boolean;
   timeEntries: TimeEntry[];
   // Alertas
   alerts?: {
@@ -126,7 +129,8 @@ export function DayCard({ day }: DayCardProps) {
 
   const visibleEntries = day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
   const isJustifiedAbsence = !!day.holidayName;
-  const isClosedByClockOut = Boolean(day.clockOut) || day.crossedMidnight === true;
+  const isClosedByClockOut =
+    Boolean(day.clockOut) || day.crossedMidnightToNext === true || day.crossedMidnightFromPrevious === true;
   const showCompliance = day.expectedHours > 0;
 
   // Calcular bloques de tiempo para la visualización gráfica (0-24h)
@@ -209,7 +213,7 @@ export function DayCard({ day }: DayCardProps) {
         const diffMs = now.getTime() - currentBlockStart.getTime();
         additionalHours = diffMs / (1000 * 60 * 60);
       }
-    } else if (day.crossedMidnight) {
+    } else if (day.crossedMidnightToNext) {
       const startVal = getHourValue(currentBlockStart);
       workBlocks.push({
         start: startVal,
@@ -251,7 +255,9 @@ export function DayCard({ day }: DayCardProps) {
 
   const statusLabel =
     day.status === "NON_WORKDAY"
-      ? "No laborable"
+      ? day.isOutsideContract
+        ? "Sin contrato"
+        : "No laborable"
       : day.status === "IN_PROGRESS"
         ? isClosedByClockOut
           ? "Cerrado"
@@ -317,13 +323,22 @@ export function DayCard({ day }: DayCardProps) {
               </span>
             )}
           </div>
-          {day.crossedMidnight === true && (
+          {day.crossedMidnightToNext === true && (
             <Badge
               variant="outline"
               className="mt-1 h-5 gap-1 border-amber-200 bg-amber-50 px-1.5 text-[10px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
             >
               <AlertTriangle className="size-3" />
               Termina al día siguiente
+            </Badge>
+          )}
+          {day.crossedMidnightToNext !== true && day.crossedMidnightFromPrevious === true && (
+            <Badge
+              variant="outline"
+              className="mt-1 h-5 gap-1 border-amber-200 bg-amber-50 px-1.5 text-[10px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              <AlertTriangle className="size-3" />
+              Viene del día anterior
             </Badge>
           )}
         </div>

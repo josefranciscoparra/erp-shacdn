@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import { startOfDay, format } from "date-fns";
+import { addDays, endOfMonth, endOfYear, format, startOfDay, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, ArrowLeft, ShieldAlert, List, Map } from "lucide-react";
 import { DateRange } from "react-day-picker";
@@ -42,6 +42,22 @@ import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns
 type TabValue = "detail" | "week" | "month" | "year";
 type PeriodOption = "today" | "7days" | "30days" | "thisMonth" | "lastMonth" | "custom";
 
+type CrossingCounts = {
+  toNext: number;
+  fromPrevious: number;
+};
+
+type CrossingMaps = {
+  weekCounts: Map<string, CrossingCounts>;
+  monthCounts: Map<string, CrossingCounts>;
+  yearCounts: Map<string, CrossingCounts>;
+  rangeStart: Date;
+  rangeEnd: Date;
+  limited: boolean;
+};
+
+const MAX_CROSSING_RANGE_DAYS = 370;
+
 function getLocalDateKey(date: Date): string {
   const localDate = new Date(date);
   const year = localDate.getFullYear();
@@ -66,6 +82,9 @@ interface DayDetailData {
   isHoliday: boolean;
   holidayName?: string;
   crossedMidnight?: boolean;
+  crossedMidnightToNext?: boolean;
+  crossedMidnightFromPrevious?: boolean;
+  isOutsideContract?: boolean;
   timeEntries: {
     id: string;
     entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
@@ -114,6 +133,98 @@ export default function EmployeeTimeTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [employeeName, setEmployeeName] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+
+  const formatCrossingSummary = (counts: CrossingCounts | undefined, isInRange: boolean) => {
+    if (!isInRange) {
+      return "N/D";
+    }
+
+    const toNext = counts?.toNext ?? 0;
+    const fromPrevious = counts?.fromPrevious ?? 0;
+
+    if (toNext === 0 && fromPrevious === 0) {
+      return "No";
+    }
+
+    if (fromPrevious === 0) {
+      return `Termina: ${toNext}`;
+    }
+
+    if (toNext === 0) {
+      return `Viene: ${fromPrevious}`;
+    }
+
+    return `Termina: ${toNext} / Viene: ${fromPrevious}`;
+  };
+
+  const clampCrossingRange = (rangeStart: Date, rangeEnd: Date) => {
+    const maxStart = addDays(rangeEnd, -(MAX_CROSSING_RANGE_DAYS - 1));
+    if (rangeStart < maxStart) {
+      return {
+        rangeStart: maxStart,
+        rangeEnd,
+        limited: true,
+      };
+    }
+
+    return {
+      rangeStart,
+      rangeEnd,
+      limited: false,
+    };
+  };
+
+  const buildCrossingMaps = async (rangeStart: Date, rangeEnd: Date): Promise<CrossingMaps> => {
+    const clamped = clampCrossingRange(rangeStart, rangeEnd);
+    const detail = await getEmployeeDailyDetail(employeeId, clamped.rangeStart, clamped.rangeEnd);
+
+    const weekCounts = new Map<string, CrossingCounts>();
+    const monthCounts = new Map<string, CrossingCounts>();
+    const yearCounts = new Map<string, CrossingCounts>();
+
+    const ensureCounts = (map: Map<string, CrossingCounts>, key: string) => {
+      const existing = map.get(key);
+      if (existing) {
+        return existing;
+      }
+
+      const fresh = { toNext: 0, fromPrevious: 0 };
+      map.set(key, fresh);
+      return fresh;
+    };
+
+    detail.days.forEach((day) => {
+      const dayDate = new Date(day.date);
+      const weekKey = startOfWeek(dayDate, { weekStartsOn: 1 }).toISOString();
+      const monthKey = format(dayDate, "yyyy-MM", { locale: es });
+      const yearKey = dayDate.getFullYear().toString();
+
+      const weekCount = ensureCounts(weekCounts, weekKey);
+      const monthCount = ensureCounts(monthCounts, monthKey);
+      const yearCount = ensureCounts(yearCounts, yearKey);
+
+      if (day.crossedMidnightToNext) {
+        weekCount.toNext += 1;
+        monthCount.toNext += 1;
+        yearCount.toNext += 1;
+      }
+
+      if (day.crossedMidnightFromPrevious) {
+        weekCount.fromPrevious += 1;
+        monthCount.fromPrevious += 1;
+        yearCount.fromPrevious += 1;
+      }
+    });
+
+    return {
+      weekCounts,
+      monthCounts,
+      yearCounts,
+      rangeStart: clamped.rangeStart,
+      rangeEnd: clamped.rangeEnd,
+      limited: clamped.limited,
+    };
+  };
 
   // Tablas separadas para cada tipo de datos
   const weeklyTable = useDataTableInstance({
@@ -229,7 +340,7 @@ export default function EmployeeTimeTrackingPage() {
     });
   }, []);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const today = new Date();
     const dateStr = format(today, "yyyy-MM-dd", { locale: es });
     const employeeSlug = employeeName.toLowerCase().replace(/\s+/g, "-");
@@ -248,15 +359,20 @@ export default function EmployeeTimeTrackingPage() {
             "Horas Esperadas": `${day.expectedHours}h`,
             "Horas Trabajadas": `${day.actualHours}h`,
             Cumplimiento: `${day.compliance}%`,
-            Estado:
-              day.status === "COMPLETED"
+            Estado: day.isOutsideContract
+              ? "Sin contrato"
+              : day.status === "COMPLETED"
                 ? "Completado"
                 : day.status === "IN_PROGRESS"
                   ? "En progreso"
                   : day.status === "INCOMPLETE"
                     ? "Incompleto"
                     : "Ausente",
-            "Termina al día siguiente": day.crossedMidnight ? "Sí" : "No",
+            "Termina al día siguiente": day.crossedMidnightToNext
+              ? "Sí"
+              : day.crossedMidnightFromPrevious
+                ? "Viene del día anterior"
+                : "No",
             Observaciones: "",
           });
 
@@ -340,6 +456,19 @@ export default function EmployeeTimeTrackingPage() {
       }
 
       case "week": {
+        let crossingMaps: CrossingMaps | undefined;
+        if (weeklyRecords.length > 0) {
+          const rangeStart = weeklyRecords.reduce(
+            (min, record) => (record.weekStart < min ? record.weekStart : min),
+            weeklyRecords[0].weekStart,
+          );
+          const rangeEnd = weeklyRecords.reduce(
+            (max, record) => (record.weekEnd > max ? record.weekEnd : max),
+            weeklyRecords[0].weekEnd,
+          );
+          crossingMaps = await buildCrossingMaps(rangeStart, rangeEnd);
+        }
+
         const weeklyData = weeklyRecords.map((record) => ({
           Semana: `${format(record.weekStart, "dd/MM", { locale: es })} - ${format(record.weekEnd, "dd/MM/yyyy", { locale: es })}`,
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
@@ -347,12 +476,31 @@ export default function EmployeeTimeTrackingPage() {
           "Horas Esperadas": `${record.expectedHours}h`,
           Cumplimiento: `${record.compliance}%`,
           "Promedio Diario": `${record.averageDaily}h`,
+          "Termina al día siguiente": crossingMaps
+            ? formatCrossingSummary(
+                crossingMaps.weekCounts.get(record.weekStart.toISOString()),
+                record.weekEnd >= crossingMaps.rangeStart && record.weekStart <= crossingMaps.rangeEnd,
+              )
+            : "N/D",
         }));
         exportToCSV(weeklyData, `fichajes-${employeeSlug}-semanas-${dateStr}`);
         break;
       }
 
       case "month": {
+        let crossingMaps: CrossingMaps | undefined;
+        if (monthlyRecords.length > 0) {
+          const rangeStart = monthlyRecords.reduce((min, record) => {
+            const monthStart = startOfMonth(record.month);
+            return monthStart < min ? monthStart : min;
+          }, startOfMonth(monthlyRecords[0].month));
+          const rangeEnd = monthlyRecords.reduce((max, record) => {
+            const monthEnd = endOfMonth(record.month);
+            return monthEnd > max ? monthEnd : max;
+          }, endOfMonth(monthlyRecords[0].month));
+          crossingMaps = await buildCrossingMaps(rangeStart, rangeEnd);
+        }
+
         const monthlyData = monthlyRecords.map((record) => ({
           Mes: format(record.month, "MMMM yyyy", { locale: es }),
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
@@ -360,18 +508,47 @@ export default function EmployeeTimeTrackingPage() {
           "Horas Esperadas": `${record.expectedHours}h`,
           Cumplimiento: `${record.compliance}%`,
           "Promedio Semanal": `${record.averageWeekly}h`,
+          "Termina al día siguiente": crossingMaps
+            ? formatCrossingSummary(
+                crossingMaps.monthCounts.get(format(record.month, "yyyy-MM")),
+                endOfMonth(record.month) >= crossingMaps.rangeStart &&
+                  startOfMonth(record.month) <= crossingMaps.rangeEnd,
+              )
+            : "N/D",
         }));
         exportToCSV(monthlyData, `fichajes-${employeeSlug}-meses-${dateStr}`);
         break;
       }
 
       case "year": {
+        let crossingMaps: CrossingMaps | undefined;
+        if (yearlyRecords.length > 0) {
+          const minYear = yearlyRecords.reduce(
+            (min, record) => (record.year < min ? record.year : min),
+            yearlyRecords[0].year,
+          );
+          const maxYear = yearlyRecords.reduce(
+            (max, record) => (record.year > max ? record.year : max),
+            yearlyRecords[0].year,
+          );
+          const rangeStart = startOfYear(new Date(minYear, 0, 1));
+          const rangeEnd = endOfYear(new Date(maxYear, 0, 1));
+          crossingMaps = await buildCrossingMaps(rangeStart, rangeEnd);
+        }
+
         const yearlyData = yearlyRecords.map((record) => ({
           Año: record.year.toString(),
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
           "Horas Trabajadas": `${record.actualHours}h`,
           "Horas Esperadas": `${record.expectedHours}h`,
           "Promedio Mensual": `${record.averageMonthly}h`,
+          "Termina al día siguiente": crossingMaps
+            ? formatCrossingSummary(
+                crossingMaps.yearCounts.get(record.year.toString()),
+                endOfYear(new Date(record.year, 0, 1)) >= crossingMaps.rangeStart &&
+                  startOfYear(new Date(record.year, 0, 1)) <= crossingMaps.rangeEnd,
+              )
+            : "N/D",
         }));
         exportToCSV(yearlyData, `fichajes-${employeeSlug}-años-${dateStr}`);
         break;
@@ -564,7 +741,7 @@ export default function EmployeeTimeTrackingPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleExport}
+                onClick={() => void handleExport()}
                 disabled={
                   isLoading ||
                   (activeTab === "detail"
