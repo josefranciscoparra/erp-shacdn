@@ -16,6 +16,8 @@ export interface CreateAbsenceTypeInput {
   requiresApproval: boolean;
   requiresDocument: boolean;
   minDaysAdvance: number;
+  allowRetroactive: boolean;
+  retroactiveMaxDays: number;
   affectsBalance: boolean;
   balanceType: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
   // Granularidad
@@ -60,6 +62,8 @@ export async function getAllAbsenceTypes() {
     requiresApproval: type.requiresApproval,
     requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
+    allowRetroactive: type.allowRetroactive,
+    retroactiveMaxDays: type.retroactiveMaxDays,
     affectsBalance: type.affectsBalance,
     balanceType: type.balanceType,
     active: type.active,
@@ -98,6 +102,8 @@ export async function getActiveAbsenceTypes() {
     requiresApproval: type.requiresApproval,
     requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
+    allowRetroactive: type.allowRetroactive,
+    retroactiveMaxDays: type.retroactiveMaxDays,
     affectsBalance: type.affectsBalance,
     balanceType: type.balanceType,
     allowPartialDays: type.allowPartialDays,
@@ -142,6 +148,8 @@ export async function getAbsenceTypeById(id: string) {
     requiresApproval: absenceType.requiresApproval,
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
+    allowRetroactive: absenceType.allowRetroactive,
+    retroactiveMaxDays: absenceType.retroactiveMaxDays,
     affectsBalance: absenceType.affectsBalance,
     balanceType: absenceType.balanceType,
     active: absenceType.active,
@@ -191,6 +199,12 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
     }
   }
 
+  if (input.allowRetroactive) {
+    if (input.retroactiveMaxDays < 1 || input.retroactiveMaxDays > 365) {
+      throw new Error("Los días retroactivos deben estar entre 1 y 365");
+    }
+  }
+
   const absenceType = await prisma.absenceType.create({
     data: {
       name: input.name,
@@ -201,6 +215,8 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
       requiresApproval: input.requiresApproval,
       requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
+      allowRetroactive: input.allowRetroactive,
+      retroactiveMaxDays: input.allowRetroactive ? input.retroactiveMaxDays : 0,
       affectsBalance: input.affectsBalance,
       balanceType: input.balanceType,
       active: true,
@@ -223,6 +239,8 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
     requiresApproval: absenceType.requiresApproval,
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
+    allowRetroactive: absenceType.allowRetroactive,
+    retroactiveMaxDays: absenceType.retroactiveMaxDays,
     affectsBalance: absenceType.affectsBalance,
     balanceType: absenceType.balanceType,
     active: absenceType.active,
@@ -285,6 +303,12 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
     }
   }
 
+  if (input.allowRetroactive) {
+    if (input.retroactiveMaxDays < 1 || input.retroactiveMaxDays > 365) {
+      throw new Error("Los días retroactivos deben estar entre 1 y 365");
+    }
+  }
+
   const absenceType = await prisma.absenceType.update({
     where: { id: input.id },
     data: {
@@ -296,6 +320,8 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
       requiresApproval: input.requiresApproval,
       requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
+      allowRetroactive: input.allowRetroactive,
+      retroactiveMaxDays: input.allowRetroactive ? input.retroactiveMaxDays : 0,
       affectsBalance: input.affectsBalance,
       balanceType: input.balanceType,
       allowPartialDays: input.allowPartialDays,
@@ -316,6 +342,8 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
     requiresApproval: absenceType.requiresApproval,
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
+    allowRetroactive: absenceType.allowRetroactive,
+    retroactiveMaxDays: absenceType.retroactiveMaxDays,
     affectsBalance: absenceType.affectsBalance,
     balanceType: absenceType.balanceType,
     active: absenceType.active,
@@ -407,6 +435,8 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       isPaid: true,
       requiresApproval: true,
       minDaysAdvance: 15,
+      allowRetroactive: false,
+      retroactiveMaxDays: 0,
       affectsBalance: true,
       balanceType: "VACATION",
       allowPartialDays: false,
@@ -423,6 +453,8 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       isPaid: true,
       requiresApproval: true,
       minDaysAdvance: 3,
+      allowRetroactive: false,
+      retroactiveMaxDays: 0,
       affectsBalance: true,
       balanceType: "PERSONAL_MATTERS",
       allowPartialDays: false,
@@ -439,6 +471,8 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       isPaid: true,
       requiresApproval: false,
       minDaysAdvance: 0,
+      allowRetroactive: false,
+      retroactiveMaxDays: 0,
       affectsBalance: false,
       balanceType: "VACATION",
       allowPartialDays: false,
@@ -455,6 +489,8 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       isPaid: true,
       requiresApproval: true,
       minDaysAdvance: 1,
+      allowRetroactive: false,
+      retroactiveMaxDays: 0,
       affectsBalance: true,
       balanceType: "PERSONAL_MATTERS",
       allowPartialDays: true,
@@ -476,6 +512,8 @@ export async function createDefaultAbsenceTypes(orgId: string) {
           isPaid: type.isPaid,
           requiresApproval: type.requiresApproval,
           minDaysAdvance: type.minDaysAdvance,
+          allowRetroactive: type.allowRetroactive,
+          retroactiveMaxDays: type.retroactiveMaxDays,
           affectsBalance: type.affectsBalance,
           active: true,
           allowPartialDays: type.allowPartialDays,

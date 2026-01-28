@@ -55,6 +55,8 @@ export interface AbsenceTypeRow {
   requiresApproval: boolean;
   requiresDocument: boolean;
   minDaysAdvance: number;
+  allowRetroactive: boolean;
+  retroactiveMaxDays: number;
   affectsBalance: boolean;
   balanceType: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
   active: boolean;
@@ -216,6 +218,9 @@ export function AbsenceTypesTab() {
             {row.original.isPaid && <Badge variant="outline">Pagado</Badge>}
             {row.original.requiresApproval && <Badge variant="outline">Requiere aprobación</Badge>}
             {row.original.affectsBalance && <Badge variant="outline">Afecta balance</Badge>}
+            {row.original.allowRetroactive && (
+              <Badge variant="outline">Retroactivo {row.original.retroactiveMaxDays}d</Badge>
+            )}
           </div>
         ),
       },

@@ -144,13 +144,16 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     fetchCostCenters();
   }, [fetchCostCenters]);
 
-  const isNewCalendar = !form.watch("calendarId") || form.watch("calendarId") === "__new__";
+  const watchedCalendarId = form.watch("calendarId");
+  const watchedCountryCode = form.watch("countryCode");
   const selectedCalendarType = form.watch("calendarType");
+
+  const isNewCalendar = !watchedCalendarId || watchedCalendarId === "__new__";
   const requiresCostCenter = selectedCalendarType === "LOCAL_HOLIDAY";
 
   // Filtrar festivos según los filtros seleccionados
   const filteredPreview = React.useMemo(() => {
-    if (form.watch("countryCode") !== "ES") {
+    if (watchedCountryCode !== "ES") {
       return preview; // Sin filtrado para otros países
     }
 
@@ -163,7 +166,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     }
 
     return preview; // "all" - mostrar todos
-  }, [preview, filterType, selectedRegion, form]);
+  }, [preview, filterType, selectedRegion, watchedCountryCode]);
 
   const filteredHolidayKeys = React.useMemo(() => filteredPreview.map(getHolidayKey), [filteredPreview]);
 
@@ -177,30 +180,14 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     return count;
   }, [filteredHolidayKeys, selectedHolidays]);
 
-  const allFilteredSelected = filteredHolidayKeys.length > 0 && selectedFilteredCount === filteredHolidayKeys.length;
+  const formSetValue = form.setValue;
+  const formGetValues = form.getValues;
 
   React.useEffect(() => {
-    if (!requiresCostCenter && form.getValues("costCenterId") !== "__none__") {
-      form.setValue("costCenterId", "__none__");
+    if (!requiresCostCenter && formGetValues("costCenterId") !== "__none__") {
+      formSetValue("costCenterId", "__none__");
     }
-  }, [requiresCostCenter, form]);
-
-  React.useEffect(() => {
-    if (filteredHolidayKeys.length === 0) {
-      setSelectedHolidays(new Set());
-      return;
-    }
-
-    setSelectedHolidays((prev) => {
-      const next = new Set<string>();
-      for (const key of filteredHolidayKeys) {
-        if (prev.has(key)) {
-          next.add(key);
-        }
-      }
-      return next;
-    });
-  }, [filteredHolidayKeys]);
+  }, [requiresCostCenter, formSetValue, formGetValues]);
 
   const handlePreview = async () => {
     const year = form.getValues("year");
@@ -221,10 +208,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
 
       const data = await response.json();
       setPreview(data.holidays ?? []);
-
-      // Seleccionar todos por defecto
-      const allHolidayKeys = new Set(data.holidays.map((h: HolidayPreview) => getHolidayKey(h)));
-      setSelectedHolidays(allHolidayKeys);
+      setSelectedHolidays(new Set());
 
       toast.success(`${data.count} festivos encontrados`);
     } catch (error) {
@@ -246,14 +230,6 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
       }
       return newSet;
     });
-  };
-
-  const toggleAll = () => {
-    if (allFilteredSelected) {
-      setSelectedHolidays(new Set());
-    } else {
-      setSelectedHolidays(new Set(filteredHolidayKeys));
-    }
   };
 
   // Helper para obtener nombre de región
@@ -432,7 +408,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                 </Button>
 
                 {/* Controles de filtrado - Solo para España */}
-                {preview.length > 0 && form.watch("countryCode") === "ES" && (
+                {preview.length > 0 && watchedCountryCode === "ES" && (
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Filtros</CardTitle>
@@ -476,23 +452,18 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                 {preview.length > 0 && (
                   <Card>
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-base">
-                            Vista previa ({selectedFilteredCount} de {filteredPreview.length} seleccionados)
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            Selecciona los festivos que deseas importar
-                            {filterType !== "all" && preview.length !== filteredPreview.length && (
-                              <span className="text-muted-foreground ml-1">
-                                ({filteredPreview.length} de {preview.length} después de filtrar)
-                              </span>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={toggleAll} className="shrink-0">
-                          {allFilteredSelected ? "Deseleccionar todos" : "Seleccionar todos"}
-                        </Button>
+                      <div>
+                        <CardTitle className="text-base">
+                          Vista previa ({selectedFilteredCount} de {filteredPreview.length} seleccionados)
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Selecciona los festivos que deseas importar
+                          {filterType !== "all" && preview.length !== filteredPreview.length && (
+                            <span className="text-muted-foreground ml-1">
+                              ({filteredPreview.length} de {preview.length} después de filtrar)
+                            </span>
+                          )}
+                        </CardDescription>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">

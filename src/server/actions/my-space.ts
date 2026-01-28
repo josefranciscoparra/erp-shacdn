@@ -23,11 +23,13 @@ export interface MySpaceDashboard {
       breakMinutes: number;
       expectedMinutes: number;
       status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
+      isFlexibleTotal: boolean;
     };
     week: {
       totalWorkedMinutes: number;
       totalBreakMinutes: number;
       expectedMinutes: number;
+      isFlexibleTotal: boolean;
     };
   };
 
@@ -113,9 +115,14 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       getWeekSchedule(employee.id, today),
     ]);
 
-    const expectedWeeklyMinutes = weekSchedule.totalExpectedMinutes;
     const todaySchedule = weekSchedule.days.find((day) => isSameDay(day.date, today));
+    const isFlexibleToday = Boolean(todaySchedule && todaySchedule.scheduleMode === "FLEX_TOTAL");
+    const flexDay = weekSchedule.days.find((day) => day.scheduleMode === "FLEX_TOTAL");
+    const flexWeeklyTargetMinutes =
+      flexDay && typeof flexDay.weeklyTargetMinutes === "number" ? flexDay.weeklyTargetMinutes : null;
+    const expectedWeeklyMinutes = flexWeeklyTargetMinutes ?? weekSchedule.totalExpectedMinutes;
     const expectedDailyMinutes = todaySchedule ? todaySchedule.expectedMinutes : 0;
+    const isFlexibleWeek = Boolean(flexWeeklyTargetMinutes !== null);
 
     // 2. Obtener balance de vacaciones
     let ptoBalance = null;
@@ -220,11 +227,13 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
           breakMinutes: todaySummary.totalBreakMinutes,
           expectedMinutes: expectedDailyMinutes,
           status: clockStatus,
+          isFlexibleTotal: isFlexibleToday,
         },
         week: {
           totalWorkedMinutes: weekWorkedMinutes,
           totalBreakMinutes: weeklySummary.totalBreakMinutes,
           expectedMinutes: expectedWeeklyMinutes,
+          isFlexibleTotal: isFlexibleWeek,
         },
       },
       pto: ptoBalance,
@@ -256,11 +265,13 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
             breakMinutes: 0,
             expectedMinutes: 0,
             status: "CLOCKED_OUT",
+            isFlexibleTotal: false,
           },
           week: {
             totalWorkedMinutes: 0,
             totalBreakMinutes: 0,
             expectedMinutes: 0,
+            isFlexibleTotal: false,
           },
         },
         pto: null,

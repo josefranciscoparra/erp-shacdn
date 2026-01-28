@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, memo } from "react";
 
 import type { AbsenceType } from "@prisma/client";
+import { startOfDay, subDays } from "date-fns";
 import { Loader2, AlertCircle, CheckCircle, Paperclip } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
@@ -337,18 +338,22 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   const hasProvisionalContract = balance?.hasProvisionalContract === true;
 
   // Calcular duración en minutos basándose en startTime y endTime
-  const calculateDuration = (start: string, end: string): number => {
-    const [startHour, startMin] = start.split(":").map(Number);
-    const [endHour, endMin] = end.split(":").map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
-    return Math.max(0, endMinutes - startMinutes);
+  const parseTimeToMinutes = (time: string): number | null => {
+    if (!time) return null;
+    const parts = time.split(":");
+    if (parts.length !== 2) return null;
+    const hour = Number.parseInt(parts[0], 10);
+    const min = Number.parseInt(parts[1], 10);
+    if (Number.isNaN(hour) || Number.isNaN(min)) return null;
+    if (hour < 0 || hour > 23 || min < 0 || min > 59) return null;
+    return hour * 60 + min;
   };
 
-  // Convertir "HH:mm" a minutos desde medianoche
-  const timeToMinutes = (time: string): number => {
-    const [hour, min] = time.split(":").map(Number);
-    return hour * 60 + min;
+  const calculateDuration = (start: string, end: string): number | null => {
+    const startMinutes = parseTimeToMinutes(start);
+    const endMinutes = parseTimeToMinutes(end);
+    if (startMinutes === null || endMinutes === null) return null;
+    return Math.max(0, endMinutes - startMinutes);
   };
 
   const normalizeToLocalDate = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -424,8 +429,15 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       return { valid: true, error: null };
     }
 
-    const requestedStart = timeToMinutes(startTime);
-    const requestedEnd = timeToMinutes(endTime);
+    const requestedStart = parseTimeToMinutes(startTime);
+    const requestedEnd = parseTimeToMinutes(endTime);
+
+    if (requestedStart === null || requestedEnd === null) {
+      return {
+        valid: false,
+        error: "Completa la hora de inicio y fin",
+      };
+    }
 
     if (requestedEnd <= requestedStart) {
       return {
@@ -438,6 +450,21 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   }, [isPartialDay, startTime, endTime]);
 
   const selectedType = absenceTypes.find((t) => t.id === selectedTypeId) ?? null;
+  const allowRetroactive = selectedType ? selectedType.allowRetroactive : false;
+  const retroactiveMaxDays = selectedType ? selectedType.retroactiveMaxDays : 0;
+  const minSelectableDate =
+    allowRetroactive && retroactiveMaxDays > 0
+      ? subDays(startOfDay(new Date()), retroactiveMaxDays)
+      : startOfDay(new Date());
+  const retroactiveHint = useMemo(() => {
+    if (!selectedType) {
+      return "Selecciona un tipo para ver si puedes pedir fechas pasadas.";
+    }
+    if (allowRetroactive && retroactiveMaxDays > 0) {
+      return `Puedes solicitar hasta ${retroactiveMaxDays} día(s) en el pasado (máximo hasta ayer).`;
+    }
+    return "Este tipo de ausencia no permite solicitar fechas pasadas.";
+  }, [allowRetroactive, retroactiveMaxDays, selectedType]);
   const selectedBalanceType = useMemo<PtoBalanceType>(() => {
     if (!selectedType) return DEFAULT_PTO_BALANCE_TYPE;
     return (selectedType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
@@ -512,6 +539,16 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setIsPartialDay(false);
     }
   }, [isSingleDay]);
+
+  useEffect(() => {
+    if (!dateRange?.from) return;
+    if (dateRange.from < minSelectableDate) {
+      setDateRange(undefined);
+      setWorkingDaysCalc(null);
+      setHolidays([]);
+      toast.error("El rango seleccionado no es válido para este tipo de ausencia.");
+    }
+  }, [dateRange?.from, minSelectableDate]);
 
   useEffect(() => {
     if (!hasActiveContract) {
@@ -640,9 +677,16 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
       // 🆕 Solo incluir campos de hora si es día parcial (isPartialDay = true)
       if (selectedType?.allowPartialDays && isPartialDay) {
-        requestData.startTime = timeToMinutes(startTime);
-        requestData.endTime = timeToMinutes(endTime);
-        requestData.durationMinutes = calculateDuration(startTime, endTime);
+        const parsedStart = parseTimeToMinutes(startTime);
+        const parsedEnd = parseTimeToMinutes(endTime);
+        const duration = calculateDuration(startTime, endTime);
+        if (parsedStart === null || parsedEnd === null || duration === null) {
+          toast.error("Completa la hora de inicio y fin");
+          return;
+        }
+        requestData.startTime = parsedStart;
+        requestData.endTime = parsedEnd;
+        requestData.durationMinutes = duration;
       }
       // Si NO es parcial, NO enviar startTime/endTime/durationMinutes (día completo)
 
@@ -771,7 +815,9 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               placeholder="Selecciona el rango de fechas"
               disabled={!hasActiveContract || !selectedType}
               markers={dayMarkers}
+              minDate={minSelectableDate}
             />
+            <p className="text-muted-foreground text-xs">{retroactiveHint}</p>
             {/* Leyenda de colores */}
             {calendarLegend.length > 0 && (
               <div className="mt-2 rounded-lg border bg-white p-3 dark:bg-gray-800">
@@ -864,10 +910,14 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                   {/* Duración */}
                   <div className="flex justify-between rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-900/50">
                     <span className="text-muted-foreground">Duración:</span>
-                    <span className="font-semibold">
-                      {Math.floor(calculateDuration(startTime, endTime) / 60)}h{" "}
-                      {calculateDuration(startTime, endTime) % 60}min
-                    </span>
+                    {calculateDuration(startTime, endTime) === null ? (
+                      <span className="text-muted-foreground">--</span>
+                    ) : (
+                      <span className="font-semibold">
+                        {Math.floor((calculateDuration(startTime, endTime) ?? 0) / 60)}h{" "}
+                        {(calculateDuration(startTime, endTime) ?? 0) % 60}min
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

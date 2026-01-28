@@ -2217,6 +2217,9 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
           // Obtener datos del motor de horarios
           const schedule = isOutsideContract ? null : scheduleMap.get(dayKey);
+          const isFlexibleTotal = schedule?.scheduleMode === "FLEX_TOTAL";
+          const weeklyTargetMinutesValue =
+            typeof schedule?.weeklyTargetMinutes === "number" ? schedule.weeklyTargetMinutes : null;
 
           // Mapear datos del motor a la estructura de la vista
           const hoursExpected = schedule ? schedule.expectedMinutes / 60 : 0;
@@ -2279,6 +2282,8 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               actualHours: Math.round(workedHours * 100) / 100,
               compliance,
               isWorkingDay,
+              isFlexibleTotal,
+              weeklyTargetMinutes: weeklyTargetMinutesValue,
               isHoliday,
               holidayName,
               isOutsideContract,
@@ -2314,6 +2319,8 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
           if (isOutsideContract) {
             virtualStatus = "NON_WORKDAY";
+          } else if (isFlexibleTotal) {
+            virtualStatus = "NON_WORKDAY";
           } else if (schedule?.source === "ABSENCE" || schedule?.absence) {
             virtualStatus = "ABSENT"; // Ausencia justificada
           } else if (schedule?.source === "EXCEPTION" && schedule.exceptionType === "HOLIDAY") {
@@ -2336,6 +2343,8 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             actualHours: 0,
             compliance: 0,
             isWorkingDay,
+            isFlexibleTotal,
+            weeklyTargetMinutes: weeklyTargetMinutesValue,
             isHoliday,
             holidayName,
             isOutsideContract,

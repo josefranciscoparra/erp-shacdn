@@ -79,6 +79,8 @@ interface DayDetailData {
   compliance: number;
   // Nuevos campos
   isWorkingDay: boolean;
+  isFlexibleTotal?: boolean;
+  weeklyTargetMinutes?: number | null;
   isHoliday: boolean;
   holidayName?: string;
   crossedMidnight?: boolean;
@@ -294,8 +296,9 @@ export default function EmployeeTimeTrackingPage() {
           // Corrección visual para días no laborables (ej: fines de semana)
           // Si no se esperaba trabajar y no se trabajó, forzar estado NON_WORKDAY
           // Esto evita que aparezcan como "Completado" o "Incompleto" erróneamente en la UI
+          const isFlexibleTotal = day.isFlexibleTotal === true;
           let displayStatus = day.status;
-          if (day.expectedHours === 0 && day.actualHours === 0 && day.timeEntries.length === 0) {
+          if (!isFlexibleTotal && day.expectedHours === 0 && day.actualHours === 0 && day.timeEntries.length === 0) {
             displayStatus = "NON_WORKDAY";
           }
 

@@ -46,19 +46,7 @@ function buildUtcDate(year: number, monthIndex: number, day: number, minutes: nu
 
 function applyTimezoneOffset(minutes: number, offsetMinutes: number): number {
   const adjusted = minutes + offsetMinutes;
-  const normalized = ((adjusted % 1440) + 1440) % 1440;
-  while (normalized[0]?.slotType === "BREAK") {
-    normalized.shift();
-  }
-
-  while (normalized[normalized.length - 1]?.slotType === "BREAK") {
-    normalized.pop();
-  }
-
-  return normalized.map((slot, index) => ({
-    ...slot,
-    order: index,
-  }));
+  return ((adjusted % 1440) + 1440) % 1440;
 }
 
 function normalizeSlots(rawSlots: ManualTimeEntrySlotInput[]): ManualTimeEntrySlotInput[] {

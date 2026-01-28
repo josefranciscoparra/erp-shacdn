@@ -1112,6 +1112,53 @@ export async function copyWorkDayPattern(
 // ============================================================================
 
 /**
+ * Valida que una plantilla de horario esté completa antes de asignarla
+ * @returns null si la validación pasa, o un mensaje de error si falla
+ */
+function validateTemplateForAssignment(templateValidation: {
+  name: string;
+  templateType: string;
+  weeklyHours: unknown;
+  periods: Array<{
+    id: string;
+    name: string | null;
+    weeklyHours: unknown;
+    workDayPatterns: Array<{ id: string; timeSlots: Array<{ id: string }> }>;
+  }>;
+}): string | null {
+  if (templateValidation.periods.length === 0) {
+    return `La plantilla "${templateValidation.name}" no tiene períodos configurados. Configure al menos un período antes de asignarla.`;
+  }
+
+  if (templateValidation.templateType === "FLEXIBLE") {
+    const templateWeeklyHours = templateValidation.weeklyHours ? Number(templateValidation.weeklyHours) : null;
+    for (const period of templateValidation.periods) {
+      const periodWeeklyHours = period.weeklyHours ? Number(period.weeklyHours) : null;
+      const resolvedWeeklyHours = periodWeeklyHours ?? templateWeeklyHours ?? 0;
+      if (resolvedWeeklyHours <= 0) {
+        const periodName = period.name ?? "Período sin nombre";
+        return `El período "${periodName}" de la plantilla "${templateValidation.name}" no tiene horas semanales configuradas.`;
+      }
+    }
+    return null;
+  }
+
+  // Validar plantilla no flexible
+  for (const period of templateValidation.periods) {
+    if (period.workDayPatterns.length === 0) {
+      const periodName = period.name ?? "Período sin nombre";
+      return `El período "${periodName}" de la plantilla "${templateValidation.name}" no tiene patrones de días configurados.`;
+    }
+    const hasTimeSlots = period.workDayPatterns.some((pattern) => pattern.timeSlots.length > 0);
+    if (!hasTimeSlots) {
+      const periodName = period.name ?? "Período sin nombre";
+      return `El período "${periodName}" no tiene franjas horarias configuradas. Defina al menos una franja de trabajo.`;
+    }
+  }
+  return null;
+}
+
+/**
  * Asigna un horario a un empleado
  * FASE 3.1: Usa transacción atómica para prevenir múltiples asignaciones activas
  * Las operaciones de cierre y creación son atómicas para evitar estados inconsistentes
@@ -1148,10 +1195,12 @@ export async function assignScheduleToEmployee(
         select: {
           name: true,
           templateType: true,
+          weeklyHours: true,
           periods: {
             select: {
               id: true,
               name: true,
+              weeklyHours: true,
               workDayPatterns: {
                 select: {
                   id: true,
@@ -1169,34 +1218,9 @@ export async function assignScheduleToEmployee(
         return { success: false, error: "Plantilla no encontrada" };
       }
 
-      // Validar que tiene al menos un período
-      if (templateValidation.periods.length === 0) {
-        return {
-          success: false,
-          error: `La plantilla "${templateValidation.name}" no tiene períodos configurados. Configure al menos un período antes de asignarla.`,
-        };
-      }
-
-      // Validar cada período
-      for (const period of templateValidation.periods) {
-        // Validar que tiene patrones de días
-        if (period.workDayPatterns.length === 0) {
-          const periodName = period.name ?? "Período sin nombre";
-          return {
-            success: false,
-            error: `El período "${periodName}" de la plantilla "${templateValidation.name}" no tiene patrones de días configurados.`,
-          };
-        }
-
-        // Validar que al menos un patrón tiene franjas horarias (para días laborables)
-        const hasTimeSlots = period.workDayPatterns.some((pattern) => pattern.timeSlots.length > 0);
-        if (!hasTimeSlots) {
-          const periodName = period.name ?? "Período sin nombre";
-          return {
-            success: false,
-            error: `El período "${periodName}" no tiene franjas horarias configuradas. Defina al menos una franja de trabajo.`,
-          };
-        }
+      const validationError = validateTemplateForAssignment(templateValidation);
+      if (validationError) {
+        return { success: false, error: validationError };
       }
     }
 
@@ -1356,6 +1380,7 @@ export async function getEmployeeCurrentAssignment(employeeId: string) {
         weeklyHours: assignment.scheduleTemplate.weeklyHours ? Number(assignment.scheduleTemplate.weeklyHours) : null,
         periods: assignment.scheduleTemplate.periods.map((period) => ({
           ...period,
+          weeklyHours: period.weeklyHours ? Number(period.weeklyHours) : null,
           workDayPatterns: period.workDayPatterns.map((pattern) => ({
             ...pattern,
             timeSlots: pattern.timeSlots.map(serializeTimeSlot),

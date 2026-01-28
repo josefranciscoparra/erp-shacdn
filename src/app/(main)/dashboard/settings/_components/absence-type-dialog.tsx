@@ -42,6 +42,8 @@ const absenceTypeSchema = z
     requiresApproval: z.boolean(),
     requiresDocument: z.boolean(),
     minDaysAdvance: z.number().min(0, "No puede ser negativo").max(365, "Máximo 365 días"),
+    allowRetroactive: z.boolean(),
+    retroactiveMaxDays: z.number().min(0, "No puede ser negativo").max(365, "Máximo 365 días"),
     affectsBalance: z.boolean(),
     balanceType: z.enum(["VACATION", "PERSONAL_MATTERS", "COMP_TIME"]),
     allowPartialDays: z.boolean(),
@@ -57,6 +59,10 @@ const absenceTypeSchema = z
   .refine((data) => !data.maxDurationMinutes || data.maxDurationMinutes >= data.minimumDurationMinutes, {
     message: "La duración máxima no puede ser menor que la mínima",
     path: ["maxDurationMinutes"],
+  })
+  .refine((data) => !data.allowRetroactive || data.retroactiveMaxDays >= 1, {
+    message: "Indica un máximo de días retroactivos (mínimo 1)",
+    path: ["retroactiveMaxDays"],
   });
 
 type FormValues = z.infer<typeof absenceTypeSchema>;
@@ -82,6 +88,8 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
       requiresApproval: true,
       requiresDocument: false,
       minDaysAdvance: 0,
+      allowRetroactive: false,
+      retroactiveMaxDays: 0,
       affectsBalance: true,
       balanceType: "VACATION",
       allowPartialDays: false,
@@ -104,6 +112,8 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresApproval: editingType.requiresApproval,
         requiresDocument: editingType.requiresDocument,
         minDaysAdvance: editingType.minDaysAdvance,
+        allowRetroactive: editingType.allowRetroactive,
+        retroactiveMaxDays: editingType.retroactiveMaxDays,
         affectsBalance: editingType.affectsBalance,
         balanceType: editingType.balanceType ?? "VACATION",
         allowPartialDays: editingType.allowPartialDays,
@@ -122,6 +132,8 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresApproval: true,
         requiresDocument: false,
         minDaysAdvance: 0,
+        allowRetroactive: false,
+        retroactiveMaxDays: 0,
         affectsBalance: true,
         balanceType: "VACATION",
         allowPartialDays: false,
@@ -146,6 +158,8 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresApproval: data.requiresApproval,
         requiresDocument: data.requiresDocument,
         minDaysAdvance: data.minDaysAdvance,
+        allowRetroactive: data.allowRetroactive,
+        retroactiveMaxDays: data.allowRetroactive ? data.retroactiveMaxDays : 0,
         affectsBalance: data.affectsBalance,
         balanceType: data.balanceType,
         allowPartialDays: data.allowPartialDays,
@@ -173,6 +187,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
   };
 
   const allowPartialDays = form.watch("allowPartialDays");
+  const allowRetroactive = form.watch("allowRetroactive");
   const affectsBalance = form.watch("affectsBalance");
 
   return (
@@ -366,6 +381,46 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="allowRetroactive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-y-0 space-x-3">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Permite retroactivo</FormLabel>
+                      <FormDescription>El empleado puede solicitar fechas pasadas</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {allowRetroactive && (
+                <FormField
+                  control={form.control}
+                  name="retroactiveMaxDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Máximo de días retroactivos</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          value={field.value ?? 0}
+                          onChange={(e) => {
+                            const parsed = Number.parseInt(e.target.value, 10);
+                            field.onChange(Number.isNaN(parsed) ? 0 : parsed);
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>Ventana máxima para solicitar en el pasado</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             {/* Granularidad */}

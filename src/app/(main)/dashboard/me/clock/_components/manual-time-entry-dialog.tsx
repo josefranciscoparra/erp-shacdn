@@ -321,8 +321,6 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
 
   // Validar formulario
   const validateForm = (): boolean => {
-    setError(null);
-
     if (approverError) {
       showValidationError(approverError);
       return false;

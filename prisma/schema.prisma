@@ -2152,6 +2152,8 @@ model AbsenceType {
   isPaid           Boolean @default(true) // Si es tiempo pagado o no
   requiresApproval Boolean @default(true) // Si requiere aprobación
   minDaysAdvance   Int     @default(0) // Días de anticipación requeridos
+  allowRetroactive Boolean @default(false) // ¿Permite solicitudes retroactivas?
+  retroactiveMaxDays Int   @default(0) // Máximo de días retroactivos permitidos
   affectsBalance   Boolean @default(true) // Si descuenta del balance de PTO
   active           Boolean @default(true)
 

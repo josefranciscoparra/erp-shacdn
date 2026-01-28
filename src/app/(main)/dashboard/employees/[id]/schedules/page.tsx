@@ -8,7 +8,6 @@ import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
-  ArrowLeft,
   Clock,
   Calendar,
   AlertCircle,
@@ -31,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getEmployeeCurrentAssignment, getScheduleTemplates } from "@/server/actions/schedules-v2";
+import { getEmployeeCurrentAssignment } from "@/server/actions/schedules-v2";
 
 // Tipos para la asignación V2
 interface TimeSlot {
@@ -58,6 +57,7 @@ interface SchedulePeriod {
   description: string | null;
   startMonthDay: string | null;
   endMonthDay: string | null;
+  weeklyHours: number | null;
   workDayPatterns: WorkDayPattern[];
 }
 
@@ -420,13 +420,32 @@ export default function EmployeeSchedulesPage() {
   const regularPeriod = template.periods.find((p) => p.periodType === "REGULAR");
   const intensivePeriod = template.periods.find((p) => p.periodType === "INTENSIVE");
 
+  const isFlexibleTemplate = template.templateType === "FLEXIBLE";
+
   const calculateWeeklyHours = (period: SchedulePeriod | undefined): number => {
     if (!period) return 0;
     return period.workDayPatterns.reduce((sum, pattern) => sum + calculateDayWorkHours(pattern), 0);
   };
 
-  const regularWeeklyHours = calculateWeeklyHours(regularPeriod);
-  const intensiveWeeklyHours = calculateWeeklyHours(intensivePeriod);
+  const resolvePeriodWeeklyHours = (period: SchedulePeriod | undefined): number => {
+    if (!period) return 0;
+    if (isFlexibleTemplate) {
+      const periodWeeklyHours = period.weeklyHours;
+      const templateWeeklyHours = template.weeklyHours;
+      if (periodWeeklyHours !== null && periodWeeklyHours !== undefined) {
+        return periodWeeklyHours;
+      }
+      if (templateWeeklyHours !== null && templateWeeklyHours !== undefined) {
+        return templateWeeklyHours;
+      }
+      return 0;
+    }
+    return calculateWeeklyHours(period);
+  };
+
+  const regularWeeklyHours = resolvePeriodWeeklyHours(regularPeriod);
+  const intensiveWeeklyHours = resolvePeriodWeeklyHours(intensivePeriod);
+  const headerWeeklyHours = template.weeklyHours ?? regularWeeklyHours;
 
   return (
     <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
@@ -478,8 +497,10 @@ export default function EmployeeSchedulesPage() {
                 <span className="font-semibold">{template.name}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Horas semanales</span>
-                <span className="font-semibold">{template.weeklyHours ?? regularWeeklyHours.toFixed(1)}h</span>
+                <span className="text-muted-foreground text-xs">
+                  {isFlexibleTemplate ? "Objetivo semanal" : "Horas semanales"}
+                </span>
+                <span className="font-semibold">{headerWeeklyHours.toFixed(1)}h</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-xs">Válido desde</span>
@@ -516,7 +537,7 @@ export default function EmployeeSchedulesPage() {
           {/* Período Regular */}
           <TabsContent value="regular" className="space-y-6">
             {regularPeriod ? (
-              <PeriodCard period={regularPeriod} weeklyHours={regularWeeklyHours} />
+              <PeriodCard period={regularPeriod} weeklyHours={regularWeeklyHours} isFlexible={isFlexibleTemplate} />
             ) : (
               <Alert>
                 <Info className="h-4 w-4" />
@@ -528,7 +549,12 @@ export default function EmployeeSchedulesPage() {
           {/* Período Intensivo */}
           {intensivePeriod && (
             <TabsContent value="intensive" className="space-y-6">
-              <PeriodCard period={intensivePeriod} weeklyHours={intensiveWeeklyHours} isIntensive />
+              <PeriodCard
+                period={intensivePeriod}
+                weeklyHours={intensiveWeeklyHours}
+                isIntensive
+                isFlexible={isFlexibleTemplate}
+              />
             </TabsContent>
           )}
 
@@ -537,7 +563,12 @@ export default function EmployeeSchedulesPage() {
             .filter((p) => p.periodType === "SPECIAL")
             .map((period) => (
               <TabsContent key={period.id} value={period.id} className="space-y-6">
-                <PeriodCard period={period} weeklyHours={calculateWeeklyHours(period)} isSpecial />
+                <PeriodCard
+                  period={period}
+                  weeklyHours={resolvePeriodWeeklyHours(period)}
+                  isSpecial
+                  isFlexible={isFlexibleTemplate}
+                />
               </TabsContent>
             ))}
         </Tabs>
@@ -562,14 +593,16 @@ function PeriodCard({
   weeklyHours,
   isIntensive = false,
   isSpecial = false,
+  isFlexible = false,
 }: {
   period: SchedulePeriod;
   weeklyHours: number;
   isIntensive?: boolean;
   isSpecial?: boolean;
+  isFlexible?: boolean;
 }) {
   const periodConfig = getPeriodTypeConfig(period.periodType);
-  const workingDays = period.workDayPatterns.filter((p) => p.isWorkingDay);
+  const workingDays = isFlexible ? [] : period.workDayPatterns.filter((p) => p.isWorkingDay);
 
   const bgClass = isIntensive
     ? "from-orange-50/50 to-card dark:from-orange-950/20"
@@ -597,13 +630,17 @@ function PeriodCard({
         {/* Resumen */}
         <div className="grid gap-4 @4xl/main:grid-cols-3">
           <div className="flex justify-between">
-            <span className="text-muted-foreground text-sm">Horas semanales:</span>
+            <span className="text-muted-foreground text-sm">
+              {isFlexible ? "Objetivo semanal:" : "Horas semanales:"}
+            </span>
             <span className="font-semibold">{weeklyHours.toFixed(1)}h</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground text-sm">Días laborables:</span>
-            <span className="font-semibold">{workingDays.length}</span>
-          </div>
+          {!isFlexible && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground text-sm">Días laborables:</span>
+              <span className="font-semibold">{workingDays.length}</span>
+            </div>
+          )}
           {period.startMonthDay && period.endMonthDay && (
             <div className="flex justify-between">
               <span className="text-muted-foreground text-sm">Período:</span>
@@ -614,38 +651,48 @@ function PeriodCard({
           )}
         </div>
 
-        {/* Días de la semana */}
-        <div className="border-t pt-4">
-          <div className="mb-3 flex items-center gap-2">
-            <CalendarDays className={`h-5 w-5 ${iconColor}`} />
-            <h4 className="font-semibold">Días Laborables</h4>
+        {!isFlexible && (
+          <div className="border-t pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarDays className={`h-5 w-5 ${iconColor}`} />
+              <h4 className="font-semibold">Días Laborables</h4>
+            </div>
+            <div className="flex gap-2">
+              {DAYS.map((day) => {
+                const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === day.dayOfWeek);
+                const isWorking = pattern?.isWorkingDay ?? false;
+                return (
+                  <div
+                    key={day.dayOfWeek}
+                    className={`flex size-10 items-center justify-center rounded-full border-2 font-semibold ${
+                      isWorking
+                        ? isIntensive
+                          ? "border-orange-500 bg-orange-500 text-white"
+                          : isSpecial
+                            ? "border-purple-500 bg-purple-500 text-white"
+                            : "border-primary bg-primary text-primary-foreground"
+                        : "border-muted bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {day.short}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {DAYS.map((day) => {
-              const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === day.dayOfWeek);
-              const isWorking = pattern?.isWorkingDay ?? false;
-              return (
-                <div
-                  key={day.dayOfWeek}
-                  className={`flex size-10 items-center justify-center rounded-full border-2 font-semibold ${
-                    isWorking
-                      ? isIntensive
-                        ? "border-orange-500 bg-orange-500 text-white"
-                        : isSpecial
-                          ? "border-purple-500 bg-purple-500 text-white"
-                          : "border-primary bg-primary text-primary-foreground"
-                      : "border-muted bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {day.short}
-                </div>
-              );
-            })}
+        )}
+
+        {isFlexible && (
+          <div className="border-t pt-4">
+            <div className="flex items-center gap-2">
+              <Info className={`h-5 w-5 ${iconColor}`} />
+              <p className="text-muted-foreground text-sm">Flexible total: sin franjas diarias</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tabla de horarios */}
-        {workingDays.length > 0 && (
+        {!isFlexible && workingDays.length > 0 && (
           <div className="border-t pt-4">
             <div className="mb-3 flex items-center gap-2">
               <Clock className={`h-5 w-5 ${iconColor}`} />

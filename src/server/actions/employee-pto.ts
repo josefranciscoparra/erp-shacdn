@@ -16,6 +16,7 @@ import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/s
 import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+import { recalculateWorkdaySummaryForRetroactivePto } from "./time-tracking";
 
 type SlotRange = { startMinutes: number; endMinutes: number };
 
@@ -489,6 +490,31 @@ export async function createPtoRequest(data: {
       return fail("Tipo de ausencia no válido");
     }
 
+    const todayStart = getLocalDayRange(new Date()).start;
+    const startDay = getLocalDayRange(normalizedStartDate).start;
+    const endDay = getLocalDayRange(normalizedEndDate).start;
+    const isRetroactive = startDay.getTime() < todayStart.getTime();
+
+    if (isRetroactive) {
+      if (!absenceType.allowRetroactive) {
+        return fail("Este tipo de ausencia no permite solicitudes retroactivas");
+      }
+
+      if (endDay.getTime() >= todayStart.getTime()) {
+        return fail("Las solicitudes retroactivas deben finalizar antes de hoy");
+      }
+
+      const maxRetroactiveDays = absenceType.retroactiveMaxDays;
+      if (maxRetroactiveDays < 1) {
+        return fail("Este tipo de ausencia no permite solicitudes retroactivas");
+      }
+
+      const retroDays = Math.ceil((todayStart.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
+      if (retroDays > maxRetroactiveDays) {
+        return fail(`Esta ausencia solo puede solicitarse hasta ${maxRetroactiveDays} día(s) retroactivos`);
+      }
+    }
+
     const isPausedForRange = await isEmployeePausedDuringRange(
       employeeId,
       normalizedStartDate,
@@ -632,10 +658,9 @@ export async function createPtoRequest(data: {
       }
     }
 
-    // Validar días de anticipación
+    // Validar días de anticipación (solo si no es retroactiva)
     const daysUntilStart = Math.ceil((normalizedStartDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-
-    if (absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
+    if (!isRetroactive && absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
       return fail(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
     }
 
@@ -795,6 +820,16 @@ export async function createPtoRequest(data: {
     // Recalcular balance
     const currentYear = new Date().getFullYear();
     await recalculatePtoBalance(employeeId, orgId, currentYear);
+
+    if (finalStatus === "APPROVED") {
+      await recalculateWorkdaySummaryForRetroactivePto(
+        employeeId,
+        orgId,
+        normalizedStartDate,
+        normalizedEndDate,
+        absenceType.name,
+      );
+    }
 
     // Notificaciones a todos los destinatarios del flujo
     if (approverIds.length > 0) {

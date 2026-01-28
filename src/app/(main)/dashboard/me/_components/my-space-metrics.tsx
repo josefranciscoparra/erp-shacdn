@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, CalendarDays, Hourglass } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +54,8 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
   }
 
   const { timeTracking, pto } = data;
+  const isFlexToday = timeTracking.today.isFlexibleTotal;
+  const isFlexWeek = timeTracking.week.isFlexibleTotal;
 
   // Formatear tiempo trabajado y esperado
   const todayHours = formatMinutesToTime(timeTracking.today.workedMinutes);
@@ -63,7 +65,7 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
 
   // Calcular porcentaje de progreso (evitar NaN si expectedMinutes es 0)
   const todayProgress =
-    timeTracking.today.expectedMinutes > 0
+    !isFlexToday && timeTracking.today.expectedMinutes > 0
       ? Math.round((timeTracking.today.workedMinutes / timeTracking.today.expectedMinutes) * 100)
       : 0;
   const weekProgress =
@@ -92,41 +94,54 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
       <Card className="gap-2">
         <CardHeader>
           <CardTitle className="font-display text-xl">
-            {todayProgress >= 100 ? "Objetivo de hoy cumplido" : "Objetivo de hoy incompleto"}
+            {isFlexToday
+              ? "Horario flexible"
+              : todayProgress >= 100
+                ? "Objetivo de hoy cumplido"
+                : "Objetivo de hoy incompleto"}
           </CardTitle>
+          {isFlexToday && <CardDescription>Sin objetivo diario, se controla por semana</CardDescription>}
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <div>
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[60px]">
-                <RadialBarChart data={todayChartData} startAngle={0} endAngle={250} innerRadius={25} outerRadius={20}>
-                  <PolarGrid gridType="circle" radialLines={false} stroke="none" polarRadius={[86, 74]} />
-                  <RadialBar dataKey="value" background cornerRadius={10} />
-                  <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                    <Label
-                      content={({ viewBox }) => {
-                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                          return (
-                            <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                              <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground font-bold">
-                                {todayProgress}%
-                              </tspan>
-                            </text>
-                          );
-                        }
-                      }}
-                    />
-                  </PolarRadiusAxis>
-                </RadialBarChart>
-              </ChartContainer>
-            </div>
+          {isFlexToday ? (
             <p className="text-muted-foreground text-sm">
-              Has completado{" "}
-              <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>{todayHours}</span> de{" "}
-              <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>{todayExpectedHours}</span>{" "}
-              de tu jornada de hoy
+              Has trabajado <span className="text-foreground font-medium">{todayHours}</span> hoy.
             </p>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div>
+                <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[60px]">
+                  <RadialBarChart data={todayChartData} startAngle={0} endAngle={250} innerRadius={25} outerRadius={20}>
+                    <PolarGrid gridType="circle" radialLines={false} stroke="none" polarRadius={[86, 74]} />
+                    <RadialBar dataKey="value" background cornerRadius={10} />
+                    <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+                      <Label
+                        content={({ viewBox }) => {
+                          if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                            return (
+                              <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground font-bold">
+                                  {todayProgress}%
+                                </tspan>
+                              </text>
+                            );
+                          }
+                        }}
+                      />
+                    </PolarRadiusAxis>
+                  </RadialBarChart>
+                </ChartContainer>
+              </div>
+              <p className="text-muted-foreground text-sm">
+                Has completado{" "}
+                <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>{todayHours}</span> de{" "}
+                <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>
+                  {todayExpectedHours}
+                </span>{" "}
+                de tu jornada de hoy
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -136,6 +151,7 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
           <CardTitle className="font-display text-xl">
             {weekProgress >= 100 ? "Objetivo semanal cumplido" : "Objetivo semanal incompleto"}
           </CardTitle>
+          {isFlexWeek && <CardDescription>Flexible total: objetivo semanal</CardDescription>}
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">

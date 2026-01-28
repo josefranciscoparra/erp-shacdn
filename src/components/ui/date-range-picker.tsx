@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { CalendarIcon, X } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { DateRange, DayPicker, DayButton as DayButtonOriginal } from "react-day-picker";
 
@@ -17,6 +17,7 @@ interface DateRangePickerProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  minDate?: Date;
   markers?: DateMarker[];
 }
 
@@ -96,6 +97,7 @@ export function DateRangePicker({
   placeholder = "Seleccionar rango",
   className,
   disabled = false,
+  minDate,
   markers = [],
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -143,6 +145,8 @@ export function DateRangePicker({
     setOpen(false);
   };
 
+  const minSelectableDate = minDate ? startOfDay(minDate) : startOfDay(new Date());
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -150,11 +154,11 @@ export function DateRangePicker({
           variant="outline"
           size="sm"
           disabled={disabled}
-            className={cn(
-              "justify-start text-left font-normal w-full",
-              !dateRange && "text-muted-foreground",
-              className,
-            )}
+          className={cn(
+            "justify-start text-left font-normal w-full",
+            !dateRange && "text-muted-foreground",
+            className,
+          )}
         >
           <CalendarIcon className="size-4" />
           {dateRange?.from ? (
@@ -188,7 +192,7 @@ export function DateRangePicker({
                 numberOfMonths={monthsToShow}
                 defaultMonth={dateRange?.from ?? new Date()}
                 locale={es}
-                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                disabled={(date) => date < minSelectableDate}
                 showOutsideDays={false}
                 className="w-full"
                 classNames={calendarClassNames}

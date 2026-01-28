@@ -928,6 +928,14 @@ export async function registerManualAbsence(
     await recalculatePtoBalance(employeeId, user.orgId, currentYear);
   }
 
+  await recalculateWorkdaySummaryForRetroactivePto(
+    employeeId,
+    user.orgId,
+    normalizedStartDate,
+    normalizedEndDate,
+    absenceType.name,
+  );
+
   // Notificar al empleado
   if (employee.user) {
     await createNotification(

@@ -48,6 +48,8 @@ interface DayData {
   compliance: number;
   // Nuevos campos
   isWorkingDay?: boolean;
+  isFlexibleTotal?: boolean;
+  weeklyTargetMinutes?: number | null;
   isHoliday?: boolean;
   holidayName?: string;
   crossedMidnight?: boolean;
@@ -108,6 +110,12 @@ function formatMinutes(minutes: number): string {
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+}
+
+function formatWeeklyTarget(minutes: number): string {
+  const hours = minutes / 60;
+  const formattedHours = Number.isInteger(hours) ? hours.toString() : hours.toFixed(1);
+  return `${formattedHours}h`;
 }
 
 export function DayCard({ day }: DayCardProps) {
@@ -226,9 +234,16 @@ export function DayCard({ day }: DayCardProps) {
 
   const displayedActualHours = day.actualHours + additionalHours;
 
+  const isFlexibleEmptyDay =
+    day.isFlexibleTotal === true && day.totalWorkedMinutes === 0 && day.timeEntries.length === 0;
+  const weeklyTargetLabel =
+    typeof day.weeklyTargetMinutes === "number" ? formatWeeklyTarget(day.weeklyTargetMinutes) : null;
+
   // Determinar color del borde izquierdo
   let borderClass = statusColors.NON_WORKDAY;
-  if (isJustifiedAbsence) {
+  if (isFlexibleEmptyDay) {
+    borderClass = statusColors.COMPLETED;
+  } else if (isJustifiedAbsence) {
     borderClass = statusColors.HOLIDAY;
   } else if (day.status === "COMPLETED") {
     borderClass = statusColors.COMPLETED;
@@ -241,8 +256,10 @@ export function DayCard({ day }: DayCardProps) {
   }
 
   // Icono de estado simplificado (opcional, ya no lo usamos en el badge grande)
-  const statusColorText =
-    day.status === "COMPLETED"
+
+  const statusColorText = isFlexibleEmptyDay
+    ? "text-emerald-600"
+    : day.status === "COMPLETED"
       ? "text-emerald-600"
       : day.status === "INCOMPLETE"
         ? "text-amber-600"
@@ -251,10 +268,19 @@ export function DayCard({ day }: DayCardProps) {
           : "text-muted-foreground";
 
   const expectedLabel =
-    day.expectedHours > 0 ? `${day.expectedHours}h` : day.timeEntries.length > 0 ? "Sin horario" : "0h";
+    day.expectedHours > 0
+      ? `${day.expectedHours}h`
+      : isFlexibleEmptyDay
+        ? weeklyTargetLabel
+          ? `Objetivo semanal ${weeklyTargetLabel}`
+          : "Objetivo semanal"
+        : day.timeEntries.length > 0
+          ? "Sin horario"
+          : "0h";
 
-  const statusLabel =
-    day.status === "NON_WORKDAY"
+  const statusLabel = isFlexibleEmptyDay
+    ? "Flexible"
+    : day.status === "NON_WORKDAY"
       ? day.isOutsideContract
         ? "Sin contrato"
         : "No laborable"
@@ -316,6 +342,10 @@ export function DayCard({ day }: DayCardProps) {
                 <PartyPopper className="mr-1 size-3 text-purple-500" />
                 {day.holidayName}
               </span>
+            ) : isFlexibleEmptyDay ? (
+              <Badge className="border-emerald-200 bg-emerald-50 px-2 text-[10px] text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+                Flexible
+              </Badge>
             ) : (
               <span className={cn("flex items-center text-xs font-medium", statusColorText)}>
                 {/* Texto de estado amigable */}
