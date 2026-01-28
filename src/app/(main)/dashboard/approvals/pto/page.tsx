@@ -16,6 +16,7 @@ import { es } from "date-fns/locale";
 import { AlertTriangle, Check, Clock, Loader2, Paperclip, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -67,6 +68,10 @@ interface ApproverPtoRequest {
     color: string;
     requiresDocument?: boolean;
   };
+  startTime?: number | null;
+  endTime?: number | null;
+  durationMinutes?: number | null;
+  effectiveMinutes?: number | null;
   // 🆕 Info de justificantes
   _count?: {
     documents: number;
@@ -77,6 +82,64 @@ interface ApproverPtoTotals {
   pending: number;
   approved: number;
   rejected: number;
+}
+
+function formatMinutesAsHours(minutes: number | null | undefined): string {
+  if (!minutes || minutes <= 0) return "0m";
+
+  const totalMinutes = Math.round(minutes);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0) parts.push(`${mins}m`);
+
+  return parts.join(" ");
+}
+
+function renderDurationCell(request: ApproverPtoRequest) {
+  const discountedMinutes =
+    typeof request.effectiveMinutes === "number" && request.effectiveMinutes > 0
+      ? request.effectiveMinutes
+      : (request.durationMinutes ?? 0);
+  const discountedLabel = formatMinutesAsHours(discountedMinutes);
+
+  if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
+    const hours = Math.floor(request.durationMinutes / 60);
+    const minutes = request.durationMinutes % 60;
+    const timeRange =
+      request.startTime !== null &&
+      request.startTime !== undefined &&
+      request.endTime !== null &&
+      request.endTime !== undefined
+        ? `${minutesToTime(request.startTime)} - ${minutesToTime(request.endTime)}`
+        : null;
+
+    return (
+      <div className="flex flex-col text-sm">
+        {timeRange && <span className="font-semibold">{timeRange}</span>}
+        <span className="text-muted-foreground text-xs">
+          {hours > 0 && `${hours}h`}
+          {minutes > 0 && ` ${minutes}m`}
+        </span>
+        <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+      </div>
+    );
+  }
+
+  const roundedDays = Math.round(request.workingDays * 10) / 10;
+  const dayLabel = formatWorkingDays(roundedDays);
+  const unit = roundedDays === 1 ? "día" : "días";
+
+  return (
+    <div className="flex flex-col text-sm">
+      <span className="font-semibold">
+        {dayLabel} {unit}
+      </span>
+      <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+    </div>
+  );
 }
 
 export default function PtoApprovalsPage() {
@@ -306,8 +369,8 @@ export default function PtoApprovalsPage() {
       },
       {
         accessorKey: "workingDays",
-        header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
+        header: "Duración / Horario",
+        cell: ({ row }) => renderDurationCell(row.original),
       },
       {
         accessorKey: "submittedAt",
@@ -401,8 +464,8 @@ export default function PtoApprovalsPage() {
       },
       {
         accessorKey: "workingDays",
-        header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
+        header: "Duración / Horario",
+        cell: ({ row }) => renderDurationCell(row.original),
       },
       {
         accessorKey: "submittedAt",
@@ -459,8 +522,8 @@ export default function PtoApprovalsPage() {
       },
       {
         accessorKey: "workingDays",
-        header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
+        header: "Duración / Horario",
+        cell: ({ row }) => renderDurationCell(row.original),
       },
       {
         accessorKey: "submittedAt",
@@ -779,24 +842,97 @@ export default function PtoApprovalsPage() {
               <div className="flex flex-col gap-4">
                 <div className="rounded-lg border p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Fecha inicio:</span>
-                      <p className="font-medium">{format(new Date(selectedRequest.startDate), "PP", { locale: es })}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Fecha fin:</span>
-                      <p className="font-medium">{format(new Date(selectedRequest.endDate), "PP", { locale: es })}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Días hábiles:</span>
-                      <p className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Solicitado:</span>
-                      <p className="font-medium">
-                        {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
-                      </p>
-                    </div>
+                    {(() => {
+                      const discountedMinutes =
+                        typeof selectedRequest.effectiveMinutes === "number" && selectedRequest.effectiveMinutes > 0
+                          ? selectedRequest.effectiveMinutes
+                          : (selectedRequest.durationMinutes ?? 0);
+                      const discountedLabel = formatMinutesAsHours(discountedMinutes);
+                      const isPartial =
+                        selectedRequest.durationMinutes !== null && selectedRequest.durationMinutes !== undefined;
+                      const timeRange =
+                        selectedRequest.startTime !== null &&
+                        selectedRequest.startTime !== undefined &&
+                        selectedRequest.endTime !== null &&
+                        selectedRequest.endTime !== undefined
+                          ? `${minutesToTime(selectedRequest.startTime)} - ${minutesToTime(selectedRequest.endTime)}`
+                          : null;
+
+                      if (isPartial) {
+                        const hours = Math.floor((selectedRequest.durationMinutes ?? 0) / 60);
+                        const minutes = (selectedRequest.durationMinutes ?? 0) % 60;
+                        const durationLabel =
+                          `${hours > 0 ? `${hours}h` : ""}${minutes > 0 ? ` ${minutes}m` : ""}`.trim();
+
+                        return (
+                          <>
+                            <div>
+                              <span className="text-muted-foreground">Fecha inicio:</span>
+                              <p className="font-medium">
+                                {format(new Date(selectedRequest.startDate), "PP", { locale: es })}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Fecha fin:</span>
+                              <p className="font-medium">
+                                {format(new Date(selectedRequest.endDate), "PP", { locale: es })}
+                              </p>
+                            </div>
+                            {timeRange && (
+                              <div>
+                                <span className="text-muted-foreground">Horario:</span>
+                                <p className="font-semibold">{timeRange}</p>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-muted-foreground">Duración:</span>
+                              <p className="font-semibold">{durationLabel || "0m"}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Descuenta:</span>
+                              <p className="font-semibold">{discountedLabel}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Solicitado:</span>
+                              <p className="font-medium">
+                                {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <div>
+                            <span className="text-muted-foreground">Fecha inicio:</span>
+                            <p className="font-medium">
+                              {format(new Date(selectedRequest.startDate), "PP", { locale: es })}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Fecha fin:</span>
+                            <p className="font-medium">
+                              {format(new Date(selectedRequest.endDate), "PP", { locale: es })}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Días hábiles:</span>
+                            <p className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Descuenta:</span>
+                            <p className="font-semibold">{discountedLabel}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Solicitado:</span>
+                            <p className="font-medium">
+                              {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                   {selectedRequest.reason && (
                     <div className="mt-4">

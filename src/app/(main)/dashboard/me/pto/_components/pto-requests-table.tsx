@@ -45,6 +45,20 @@ import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 import { PtoRequestDetailDialog } from "./pto-request-detail-dialog";
 
+function formatMinutesAsHours(minutes: number | null | undefined): string {
+  if (!minutes || minutes <= 0) return "0m";
+
+  const totalMinutes = Math.round(minutes);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0) parts.push(`${mins}m`);
+
+  return parts.join(" ");
+}
+
 const statusConfig = {
   PENDING: {
     label: "Pendiente",
@@ -135,6 +149,11 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
         header: "Duración / Horario",
         cell: ({ row }) => {
           const request = row.original;
+          const discountedMinutes =
+            typeof request.effectiveMinutes === "number" && request.effectiveMinutes > 0
+              ? request.effectiveMinutes
+              : (request.durationMinutes ?? 0);
+          const discountedLabel = formatMinutesAsHours(discountedMinutes);
 
           // Si tiene durationMinutes, es una ausencia parcial → mostrar horas y rango
           if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
@@ -157,6 +176,7 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
                   {hours > 0 && `${hours}h`}
                   {minutes > 0 && ` ${minutes}m`}
                 </span>
+                <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
               </div>
             );
           }
@@ -167,9 +187,12 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           const unit = roundedDays === 1 ? "día" : "días";
 
           return (
-            <span className="font-semibold">
-              {dayLabel} {unit}
-            </span>
+            <div className="flex flex-col text-sm">
+              <span className="font-semibold">
+                {dayLabel} {unit}
+              </span>
+              <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+            </div>
           );
         },
       },

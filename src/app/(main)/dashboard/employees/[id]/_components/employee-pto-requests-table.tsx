@@ -19,8 +19,10 @@ import { es } from "date-fns/locale";
 import { Ban, CheckCircle2, Clock, Eye, Loader2, MoreHorizontal, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +71,24 @@ interface PtoRequest {
     name: string;
     email: string;
   } | null;
+  startTime?: number | null;
+  endTime?: number | null;
+  durationMinutes?: number | null;
+  effectiveMinutes?: number | null;
+}
+
+function formatMinutesAsHours(minutes: number | null | undefined): string {
+  if (!minutes || minutes <= 0) return "0m";
+
+  const totalMinutes = Math.round(minutes);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0) parts.push(`${mins}m`);
+
+  return parts.join(" ");
 }
 
 const statusConfig = {
@@ -203,8 +223,51 @@ export function EmployeePtoRequestsTable({
       },
       {
         accessorKey: "workingDays",
-        header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(row.original.workingDays)}</span>,
+        header: "Duración / Horario",
+        cell: ({ row }) => {
+          const request = row.original;
+          const discountedMinutes =
+            typeof request.effectiveMinutes === "number" && request.effectiveMinutes > 0
+              ? request.effectiveMinutes
+              : (request.durationMinutes ?? 0);
+          const discountedLabel = formatMinutesAsHours(discountedMinutes);
+
+          if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
+            const hours = Math.floor(request.durationMinutes / 60);
+            const minutes = request.durationMinutes % 60;
+            const timeRange =
+              request.startTime !== null &&
+              request.startTime !== undefined &&
+              request.endTime !== null &&
+              request.endTime !== undefined
+                ? `${minutesToTime(request.startTime)} - ${minutesToTime(request.endTime)}`
+                : null;
+
+            return (
+              <div className="flex flex-col text-sm">
+                {timeRange && <span className="font-semibold">{timeRange}</span>}
+                <span className="text-muted-foreground text-xs">
+                  {hours > 0 && `${hours}h`}
+                  {minutes > 0 && ` ${minutes}m`}
+                </span>
+                <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+              </div>
+            );
+          }
+
+          const roundedDays = Math.round(request.workingDays * 10) / 10;
+          const dayLabel = formatWorkingDays(roundedDays);
+          const unit = roundedDays === 1 ? "día" : "días";
+
+          return (
+            <div className="flex flex-col text-sm">
+              <span className="font-semibold">
+                {dayLabel} {unit}
+              </span>
+              <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "status",
@@ -358,10 +421,63 @@ export function EmployeePtoRequestsTable({
             <div className="space-y-4">
               <div className="rounded-lg border p-4 text-sm">
                 <div className="grid gap-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Días hábiles</span>
-                    <span className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</span>
-                  </div>
+                  {(() => {
+                    const discountedMinutes =
+                      typeof selectedRequest.effectiveMinutes === "number" && selectedRequest.effectiveMinutes > 0
+                        ? selectedRequest.effectiveMinutes
+                        : (selectedRequest.durationMinutes ?? 0);
+                    const discountedLabel = formatMinutesAsHours(discountedMinutes);
+                    const isPartial =
+                      selectedRequest.durationMinutes !== null && selectedRequest.durationMinutes !== undefined;
+                    const timeRange =
+                      selectedRequest.startTime !== null &&
+                      selectedRequest.startTime !== undefined &&
+                      selectedRequest.endTime !== null &&
+                      selectedRequest.endTime !== undefined
+                        ? `${minutesToTime(selectedRequest.startTime)} - ${minutesToTime(selectedRequest.endTime)}`
+                        : null;
+
+                    if (isPartial) {
+                      const hours = Math.floor((selectedRequest.durationMinutes ?? 0) / 60);
+                      const minutes = (selectedRequest.durationMinutes ?? 0) % 60;
+                      const durationLabel =
+                        `${hours > 0 ? `${hours}h` : ""}${minutes > 0 ? ` ${minutes}m` : ""}`.trim();
+
+                      return (
+                        <>
+                          {timeRange && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Horario</span>
+                              <span className="font-semibold">{timeRange}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Duración</span>
+                            <span className="font-semibold">{durationLabel || "0m"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Descuenta</span>
+                            <span className="font-semibold">{discountedLabel}</span>
+                          </div>
+                        </>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Días hábiles</span>
+                          <span className="font-semibold">
+                            {formatWorkingDays(Number(selectedRequest.workingDays))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Descuenta</span>
+                          <span className="font-semibold">{discountedLabel}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                   <div>
                     <span className="text-muted-foreground">Solicitado:</span>
                     <span className="ml-1 font-medium">
@@ -404,6 +520,25 @@ export function EmployeePtoRequestsTable({
                   )}
                 </div>
               </div>
+
+              {actionType === "cancel" &&
+                (() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const requestDate = new Date(selectedRequest.startDate);
+                  requestDate.setHours(0, 0, 0, 0);
+                  const isPast = requestDate < today;
+
+                  if (!isPast) return null;
+
+                  return (
+                    <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                      <AlertDescription>
+                        Esta cancelación es retroactiva. Se recalculará el balance y el resumen horario del día.
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
 
               {actionType !== "view" && (
                 <div className="space-y-2">
@@ -472,9 +607,7 @@ interface ActionsMenuProps {
 
 function ActionsMenu({ request, onAction }: ActionsMenuProps) {
   const status = request.status;
-  const now = Date.now();
-  const startDate = new Date(request.startDate).getTime();
-  const canCancel = status === "APPROVED" && startDate > now;
+  const canCancel = status === "APPROVED";
   const canDecide = status === "PENDING";
   const canView = true;
 

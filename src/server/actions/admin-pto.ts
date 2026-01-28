@@ -13,6 +13,7 @@ import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation
 import { calculateWorkingDays } from "./employee-pto";
 import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
+import { recalculateWorkdaySummaryForRetroactivePto } from "./time-tracking";
 
 /**
  * Verifica que el usuario tenga permisos de gestión avanzada de vacaciones
@@ -264,10 +265,6 @@ export async function adminCancelPtoRequest(requestId: string, reason?: string) 
     throw new Error("Solo se pueden cancelar solicitudes aprobadas");
   }
 
-  if (request.startDate <= new Date()) {
-    throw new Error("Solo se pueden cancelar solicitudes futuras");
-  }
-
   const employeeFullName = [request.employee.firstName, request.employee.lastName, request.employee.secondLastName]
     .filter(Boolean)
     .join(" ");
@@ -283,6 +280,13 @@ export async function adminCancelPtoRequest(requestId: string, reason?: string) 
   });
 
   await recalcForRequest(request.employeeId, request.orgId, request.startDate, request.endDate);
+  await recalculateWorkdaySummaryForRetroactivePto(
+    request.employeeId,
+    request.orgId,
+    request.startDate,
+    request.endDate,
+    request.absenceType.name,
+  );
 
   await notifyParticipants({
     employeeUserId: request.employee.user?.id,
@@ -478,6 +482,10 @@ export async function getEmployeePtoRequests(employeeId: string) {
     updatedAt: request.updatedAt.toISOString(),
     orgId: request.orgId,
     employeeId: request.employeeId,
+    startTime: request.startTime,
+    endTime: request.endTime,
+    durationMinutes: request.durationMinutes,
+    effectiveMinutes: request.effectiveMinutes,
     absenceTypeId: request.absenceTypeId,
     absenceType: {
       ...request.absenceType,

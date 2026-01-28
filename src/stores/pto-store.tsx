@@ -59,6 +59,7 @@ export interface PtoRequest {
   startTime?: number | null;
   endTime?: number | null;
   durationMinutes?: number | null;
+  effectiveMinutes?: number | null;
   // 🆕 Campos para justificantes (Mejora 2)
   _count?: {
     documents: number;

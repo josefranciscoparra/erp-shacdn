@@ -266,6 +266,10 @@ export async function getApproverPtoRequests(status: "PENDING" | "APPROVED" | "R
           color: req.details["color"] ?? "#3b82f6",
           requiresDocument: req.details["requiresDocument"] ?? false,
         },
+        startTime: req.details["startTime"] ?? null,
+        endTime: req.details["endTime"] ?? null,
+        durationMinutes: req.details["durationMinutes"] ?? null,
+        effectiveMinutes: req.details["effectiveMinutes"] ?? null,
         // 🆕 Info de justificantes
         _count: {
           documents: req.details["documentsCount"] ?? 0,

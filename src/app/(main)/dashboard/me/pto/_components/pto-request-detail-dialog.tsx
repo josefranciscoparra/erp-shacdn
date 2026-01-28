@@ -16,6 +16,20 @@ import { Separator } from "@/components/ui/separator";
 import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { type PtoRequest } from "@/stores/pto-store";
 
+function formatMinutesAsHours(minutes: number | null | undefined): string {
+  if (!minutes || minutes <= 0) return "0m";
+
+  const totalMinutes = Math.round(minutes);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0) parts.push(`${mins}m`);
+
+  return parts.join(" ");
+}
+
 const statusConfig = {
   PENDING: {
     label: "Pendiente",
@@ -173,6 +187,12 @@ export function PtoRequestDetailDialog({
 
   // Formatear duración
   const formatDuration = () => {
+    const discountedMinutes =
+      typeof request.effectiveMinutes === "number" && request.effectiveMinutes > 0
+        ? request.effectiveMinutes
+        : (request.durationMinutes ?? 0);
+    const discountedLabel = formatMinutesAsHours(discountedMinutes);
+
     if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
       const hours = Math.floor(request.durationMinutes / 60);
       const minutes = request.durationMinutes % 60;
@@ -192,6 +212,7 @@ export function PtoRequestDetailDialog({
             {hours > 0 && `${hours}h`}
             {minutes > 0 && ` ${minutes}m`}
           </span>
+          <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
         </div>
       );
     }
@@ -201,9 +222,12 @@ export function PtoRequestDetailDialog({
     const unit = roundedDays === 1 ? "día laborable" : "días laborables";
 
     return (
-      <span className="font-semibold">
-        {dayLabel} {unit}
-      </span>
+      <div className="flex flex-col">
+        <span className="font-semibold">
+          {dayLabel} {unit}
+        </span>
+        <span className="text-muted-foreground text-xs">Descuenta {discountedLabel}</span>
+      </div>
     );
   };
 

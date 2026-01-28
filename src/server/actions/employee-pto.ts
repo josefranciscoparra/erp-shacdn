@@ -441,6 +441,7 @@ export async function getMyPtoRequests() {
       startTime: r.startTime,
       endTime: r.endTime,
       durationMinutes: r.durationMinutes,
+      effectiveMinutes: r.effectiveMinutes,
       // 🆕 Conteo de documentos (Mejora 2)
       _count: r._count,
     }));
