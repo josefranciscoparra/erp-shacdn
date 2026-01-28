@@ -148,6 +148,11 @@ model Organization {
   messages               Message[] // Mensajes de chat
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas
   organizationSetupJobs  OrganizationSetupJob[] // Jobs de configuración guiada
+  groupSyncJobsAsSource  GroupSyncJob[]         @relation("GroupSyncSourceOrg")
+  groupSyncJobTargets    GroupSyncJobTarget[]   @relation("GroupSyncTargetOrg")
+  groupCalendarAssignments   GroupCalendarAssignment[]
+  groupCalendarEventExclusions GroupCalendarEventExclusion[]
+  groupCalendarEventAdditions  GroupCalendarEventAddition[]
 
   // NUEVAS relaciones para Sistema de Horarios V2.0
   scheduleTemplates ScheduleTemplate[]
@@ -213,6 +218,8 @@ model OrganizationGroup {
 
   organizations OrganizationGroupOrganization[]
   members       OrganizationGroupUser[]
+  groupSyncJobs GroupSyncJob[]
+  groupCalendars GroupCalendar[]
 
   @@map("organization_groups")
 }
@@ -259,6 +266,78 @@ model OrganizationGroupUser {
   @@index([groupId])
   @@index([userId])
   @@map("organization_group_users")
+}
+
+// ==================== DESPLIEGUE DE POLÍTICAS (CONFIGURACIÓN DE GRUPO) ====================
+
+enum GroupSyncJobStatus {
+  DRAFT
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+}
+
+enum GroupSyncTargetStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model GroupSyncJob {
+  id               String            @id @default(cuid())
+  status           GroupSyncJobStatus @default(DRAFT)
+  conflictStrategy String            @default("SKIP") // "SKIP" | "OVERWRITE" | "MERGE"
+  selection        Json              @default("{}") // Paquetes seleccionados + opciones (calendarios, etc.)
+  notes            String?
+  progressPercent  Int               @default(0)
+  createdAt        DateTime          @default(now())
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  updatedAt        DateTime          @updatedAt
+
+  groupId String
+  group   OrganizationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  sourceOrgId     String
+  sourceOrg       Organization @relation("GroupSyncSourceOrg", fields: [sourceOrgId], references: [id], onDelete: Restrict)
+
+  createdById String
+  createdBy   User   @relation("GroupSyncCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  targets GroupSyncJobTarget[]
+
+  @@index([groupId])
+  @@index([sourceOrgId])
+  @@index([createdById])
+  @@index([status])
+  @@map("group_sync_jobs")
+}
+
+model GroupSyncJobTarget {
+  id        String             @id @default(cuid())
+  status    GroupSyncTargetStatus @default(PENDING)
+  summary   Json               @default("{}") // Resultado (counts, warnings, etc.)
+  error     String?
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  jobId String
+  job   GroupSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  targetOrgId String
+  targetOrg   Organization @relation("GroupSyncTargetOrg", fields: [targetOrgId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, targetOrgId])
+  @@index([jobId])
+  @@index([targetOrgId])
+  @@index([status])
+  @@map("group_sync_job_targets")
 }
 
 // Configuración global del sistema (singleton)
@@ -359,6 +438,8 @@ model User {
   organization                 Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userOrganizations            UserOrganization[]
   organizationGroupMemberships OrganizationGroupUser[]
+  groupSyncJobsCreated         GroupSyncJob[] @relation("GroupSyncCreatedBy")
+  groupCalendarsCreated        GroupCalendar[] @relation("GroupCalendarCreatedBy")
 
   // Relaciones
   sessions                          Session[]
@@ -572,6 +653,8 @@ model CostCenter {
   departments         Department[]
   employmentContracts EmploymentContract[]
   calendars           Calendar[]
+  groupCalendarAssignmentCostCenters GroupCalendarAssignmentCostCenter[]
+  groupCalendarEventAdditions        GroupCalendarEventAddition[]
   timeClockTerminals  TimeClockTerminal[]
   expenses            Expense[]
   exceptionOverrides  ExceptionDayOverride[] // Excepciones por centro de costes
@@ -1383,6 +1466,136 @@ model Calendar {
   @@index([costCenterId])
   @@index([year])
   @@map("calendars")
+}
+
+// ==================== CALENDARIOS CORPORATIVOS (A NIVEL DE GRUPO) ====================
+
+model GroupCalendar {
+  id                     String       @id @default(cuid())
+  name                   String
+  description            String?
+  year                   Int
+  calendarType           CalendarType  @default(NATIONAL_HOLIDAY)
+  color                  String        @default("#3b82f6")
+  active                 Boolean       @default(true)
+  applyToAllOrganizations Boolean      @default(false) // para festivos nacionales (no locales)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  groupId String
+  group   OrganizationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User? @relation("GroupCalendarCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  events      GroupCalendarEvent[]
+  assignments GroupCalendarAssignment[]
+  additions   GroupCalendarEventAddition[]
+
+  @@index([groupId])
+  @@index([year])
+  @@index([calendarType])
+  @@map("group_calendars")
+}
+
+model GroupCalendarEvent {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  date        DateTime
+  endDate     DateTime?
+  eventType   CalendarEventType @default(HOLIDAY)
+  isRecurring Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  calendarId String
+  calendar   GroupCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  exclusions GroupCalendarEventExclusion[]
+
+  @@index([calendarId])
+  @@index([date])
+  @@map("group_calendar_events")
+}
+
+model GroupCalendarAssignment {
+  id        String   @id @default(cuid())
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groupCalendarId String
+  groupCalendar   GroupCalendar @relation(fields: [groupCalendarId], references: [id], onDelete: Cascade)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  costCenters GroupCalendarAssignmentCostCenter[]
+
+  @@unique([groupCalendarId, orgId])
+  @@index([orgId])
+  @@index([groupCalendarId])
+  @@map("group_calendar_assignments")
+}
+
+model GroupCalendarAssignmentCostCenter {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  assignmentId String
+  assignment   GroupCalendarAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  costCenterId String
+  costCenter   CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, costCenterId])
+  @@index([costCenterId])
+  @@map("group_calendar_assignment_cost_centers")
+}
+
+// Excluir un evento del calendario corporativo solo para una empresa concreta (org)
+model GroupCalendarEventExclusion {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  groupCalendarEventId String
+  groupCalendarEvent   GroupCalendarEvent @relation(fields: [groupCalendarEventId], references: [id], onDelete: Cascade)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([groupCalendarEventId, orgId])
+  @@index([orgId])
+  @@map("group_calendar_event_exclusions")
+}
+
+// Añadir un evento extra (festivo) para una empresa concreta (sin copiar el calendario)
+model GroupCalendarEventAddition {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  date        DateTime
+  endDate     DateTime?
+  eventType   CalendarEventType @default(HOLIDAY)
+  isRecurring Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  groupCalendarId String
+  groupCalendar   GroupCalendar @relation(fields: [groupCalendarId], references: [id], onDelete: Cascade)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Opcional: para calendarios locales, permitir que el evento extra aplique solo a una sede concreta
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+
+  @@index([groupCalendarId])
+  @@index([orgId])
+  @@index([date])
+  @@map("group_calendar_event_additions")
 }
 
 // Eventos del calendario (festivos, cierres, eventos)

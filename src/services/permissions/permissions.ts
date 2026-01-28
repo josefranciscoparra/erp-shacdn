@@ -76,6 +76,10 @@ export const ALL_PERMISSIONS = [
   "validate_time_entries",
   // Overrides de permisos (Enterprise v1)
   "manage_permission_overrides",
+
+  // Multiempresa / Grupo
+  // Permiso explícito para desplegar políticas/configuración a nivel de grupo
+  "manage_group_configuration",
 ] as const;
 
 /**
@@ -105,6 +109,7 @@ export const SENSITIVE_PERMISSIONS: Permission[] = [
   "manage_user_organizations",
   "manage_organization",
   "manage_permission_overrides",
+  "manage_group_configuration",
 ];
 
 // Mapa de permisos por rol
@@ -156,6 +161,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "validate_time_entries",
     // Overrides de permisos (Enterprise v1)
     "manage_permission_overrides",
+
+    // Grupo
+    "manage_group_configuration",
   ],
   ORG_ADMIN: [
     "view_employees",
@@ -203,6 +211,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "validate_time_entries",
     // Overrides de permisos (Enterprise v1)
     "manage_permission_overrides",
+
+    // Grupo
+    "manage_group_configuration",
   ],
   HR_ADMIN: [
     "view_employees",
@@ -250,6 +261,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "validate_time_entries",
     // Overrides de permisos (Enterprise v1)
     "manage_permission_overrides",
+
+    // Grupo
+    "manage_group_configuration",
   ],
   // Asistente de RRHH - Operativo SIN datos sensibles
   HR_ASSISTANT: [

@@ -17,6 +17,7 @@ import {
 } from "date-fns";
 
 import { safePermission } from "@/lib/auth-guard";
+import { findEffectiveHolidayForDay } from "@/lib/calendars/effective-events";
 import { prisma } from "@/lib/prisma";
 import {
   getLocalDateParts,
@@ -566,26 +567,17 @@ export async function getExpectedHoursForDay(
     const dayEnd = endOfDay(normalizedDate);
     const targetYear = normalizedDate.getFullYear();
 
-    const holiday = await prisma.calendarEvent.findFirst({
-      where: {
-        calendar: {
-          orgId,
-          active: true,
-          year: targetYear,
-        },
-        date: {
-          gte: dayStart,
-          lte: dayEnd,
-        },
-        eventType: "HOLIDAY",
-      },
-      select: {
-        name: true,
-      },
+    const holiday = await findEffectiveHolidayForDay({
+      orgId,
+      dayStart,
+      dayEnd,
+      year: targetYear,
+      costCenterId: contract.costCenterId ?? null,
+      includeLocal: true,
     });
 
     // Si es festivo, no hay que trabajar
-    if (holiday) {
+    if (holiday.isHoliday) {
       return {
         hoursExpected: 0,
         isWorkingDay: false,
@@ -1660,26 +1652,17 @@ export async function getCurrentlyWorkingEmployees() {
     const holidayDayEnd = endOfDay(normalizedDate);
     const targetYear = normalizedDate.getFullYear();
 
-    const holiday = await prisma.calendarEvent.findFirst({
-      where: {
-        calendar: {
-          orgId,
-          active: true,
-          year: targetYear,
-        },
-        date: {
-          gte: holidayDayStart,
-          lte: holidayDayEnd,
-        },
-        eventType: "HOLIDAY",
-      },
-      select: {
-        name: true,
-      },
+    const holiday = await findEffectiveHolidayForDay({
+      orgId,
+      dayStart: holidayDayStart,
+      dayEnd: holidayDayEnd,
+      year: targetYear,
+      costCenterId: null,
+      includeLocal: false,
     });
 
-    const isHoliday = Boolean(holiday);
-    const holidayName = holiday?.name;
+    const isHoliday = holiday.isHoliday;
+    const holidayName = holiday.name;
 
     // Margen de tolerancia para considerar ausencia (15 minutos)
     const ABSENCE_MARGIN_MINUTES = 15;

@@ -2,6 +2,7 @@
 
 import { startOfMonth, endOfMonth } from "date-fns";
 
+import { listEffectiveCalendarEventsForEmployeeRange } from "@/lib/calendars/effective-events";
 import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
@@ -120,54 +121,16 @@ export async function getMyCalendarEvents(startDate: Date, endDate: Date): Promi
     });
     const employeeCostCenterId = activeContract?.costCenterId ?? null;
 
-    // Buscar calendarios aplicables al empleado
-    const calendars = await prisma.calendar.findMany({
-      where: {
-        orgId,
-        active: true,
-        OR: [
-          { costCenterId: null }, // Calendarios nacionales/corporativos
-          ...(employeeCostCenterId
-            ? [{ costCenterId: employeeCostCenterId }] // Calendarios locales del centro
-            : []),
-        ],
-      },
-      select: {
-        id: true,
-      },
+    const events = await listEffectiveCalendarEventsForEmployeeRange({
+      orgId,
+      employeeCostCenterId,
+      startDate,
+      endDate,
     });
 
-    const calendarIds = calendars.map((c) => c.id);
+    console.log(`🎉 Found ${events.length} effective events for employee in date range`);
 
-    // Buscar eventos de esos calendarios en el rango de fechas
-    const events = await prisma.calendarEvent.findMany({
-      where: {
-        calendarId: {
-          in: calendarIds,
-        },
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        calendar: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-            calendarType: true,
-          },
-        },
-      },
-      orderBy: {
-        date: "asc",
-      },
-    });
-
-    console.log(`🎉 Found ${events.length} events for employee in date range`);
-
-    return events as CalendarEventData[];
+    return events as unknown as CalendarEventData[];
   } catch (error) {
     console.error("Error al obtener eventos del empleado:", error);
     throw error;

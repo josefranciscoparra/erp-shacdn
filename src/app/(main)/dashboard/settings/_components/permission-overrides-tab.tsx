@@ -244,6 +244,10 @@ const PERMISSION_INFO: Record<string, { label: string; description: string }> = 
     label: "Gestionar permisos",
     description: "Modificar los overrides de permisos por rol",
   },
+  manage_group_configuration: {
+    label: "Configurar grupo (políticas)",
+    description: "Desplegar configuraciones y políticas a empresas del mismo grupo",
+  },
 };
 
 // Helper para obtener el label (compatibilidad)
@@ -278,7 +282,7 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
   Aprobaciones: ["approve_requests", "view_expense_approvals_all", "reassign_expense_approvals"],
   Vacaciones: ["manage_pto_admin"],
   Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles", "manage_user_organizations"],
-  Sistema: ["manage_organization", "view_reports", "manage_permission_overrides"],
+  Sistema: ["manage_organization", "view_reports", "manage_permission_overrides", "manage_group_configuration"],
   "Perfil Personal": ["view_own_profile", "edit_own_profile", "has_employee_profile"],
   "Datos Sensibles": ["view_sensitive_data"],
 };

@@ -340,7 +340,7 @@ export function useSidebarItems(): NavGroup[] {
           ],
         },
         {
-          title: "Calendarios",
+          title: "Calendarios de empresa",
           url: "/dashboard/calendars",
           icon: Calendar,
           permission: "manage_organization",
@@ -450,12 +450,11 @@ export function useSidebarItems(): NavGroup[] {
         },
       ],
     },
-    ...(hasGroupUserAccess || isSuperAdmin
+    ...(hasGroupUserAccess || isSuperAdmin || hasPermission("manage_group_configuration")
       ? [
           {
             id: 7,
             label: "Grupo",
-            permission: "manage_user_organizations",
             items: [
               {
                 title: "Administradores de grupo",
@@ -470,6 +469,23 @@ export function useSidebarItems(): NavGroup[] {
                       url: "/dashboard/admin/organizations?tab=groups",
                       icon: Folders,
                       permission: "manage_organization",
+                    },
+                  ]
+                : []),
+              ...(hasPermission("manage_group_configuration")
+                ? [
+                    {
+                      title: "Calendarios de Grupo",
+                      url: "/dashboard/group-calendars",
+                      icon: CalendarDays,
+                      permission: "manage_group_configuration",
+                    },
+                    {
+                      title: "Configuración de Grupo",
+                      url: "/dashboard/group-sync",
+                      icon: Folders,
+                      permission: "manage_group_configuration",
+                      isNew: true,
                     },
                   ]
                 : []),

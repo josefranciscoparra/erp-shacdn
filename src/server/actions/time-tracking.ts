@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 
 import { AuthError } from "@/lib/auth-guard";
+import { findEffectiveHolidayForDay } from "@/lib/calendars/effective-events";
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
@@ -1920,23 +1921,17 @@ export async function getExpectedHoursForToday() {
     const dayEnd = getLocalDayEndUtc(today, timeZone);
     const currentYear = localParts.year;
 
-    const isHoliday = await prisma.calendarEvent.findFirst({
-      where: {
-        calendar: {
-          orgId,
-          active: true,
-          year: currentYear,
-        },
-        date: {
-          gte: dayStart,
-          lte: dayEnd,
-        },
-        eventType: "HOLIDAY",
-      },
+    const holiday = await findEffectiveHolidayForDay({
+      orgId,
+      dayStart,
+      dayEnd,
+      year: currentYear,
+      costCenterId: contract.costCenterId ?? null,
+      includeLocal: true,
     });
 
     // Si hoy es festivo, no hay que trabajar
-    if (isHoliday) {
+    if (holiday.isHoliday) {
       return { hoursToday: 0, isWorkingDay: false, hasActiveContract };
     }
 

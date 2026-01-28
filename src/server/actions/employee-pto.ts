@@ -4,6 +4,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { getActionError } from "@/lib/auth-guard";
+import { listEffectiveCalendarEventsForEmployeeRange } from "@/lib/calendars/effective-events";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { getLocalDayRange, normalizeDateToLocalNoon } from "@/lib/dates/date-only";
 import { prisma } from "@/lib/prisma";
@@ -170,53 +171,28 @@ export async function calculateWorkingDays(
   const rangeStart = getLocalDayRange(normalizedStart).start;
   const rangeEnd = getLocalDayRange(normalizedEnd).end;
 
-  // Obtener el centro de coste del empleado para saber qué calendarios aplican
-  let calendars: any[] = [];
-
-  if (employeeId) {
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      include: {
-        employmentContracts: {
-          where: { active: true },
-          include: {
-            costCenter: {
-              include: {
-                calendars: {
-                  where: { active: true },
-                  include: {
-                    events: {
-                      where: {
-                        eventType: "HOLIDAY",
-                        date: {
-                          gte: rangeStart,
-                          lte: rangeEnd,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          take: 1,
-        },
-      },
-    });
-    calendars = employee?.employmentContracts[0]?.costCenter?.calendars ?? [];
-  }
-
-  // Recopilar festivos
+  // Recopilar festivos efectivos (Grupo + Empresa) para el empleado
   const holidaysMap = new Map<string, { date: Date; name: string }>();
 
-  for (const calendar of calendars) {
-    for (const event of calendar.events) {
+  if (employeeId && orgId) {
+    const contract = await prisma.employmentContract.findFirst({
+      where: { employeeId, orgId, active: true },
+      orderBy: { startDate: "desc" },
+      select: { costCenterId: true },
+    });
+
+    const events = await listEffectiveCalendarEventsForEmployeeRange({
+      orgId,
+      employeeCostCenterId: contract?.costCenterId ?? null,
+      startDate: rangeStart,
+      endDate: rangeEnd,
+    });
+
+    for (const event of events) {
+      if (event.eventType !== "HOLIDAY") continue;
       const dateStr = event.date.toISOString().split("T")[0];
       if (!holidaysMap.has(dateStr)) {
-        holidaysMap.set(dateStr, {
-          date: event.date,
-          name: event.name,
-        });
+        holidaysMap.set(dateStr, { date: event.date, name: event.name });
       }
     }
   }

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import Link from "next/link";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -29,8 +31,12 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCalendarsStore } from "@/stores/calendars-store";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
+
+// TODO(temporario): el importador falla al seleccionar festivos. Deshabilitado para arreglarlo con calma.
+const HOLIDAY_IMPORTER_DISABLED = true;
 
 const importFormSchema = z.object({
   year: z.coerce.number().min(2000).max(2100),
@@ -112,7 +118,59 @@ const SPANISH_REGIONS = [
 
 const getHolidayKey = (holiday: HolidayPreview) => `${holiday.date}::${holiday.name}`;
 
-export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDialogProps) {
+function ImportHolidaysDisabledDialog({ trigger }: ImportHolidaysDialogProps) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Importar festivos
+                  <Badge variant="secondary" className="ml-2">
+                    Deshabilitado
+                  </Badge>
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={8}>Importador temporalmente deshabilitado</TooltipContent>
+          </Tooltip>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Importador temporalmente deshabilitado</DialogTitle>
+          <DialogDescription>
+            Hemos deshabilitado el importador de festivos mientras corregimos un fallo al seleccionar festivos.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 text-sm">
+          <p className="text-muted-foreground">Mientras tanto puedes crear los eventos manualmente en el calendario.</p>
+          <p className="text-muted-foreground">
+            Si lo que buscas es estandarizar festivos entre empresas, usa{" "}
+            <Link href="/dashboard/group-calendars" className="text-foreground underline underline-offset-4">
+              Calendarios de Grupo
+            </Link>
+            .
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ImportHolidaysEnabledDialog({ calendarId, trigger }: ImportHolidaysDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = React.useState(false);
   const [isImporting, setIsImporting] = React.useState(false);
@@ -698,4 +756,11 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
       </DialogContent>
     </Dialog>
   );
+}
+
+export function ImportHolidaysDialog(props: ImportHolidaysDialogProps) {
+  if (HOLIDAY_IMPORTER_DISABLED) {
+    return <ImportHolidaysDisabledDialog {...props} />;
+  }
+  return <ImportHolidaysEnabledDialog {...props} />;
 }
